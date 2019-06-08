@@ -45,12 +45,18 @@
 #endif
 
 #if _MSC_VER
-#pragma warning (disable:4100) // unused parameter
+#if _MSC_VER <= 1500
+#pragma warning (disable:4127) // while (true) constant conditional
 #pragma warning (disable:4201) // nonstandard extension used: nameless struct/union
+#pragma warning (disable:4296) // always false
+#pragma warning (disable:4480) // enum base type was non-standard
+#pragma warning (disable:4616) // unknown warning disabled
 #pragma warning (disable:4619) // invalid pragma warning disable
+//#pragma warning (disable:4706) // assignment within conditional
+#endif
+#pragma warning (disable:4100) // unused parameter
 #pragma warning (disable:4505) // unused static function
 #pragma warning (disable:4514) // unused function
-#pragma warning (disable:4706) // assignment within conditional
 #pragma warning (disable:4710) // function not inlined
 #pragma warning (disable:4820) // padding
 #pragma warning (push)
@@ -97,6 +103,15 @@
 #pragma warning (pop)
 #endif
 
+#if _MSC_VER && _MSC_VER <= 1500
+typedef signed __int8 int8;
+//typedef signed __int16 int16;
+typedef __int64 int64;
+typedef unsigned __int8 uint8;
+typedef unsigned __int16 uint16;
+typedef unsigned __int64 uint64;
+typedef unsigned __int32 uint;
+#else
 typedef int8_t int8;
 //typedef int16_t int16;
 typedef int64_t int64;
@@ -104,6 +119,7 @@ typedef uint8_t uint8;
 typedef uint16_t uint16;
 typedef uint64_t uint64;
 typedef uint32_t uint;
+#endif
 
 namespace w3
 {
@@ -984,11 +1000,11 @@ RESERVED (1D) \
 RESERVED (1E) \
 RESERVED (1F) \
 \
-INSTRUCTION (0x20, 1, 0, Local_get, Imm_local, 0, 1, Type_none, Type_none, Type_none, Type_any) \
-INSTRUCTION (0x21, 1, 0, Local_set, Imm_local, 1, 0, Type_any, Type_none, Type_none, Type_none) \
-INSTRUCTION (0x22, 1, 0, Local_tee, Imm_local, 1, 1, Type_any, Type_none, Type_none, Type_any) \
+INSTRUCTION (0x20, 1, 0, Local_get,  Imm_local,  0, 1, Type_none, Type_none, Type_none, Type_any) \
+INSTRUCTION (0x21, 1, 0, Local_set,  Imm_local,  1, 0, Type_any,  Type_none, Type_none, Type_none) \
+INSTRUCTION (0x22, 1, 0, Local_tee,  Imm_local,  1, 1, Type_any,  Type_none, Type_none, Type_any) \
 INSTRUCTION (0x23, 1, 0, Global_get, Imm_global, 0, 1, Type_none, Type_none, Type_none, Type_any) \
-INSTRUCTION (0x24, 1, 0, Global_set, Imm_global, 1, 0, Type_any, Type_none, Type_none, Type_none) \
+INSTRUCTION (0x24, 1, 0, Global_set, Imm_global, 1, 0, Type_any,  Type_none, Type_none, Type_none) \
 \
 RESERVED (25) \
 RESERVED (26) \
@@ -1023,8 +1039,8 @@ STORE (0x3C, i64, 8)  \
 STORE (0x3D, i64, 16) \
 STORE (0x3E, i64, 32) \
 \
-INSTRUCTION (0x3F, 2, 0, MemSize,       Imm_none,   0, 0, Type_none, Type_none, Type_none, Type_none) \
-INSTRUCTION (0x40, 2, 0, MemGrow,       Imm_none,   0, 0, Type_none, Type_none, Type_none, Type_none) \
+INSTRUCTION (0x3F, 2, 0, MemSize, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none) \
+INSTRUCTION (0x40, 2, 0, MemGrow, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none) \
 \
 CONST (0x41, i32) \
 CONST (0x42, i64) \
@@ -1274,6 +1290,25 @@ const char instructionNames [ ] =
 INSTRUCTIONS
 ;
 
+#define BITS_FOR_UINT_HELPER(a, x) (a) >= (1u << x) ? (x) + 1 :
+#define BITS_FOR_UINT(a)                                                                                \
+  (BITS_FOR_UINT_HELPER (a, 31) BITS_FOR_UINT_HELPER (a, 30)                                                          \
+   BITS_FOR_UINT_HELPER (a, 29) BITS_FOR_UINT_HELPER (a, 28) BITS_FOR_UINT_HELPER (a, 27) BITS_FOR_UINT_HELPER (a, 26) BITS_FOR_UINT_HELPER (a, 25) \
+   BITS_FOR_UINT_HELPER (a, 24) BITS_FOR_UINT_HELPER (a, 23) BITS_FOR_UINT_HELPER (a, 22) BITS_FOR_UINT_HELPER (a, 21) BITS_FOR_UINT_HELPER (a, 20) \
+   BITS_FOR_UINT_HELPER (a, 19) BITS_FOR_UINT_HELPER (a, 18) BITS_FOR_UINT_HELPER (a, 17) BITS_FOR_UINT_HELPER (a, 16) BITS_FOR_UINT_HELPER (a, 15) \
+   BITS_FOR_UINT_HELPER (a, 14) BITS_FOR_UINT_HELPER (a, 13) BITS_FOR_UINT_HELPER (a, 12) BITS_FOR_UINT_HELPER (a, 11) BITS_FOR_UINT_HELPER (a, 10) \
+   BITS_FOR_UINT_HELPER (a,  9) BITS_FOR_UINT_HELPER (a,  8) BITS_FOR_UINT_HELPER (a,  7) BITS_FOR_UINT_HELPER (a,  6) BITS_FOR_UINT_HELPER (a,  5) \
+   BITS_FOR_UINT_HELPER (a,  4) BITS_FOR_UINT_HELPER (a,  3) BITS_FOR_UINT_HELPER (a,  2) BITS_FOR_UINT_HELPER (a,  1) BITS_FOR_UINT_HELPER (a,  0) 1)
+
+#if _MSC_VER && _MSC_VER <= 1500
+
+#define __func__ __FUNCTION__
+#include <windows.h>
+#define bits_for_uint(x) BITS_FOR_UINT (x)
+#define static_assert(x, y) C_ASSERT (x)
+
+#else
+
 constexpr int bits_for_uint (uint a)
 {
 #define X(x) if (a < (1u << x)) return x;
@@ -1289,7 +1324,23 @@ constexpr int bits_for_uint (uint a)
     return 32;
 }
 
-static_assert (bits_for_uint (0) == 1, "");
+#endif
+
+static_assert (BITS_FOR_UINT (0) == 1, "0");
+static_assert (BITS_FOR_UINT (1) == 1, "1");
+static_assert (BITS_FOR_UINT (2) == 2, "2");
+static_assert (BITS_FOR_UINT (3) == 2, "3");
+static_assert (BITS_FOR_UINT (4) == 3, "4");
+static_assert (BITS_FOR_UINT (10) == 4, "");
+static_assert (BITS_FOR_UINT (30) == 5, "");
+static_assert (BITS_FOR_UINT (200) == 8, "");
+static_assert (BITS_FOR_UINT (sizeof (instructionNames)) == 12, "");
+
+static_assert (bits_for_uint (0) == 1, "0");
+static_assert (bits_for_uint (1) == 1, "1");
+static_assert (bits_for_uint (2) == 2, "2");
+static_assert (bits_for_uint (3) == 2, "3");
+static_assert (bits_for_uint (4) == 3, "4");
 static_assert (bits_for_uint (10) == 4, "");
 static_assert (bits_for_uint (30) == 5, "");
 static_assert (bits_for_uint (200) == 8, "");
@@ -1349,6 +1400,43 @@ const InstructionEncoding instructionEncode [ ] = {
 
 static_assert (sizeof (instructionEncode) / sizeof (instructionEncode [0]) == 256, "not 256 instructions");
 
+typedef enum BuiltinString {
+    BuiltinString_none = 0,
+    BuiltinString_main,
+} BuiltinString;
+
+struct String
+{
+    String() :
+        data (0),
+        size (0),
+        builtin (BuiltinString_none),
+        builtinStorage (false)
+    {
+    }
+
+    char* data;
+    size_t size;
+    std::string storage;
+    BuiltinString builtin ;
+    bool builtinStorage;
+
+    char* c_str ()
+    {
+        if (!data)
+        {
+            data = (char*)storage.c_str ();
+        }
+        else if (data != storage.c_str ())
+        {
+            storage = std::string (data, size);
+            data = (char*)storage.c_str ();
+        }
+        return data;
+    }
+};
+
+
 struct SectionBase
 {
     virtual ~SectionBase ()
@@ -1356,8 +1444,8 @@ struct SectionBase
     }
 
     uint id;
-    std::string name;
-    uint payload_len;
+    String name;
+    uint payload_size;
     uint8* payload;
 
     virtual void read (Module* module, uint8*& cursor)
@@ -1384,6 +1472,11 @@ typedef enum ImportTag { // aka desc
     ImportTag_Global = 3,
 } ImportTag, ExportTag;
 
+#define ExportTag_Function ImportTag_Function
+#define ExportTag_Table ImportTag_Table
+#define ExportTag_Memory ImportTag_Memory
+#define ExportTag_Global ImportTag_Global
+
 struct MemoryType
 {
     Limits limits;
@@ -1409,8 +1502,10 @@ struct GlobalType
 
 struct Import
 {
-    std::string module;
-    std::string name;
+    Import() : tag ((ImportTag)-1) { }
+
+    String module;
+    String name;
     ImportTag tag;
     // TODO virtual functions to model union
     union
@@ -1424,11 +1519,14 @@ struct Import
 
 struct Function
 {
+    Function() : function_type (0) { }
+
     // Functions are split between two sections: types in 3, locals/body in ?
     uint function_type;
-    uint code_len;
-    uint8* code;
-    std::vector<uint8> locals; // TODO
+    //uint size = 0;
+    //uint8* cursor = 0;
+    //std::vector<uint8> locals; // TODO
+    //std::vector<InstructionDecoded> decoded_instructions;
 };
 
 struct Global
@@ -1446,8 +1544,11 @@ struct Element
 
 struct Export
 {
+    Export () : tag ((ExportTag)-1), is_main (false) { }
+
     ExportTag tag;
-    std::string name;
+    String name;
+    bool is_main;
     union
     {
         uint function;
@@ -1459,6 +1560,8 @@ struct Export
 
 struct Data
 {
+    Data () : memory (0), bytes (0) { }
+
     uint memory;
     std::vector<InstructionDecoded> expr;
     void* bytes;
@@ -1468,15 +1571,18 @@ struct Code
 {
     uint size;
     uint8* cursor;
+    std::vector<uint8> locals; // TODO
     std::vector<InstructionDecoded> decoded; // section10
 };
 
 struct Module
 {
+    Module () : base (0), file_size (0), end (0), main (0) { }
+
     MemoryMappedFile mmf;
-    uint8* base = 0;
-    uint64 file_size = 0;
-    uint8* end = 0;
+    uint8* base;
+    uint64 file_size;
+    uint8* end;
     std::vector<std::shared_ptr<SectionBase>> sections;
     std::vector<std::shared_ptr<SectionBase>> custom_sections; // FIXME
 
@@ -1488,7 +1594,9 @@ struct Module
     std::vector<Code> code; // section10
     std::vector<Data> data; // section11
 
-    std::string read_string (uint8*& cursor);
+    Export* main;
+
+    String read_string (uint8*& cursor);
 
     uint read_i32 (uint8*& cursor);
     uint64 read_i64 (uint8*& cursor);
@@ -1768,7 +1876,14 @@ struct Exports : Section<7>
             a.name = module->read_string (cursor);
             a.tag = (ExportTag)module->read_byte (cursor);
             a.function = module->read_varuint32 (cursor);
+            a.is_main = a.name.builtin == BuiltinString_main;
             printf ("read_export %s tag:%X index:%X\n", a.name.c_str (), a.tag, a.function);
+
+            if (a.is_main)
+            {
+                assert (!module->main);
+                module->main = &a;
+            }
         }
         printf ("read exports7 count:%X\n", count);
     }
@@ -1960,14 +2075,22 @@ uint Module::read_byte (uint8*& cursor)
 
 // TODO efficiency
 // i.e. string_view or such pointing right into the mmap
-std::string Module::read_string (uint8*& cursor)
+String Module::read_string (uint8*& cursor)
 {
-    uint length = read_varuint32 (cursor);
-    if (length + cursor > end)
+    uint size = read_varuint32 (cursor);
+    if (size + cursor > end)
         ThrowString ("malformed in read_string");
     // TODO UTF8 handling
-    std::string a = std::string ((char*)cursor, length);
-    cursor += length;
+    String a;
+    a.data = (char*)cursor;
+    a.size = size;
+
+    // TODO string recognizer?
+    if (size == 5 && !memcmp (cursor, "_main", 5))
+    {
+        a.builtin = BuiltinString_main;
+    }
+    cursor += size;
     return a;
 }
 
@@ -2066,44 +2189,47 @@ TableType Module::read_tabletype (uint8*& cursor)
 
 void Module::read_section (uint8*& cursor)
 {
-    uint payload_len = 0;
+    uint payload_size = 0;
     uint8* payload = 0;
-    uint name_len = 0;
+    uint name_size = 0;
 
     uint id = read_varuint7 (cursor);
 
     if (id > 11)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_len:%X base:%p end:%p", __LINE__, id, payload, payload_len, base, end)); // UNDONE context (move to module or section)
+        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context (move to module or section)
 
-    payload_len = read_varuint32 (cursor);
+    payload_size = read_varuint32 (cursor);
     payload = cursor;
-    name_len = 0;
+    name_size = 0;
     const char* name = 0;
     if (id == 0)
     {
-        name_len = read_varuint32 (cursor);
+        name_size = read_varuint32 (cursor);
         name = (char*)cursor;
-        if (cursor + name_len > end)
+        if (cursor + name_size > end)
             ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     }
-    if (payload + payload_len > end)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_len:%X base:%p end:%p", __LINE__, id, payload, payload_len, base, end)); // UNDONE context (move to module or section)
+    if (payload + payload_size > end)
+        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context (move to module or section)
 
-    cursor = payload + payload_len;
+    cursor = payload + payload_size;
 
     if (id == 0)
     {
-        printf ("skipping custom section:.%.*s\n", name_len, name);
+        printf ("skipping custom section:.%.*s\n", name_size, name);
         // UNDONE custom sections
         return;
     }
 
-    auto section = sections [id] = std::shared_ptr <SectionBase> (section_traits [id].make ());
+    auto section = sections [id] = std::shared_ptr <SectionBase> (section_traits [id].make ()); // FIXME unnecessary dynamism
     section->id = id;
-    section->name = std::string ((char*)name, name_len);
-    section->payload_len = payload_len;
+    section->name.data = (char*)name;
+    section->name.size = name_size;
+    section->payload_size = payload_size;
     section->payload = payload;
     section->read (this, payload);
+    if (payload != cursor)
+        ThrowString (StringFormat ("failed to read section %d\n", id));
 }
 
 void Module::read_module (const char* file_name)
@@ -2140,6 +2266,27 @@ void Module::read_module (const char* file_name)
 
     assert (cursor == end);
 }
+
+struct Interp
+{
+    // FIXME multiple modules
+
+    void interp (Module* module, Export* emain)
+    {
+        Assert (module && emain && emain->is_main && emain->tag == ExportTag_Function);
+        Assert (emain->function < module->functions.size ());
+        Assert (emain->function < module->code.size ());
+        Assert (module->functions.size () == module->code.size ());
+
+        //Function& fmain = module->functions [emain->function];
+        Code& cmain = module->code [emain->function];
+        if (cmain.cursor)
+        {
+            //DecodeInstructions (module, fmain.decoded_instructios, fmain.cursor);
+            cmain.cursor = 0;
+        }
+    }
+};
 
 }
 
@@ -2216,8 +2363,12 @@ main (int argc, char** argv)
     try
 #endif
     {
-        Module m;
-        m.read_module (argv [1]);
+        // FIXME command line parsing
+        // FIXME verbosity
+        Module module;
+        module.read_module (argv [1]);
+        if (module.main)
+            Interp().interp (&module, module.main);
     }
 #if 1
     catch (int er)
