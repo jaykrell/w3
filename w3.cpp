@@ -45,6 +45,7 @@
 #endif
 
 #if _MSC_VER
+#pragma warning (disable:4201) // nameless struct/union
 #if _MSC_VER <= 1500
 #pragma warning (disable:4127) // while (true) constant conditional
 #pragma warning (disable:4201) // nonstandard extension used: nameless struct/union
@@ -961,6 +962,43 @@ typedef enum Immediate : uint8
     Imm_label       ,     // read_varuint32
 } Immediate;
 
+#define INTERP(x) void interp_ ## x ();
+
+INTERP (Unreach)
+INTERP (Nop)
+INTERP (Block)
+INTERP (Loop)
+INTERP (If)
+INTERP (Else)
+INTERP (BlockEnd)
+INTERP (Br)
+INTERP (BrIf)
+INTERP (BrTable)
+INTERP (Ret)
+INTERP (Call)
+INTERP (Calli)
+INTERP (Drop)
+INTERP (Select)
+INTERP (Local_get)
+INTERP (Local_set)
+INTERP (Local_tee)
+INTERP (Global_get)
+INTERP (Global_set)
+INTERP (MemSize)
+INTERP (MemGrow)
+INTERP (Convert) // TODO templatize
+INTERP (Reserved) // TODO templatize
+INTERP (Load) // TODO templatize
+INTERP (Store) // TODO templatize
+INTERP (Const) // TODO templatize
+INTERP (ITestOp)
+INTERP (IRelOp)
+INTERP (FRelOp)
+INTERP (IUnOp)
+INTERP (IBinOp)
+INTERP (FUnOp)
+INTERP (FBinOp)
+
 #define INSTRUCTIONS \
 INSTRUCTION (0x00, 1, 0, Unreach,   Imm_none,     0, 0, Type_none, Type_none, Type_none, Type_none) \
 INSTRUCTION (0x01, 1, 0, Nop,       Imm_none,     0, 0, Type_none, Type_none, Type_none, Type_none) \
@@ -1290,6 +1328,184 @@ const char instructionNames [ ] =
 INSTRUCTIONS
 ;
 
+#undef INTERP
+#define INTERP(x) void interp_ ## x ()
+
+INTERP (Unreach)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Nop)
+{
+    assert(!"Nop");
+}
+
+INTERP (Block)
+{
+    assert(!"Block");
+}
+
+INTERP (Loop)
+{
+    assert(!"Loop");
+}
+
+INTERP (If)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Else)
+{
+    assert(!"Unreach");
+}
+
+INTERP (BlockEnd)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Br)
+{
+    assert(!"Unreach");
+}
+
+INTERP (BrIf)
+{
+    assert(!"Unreach");
+}
+
+INTERP (BrTable)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Ret)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Call)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Calli)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Drop)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Select)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Local_get)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Local_set)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Local_tee)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Global_get)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Global_set)
+{
+    assert(!"Unreach");
+}
+
+INTERP (MemSize)
+{
+    assert(!"Unreach");
+}
+
+INTERP (MemGrow)
+{
+    assert(!"Unreach");
+}
+
+// TODO templatize
+INTERP (Convert)
+{
+    assert(!"Unreach");
+}
+
+INTERP (Reserved)
+{
+    assert(!"Unreach");
+}
+
+// TODO templatize
+INTERP (Load)
+{
+    assert(!"Unreach");
+}
+
+// TODO templatize
+INTERP (Store)
+{
+    assert(!"Unreach");
+}
+
+// TODO templatize
+INTERP (Const)
+{
+    assert(!"Unreach");
+}
+
+INTERP (ITestOp)
+{
+    assert(!"Unreach");
+}
+
+INTERP (IRelOp)
+{
+    assert(!"Unreach");
+}
+
+
+INTERP (FRelOp)
+{
+    assert(!"Unreach");
+}
+
+INTERP (IUnOp)
+{
+    assert(!"Unreach");
+}
+
+INTERP (IBinOp)
+{
+    assert(!"Unreach");
+}
+
+INTERP (FUnOp)
+{
+    assert(!"Unreach");
+}
+
+INTERP (FBinOp)
+{
+    assert(!"Unreach");
+}
+
 #define BITS_FOR_UINT_HELPER(a, x) (a) >= (1u << x) ? (x) + 1 :
 #define BITS_FOR_UINT(a)                                                                                \
   (BITS_FOR_UINT_HELPER (a, 31) BITS_FOR_UINT_HELPER (a, 30)                                                          \
@@ -1517,16 +1733,12 @@ struct Import
     };
 };
 
-struct Function
+struct Function // section3
 {
     Function() : function_type (0) { }
 
-    // Functions are split between two sections: types in 3, locals/body in ?
+    // Functions are split between two sections: types in section3, locals/body in section10
     uint function_type;
-    //uint size = 0;
-    //uint8* cursor = 0;
-    //std::vector<uint8> locals; // TODO
-    //std::vector<InstructionDecoded> decoded_instructions;
 };
 
 struct Global
@@ -1538,7 +1750,8 @@ struct Global
 struct Element
 {
     uint table;
-    std::vector<InstructionDecoded> offset;
+    std::vector<InstructionDecoded> offset_instructions;
+    uint offset;
     std::vector<uint> functions;
 };
 
@@ -1558,7 +1771,7 @@ struct Export
     };
 };
 
-struct Data
+struct Data // section11
 {
     Data () : memory (0), bytes (0) { }
 
@@ -1567,12 +1780,12 @@ struct Data
     void* bytes;
 };
 
-struct Code
+struct Code // section3 and section10
 {
     uint size;
     uint8* cursor;
     std::vector<uint8> locals; // TODO
-    std::vector<InstructionDecoded> decoded; // section10
+    std::vector<InstructionDecoded> decoded_instructions; // section10
 };
 
 struct Module
@@ -1586,7 +1799,7 @@ struct Module
     std::vector<std::shared_ptr<SectionBase>> sections;
     std::vector<std::shared_ptr<SectionBase>> custom_sections; // FIXME
 
-    std::vector<Function> functions; // section2 and section10
+    std::vector<Function> functions; // section3 and section10
     std::vector<TableType> tables; // section3
     std::vector<Global> globals; // section6
     std::vector<Export> exports; // section7
@@ -1637,6 +1850,7 @@ DecodeInstructions (Module* module, std::vector<InstructionDecoded>& instruction
             if (e.fixed_size == 2) // TODO
                 if (module->read_byte (cursor))
                     ThrowString ("second byte not 0");
+            printf ("1 %s\n", InstructionName (i.name));
             switch (e.immediate)
             {
             case Imm_sequence:
@@ -1674,7 +1888,7 @@ DecodeInstructions (Module* module, std::vector<InstructionDecoded>& instruction
                 module->read_vector_varuint32 (i.vecLabel, cursor);
                 break;
             }
-            printf ("%s %X %d\n", InstructionName (i.name), i.i32, i.i32);
+            printf ("2 %s %X %d\n", InstructionName (i.name), i.i32, i.i32);
             instructions.emplace_back (i);
         }
     }
@@ -1922,11 +2136,15 @@ struct Elements : Section<9>
         for (auto& a: module->elements)
         {
             a.table = module->read_varuint32 (cursor);
-            DecodeInstructions (module, a.offset, cursor);
+            DecodeInstructions (module, a.offset_instructions, cursor);
             count = module->read_varuint32 (cursor);
             a.functions.resize (count);
+            int i = 0;
             for (auto& b: a.functions)
+            {
                 b = module->read_varuint32 (cursor);
+                printf ("elem.function [i:%d/%d]:%d\n", i++, count, b);
+            }
         }
         printf ("read elements9 count:%X\n", count);
     }
@@ -1979,6 +2197,7 @@ struct DataSection : Section<11>
     void read_data (Module* module, uint8*& cursor)
     {
         uint size = module->read_varuint32 (cursor);
+        printf ("reading data11 size:%X\n", size);
         module->data.resize (size);
         uint i = 0;
         for (auto& a: module->data)
@@ -1992,6 +2211,7 @@ struct DataSection : Section<11>
             cursor += size;
             printf ("data [%u]:{%X}\n", i++, ((unsigned char*)a.bytes) [0]);
         }
+        printf ("read data11 size:%X\n", size);
     }
 
     virtual void read (Module* module, uint8*& cursor)
@@ -2278,11 +2498,12 @@ struct Interp
         Assert (emain->function < module->code.size ());
         Assert (module->functions.size () == module->code.size ());
 
-        //Function& fmain = module->functions [emain->function];
+//        Function& fmain = module->functions [emain->function];
         Code& cmain = module->code [emain->function];
-        if (cmain.cursor)
+        uint8* cursor = cmain.cursor;
+        if (cursor)
         {
-            //DecodeInstructions (module, fmain.decoded_instructios, fmain.cursor);
+            DecodeInstructions (module, cmain.decoded_instructions, cursor);
             cmain.cursor = 0;
         }
     }
