@@ -75,6 +75,7 @@
 #pragma GCC diagnostic ignored "-Wunused-const-variable"
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
+#include <stack> // work in progress
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
@@ -981,7 +982,7 @@ struct SectionBase;
 // StackElement* stack = initial_stack;
 // StackElement* min_stack = initial_stack;
 
-
+// work in progress
 // FIXME for grow up stack
 #define ALLOC_STACK(n)                                                                  \
 do {                                                                                    \
@@ -990,6 +991,7 @@ do {                                                                            
     stack -= n;                                                                         \
 } while (0)
 
+// work in progress
 // FIXME for grow up stack
 #define STACK_POP(n) \
 do {                                                                                    \
@@ -998,24 +1000,28 @@ do {                                                                            
     stack += n;                 \
 } while (0)
 
+// work in progress
 #define STACK_PUSH(v)           \
-do {                                                                                    \
+do {                            \                                                       \
     ALLOC_STACK (1);            \
     stack [0] = (v);            \
-} while (0)
+} while (0)                     \
 
+// work in progress
 #define FRAME_PUSH(callee)                      \
 do {                                            \
     ALLOC_STACK (function->locals_size + 1);    \
-    stack [0] = frame = frame;
-} while (0)
+    stack [0] = frame = frame;                  \
+} while (0)                                     \
 
+// work in progress
 #define FRAME_POP() \
-do {                                          \
-    STACK_POP (function->locals_size + 1);    \
-    function = stack [0]
-} while (0)
+do {                                        \
+    STACK_POP (function->locals_size + 1);  \
+    function = stack [0];                   \
+} while (0)                                 \
 
+// work in progress
 typedef enum StackElementType
 {
     StackElementType_Value = 1, // i32, i64, f32, f64
@@ -1023,12 +1029,14 @@ typedef enum StackElementType
     StackElementType_Frame,     // return address + locals + params
 } StackElementType;
 
+// work in progress
 typedef struct LabelValue
 {
     // FUTURE spec arity
     uint value; // presumably an index into decoded_instructions within implied Code.
 } LabelValue;
 
+// work in progress
 typedef struct Frame
 {
     // FUTURE spec return_arity
@@ -1039,6 +1047,7 @@ typedef struct Frame
     // along with type information (module->module->locals_types[])
 } Frame;
 
+// work in progress
 typedef struct StackElement
 {
     StackElementType type : 8;
@@ -1050,6 +1059,7 @@ typedef struct StackElement
     };
 } StackElement;
 
+// work in progress
 struct Stack : std::stack<StackElement>
 {
 };
@@ -1848,9 +1858,13 @@ struct ModuleInstance
     Module* module;
 };
 
+struct Function;
+struct Code;
+
 struct FunctionInstance
 {
     Function* function;
+    Code* code;
     ModuleInstance* module_instance;
 };
 
