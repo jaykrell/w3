@@ -896,6 +896,22 @@ typedef enum ValueType : uint8
     ValueType_f64 = 0x7C,
 } ValueType;
 
+typedef union Value
+{
+    int i32;
+    uint ui32;
+    uint64 ui64;
+    int64 i64;
+    float f32;
+    double f64;
+} Value;
+
+typedef struct TaggedValue
+{
+    ValueType tag;
+    Value value;
+} TaggedValue;
+
 typedef enum ResultType : uint8
 {
     ResultType_i32 = 0x7F,
@@ -941,8 +957,102 @@ typedef enum Mutable
     Mutable_variable = 1, // aka true
 } Mutable;
 
+struct Runtime;
+struct Stack;
+struct StackElement;
+struct ModuleInstance;
 struct Module;
 struct SectionBase;
+
+// The stack shall use _alloca in a non-recursive interpreter loop.
+// This requires some care and macros. Macros that reference locals.
+// The interpreter is likely to mostly dispatch to function pointers.
+// Some pieces must not be in those functions. They can return values
+// to the calling loop and the loop can do some of the work.
+//
+// In time, the function pointers might be case labels instead.
+// However decomposition into separate functions is more elegant, if not less efficient.
+//
+// Such decomposition will also be good for conversion to JIT, LLVM, C++, etc.
+// It is only interpreter, perhaps, that has overwhelming efficiency concern.
+//
+// StackElement initial_stack[1];
+// int stack_depth;
+// StackElement* stack = initial_stack;
+// StackElement* min_stack = initial_stack;
+
+
+// FIXME for grow up stack
+#define ALLOC_STACK(n)                                                                  \
+do {                                                                                    \
+    if (stack - n < min_stack)                                                          \
+        min_stack = (StackElement*)alloca((min_stack - (stack - n)) * sizeof (*stack)); \
+    stack -= n;                                                                         \
+} while (0)
+
+// FIXME for grow up stack
+#define STACK_POP(n) \
+do {                                                                                    \
+    assert (n <= stack_depth);  \
+    stack_depth -= n;           \
+    stack += n;                 \
+} while (0)
+
+#define STACK_PUSH(v)           \
+do {                                                                                    \
+    ALLOC_STACK (1);            \
+    stack [0] = (v);            \
+} while (0)
+
+#define FRAME_PUSH(callee)                      \
+do {                                            \
+    ALLOC_STACK (function->locals_size + 1);    \
+    stack [0] = frame = frame;
+} while (0)
+
+#define FRAME_POP() \
+do {                                          \
+    STACK_POP (function->locals_size + 1);    \
+    function = stack [0]
+} while (0)
+
+typedef enum StackElementType
+{
+    StackElementType_Value = 1, // i32, i64, f32, f64
+    StackElementType_Label,     // branch target
+    StackElementType_Frame,     // return address + locals + params
+} StackElementType;
+
+typedef struct LabelValue
+{
+    // FUTURE spec arity
+    uint value; // presumably an index into decoded_instructions within implied Code.
+} LabelValue;
+
+typedef struct Frame
+{
+    // FUTURE spec return_arity
+    uint function_index; // replace with pointer?
+    ModuleInstance* module;
+    // TODO locals/params
+    // This should just be stack pointer, to another stack,
+    // along with type information (module->module->locals_types[])
+} Frame;
+
+typedef struct StackElement
+{
+    StackElementType type : 8;
+    union
+    {
+        TaggedValue value;
+        LabelValue label;
+        Frame frame;
+    };
+} StackElement;
+
+struct Stack : std::stack<StackElement>
+{
+};
 
 typedef enum Immediate : uint8
 {
@@ -1383,32 +1493,32 @@ INTERP (BrTable)
 
 INTERP (Ret)
 {
-    assert(!"Unreach");
+    assert(!"Ret");
 }
 
 INTERP (Call)
 {
-    assert(!"Unreach");
+    assert(!"Call");
 }
 
 INTERP (Calli)
 {
-    assert(!"Unreach");
+    assert(!"Calli");
 }
 
 INTERP (Drop)
 {
-    assert(!"Unreach");
+    assert(!"Drop");
 }
 
 INTERP (Select)
 {
-    assert(!"Unreach");
+    assert(!"Select");
 }
 
 INTERP (Local_get)
 {
-    assert(!"Unreach");
+    assert(!"Local_get");
 }
 
 INTERP (Local_set)
@@ -1731,6 +1841,17 @@ struct Import
         GlobalType global;
         TableType table;
     };
+};
+
+struct ModuleInstance
+{
+    Module* module;
+};
+
+struct FunctionInstance
+{
+    Function* function;
+    ModuleInstance* module_instance;
 };
 
 struct Function // section3
