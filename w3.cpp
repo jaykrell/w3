@@ -1533,97 +1533,97 @@ INTERP (Local_get)
 
 INTERP (Local_set)
 {
-    assert(!"Unreach");
+    assert(!"Local_set");
 }
 
 INTERP (Local_tee)
 {
-    assert(!"Unreach");
+    assert(!"Local_tee");
 }
 
 INTERP (Global_get)
 {
-    assert(!"Unreach");
+    assert(!"Global_get");
 }
 
 INTERP (Global_set)
 {
-    assert(!"Unreach");
+    assert(!"Global_set");
 }
 
 INTERP (MemSize)
 {
-    assert(!"Unreach");
+    assert(!"MemSize");
 }
 
 INTERP (MemGrow)
 {
-    assert(!"Unreach");
+    assert(!"MemGrow");
 }
 
 // TODO templatize
 INTERP (Convert)
 {
-    assert(!"Unreach");
+    assert(!"Convert");
 }
 
 INTERP (Reserved)
 {
-    assert(!"Unreach");
+    assert(!"Reserved");
 }
 
 // TODO templatize
 INTERP (Load)
 {
-    assert(!"Unreach");
+    assert(!"Load");
 }
 
 // TODO templatize
 INTERP (Store)
 {
-    assert(!"Unreach");
+    assert(!"Store");
 }
 
 // TODO templatize
 INTERP (Const)
 {
-    assert(!"Unreach");
+    assert(!"Const");
 }
 
 INTERP (ITestOp)
 {
-    assert(!"Unreach");
+    assert(!"ITestOp");
 }
 
 INTERP (IRelOp)
 {
-    assert(!"Unreach");
+    assert(!"IRelOp");
 }
 
 
 INTERP (FRelOp)
 {
-    assert(!"Unreach");
+    assert(!"FRelOp");
 }
 
 INTERP (IUnOp)
 {
-    assert(!"Unreach");
+    assert(!"IUnOp");
 }
 
 INTERP (IBinOp)
 {
-    assert(!"Unreach");
+    assert(!"IBinOp");
 }
 
 INTERP (FUnOp)
 {
-    assert(!"Unreach");
+    assert(!"FUnOp");
 }
 
 INTERP (FBinOp)
 {
-    assert(!"Unreach");
+    assert(!"FBinOp");
 }
 
 #define BITS_FOR_UINT_HELPER(a, x) (a) >= (1u << x) ? (x) + 1 :
@@ -1772,7 +1772,6 @@ struct String
     }
 };
 
-
 struct SectionBase
 {
     virtual ~SectionBase ()
@@ -1853,6 +1852,7 @@ struct Import
     };
 };
 
+// work in progress
 struct ModuleInstance
 {
     Module* module;
@@ -1861,6 +1861,7 @@ struct ModuleInstance
 struct Function;
 struct Code;
 
+// work in progress
 struct FunctionInstance
 {
     Function* function;
