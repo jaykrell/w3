@@ -1114,28 +1114,28 @@ struct Stack : std::stack<StackElement>
 
     void push_i32 (int i)
     {
-        StackElement element {StackElementType_Value, { ValueType_i32 } };
+        StackElement element = {StackElementType_Value, { ValueType_i32 } };
         element.value.value.i32 = i;
         push (element);
     }
 
     void push_i64 (int64 i)
     {
-        StackElement element {StackElementType_Value, { ValueType_i64 } };
+        StackElement element = {StackElementType_Value, { ValueType_i64 } };
         element.value.value.i64 = i;
         push (element);
     }
 
     void push_f32 (float i)
     {
-        StackElement element {StackElementType_Value, { ValueType_f32 } };
+        StackElement element = {StackElementType_Value, { ValueType_f32 } };
         element.value.value.f32 = i;
         push (element);
     }
 
     void push_f64 (double i)
     {
-        StackElement element {StackElementType_Value, { ValueType_f64 } };
+        StackElement element = {StackElementType_Value, { ValueType_f64 } };
         element.value.value.f64 = i;
         push (element);
     }
@@ -1172,42 +1172,42 @@ struct Stack : std::stack<StackElement>
 
     int pop_i32 ()
     {
-        auto a = i32 ();
+        int a = i32 ();
         pop ();
         return a;
     }
 
     uint pop_u32 ()
     {
-        auto a = u32 ();
+        uint a = u32 ();
         pop ();
         return a;
     }
 
     int64 pop_i64 ()
     {
-        auto a = i64 ();
+        int64 a = i64 ();
         pop ();
         return a;
     }
 
     uint64 pop_u64 ()
     {
-        auto a = u64 ();
+        uint64 a = u64 ();
         pop ();
         return a;
     }
 
     float pop_f32 ()
     {
-        auto a = f32 ();
+        float a = f32 ();
         pop ();
         return a;
     }
 
     double pop_f64 ()
     {
-        auto a = f64 ();
+        double a = f64 ();
         pop ();
         return a;
     }
@@ -2615,7 +2615,7 @@ uint Module::read_varuint32 (uint8*& cursor)
 
 Limits Module::read_limits (uint8*& cursor)
 {
-    Limits limits { };
+    Limits limits = { };
     uint tag = read_byte (cursor);
     switch (tag)
     {
