@@ -75,6 +75,9 @@
 #pragma GCC diagnostic ignored "-Wunused-const-variable"
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
+
+#define _ISOC99_SOURCE
+#include <math.h>
 #include <stack> // work in progress
 #include <assert.h>
 #include <errno.h>
@@ -900,8 +903,8 @@ typedef enum ValueType : uint8
 typedef union Value
 {
     int i32;
-    uint ui32;
-    uint64 ui64;
+    uint u32;
+    uint64 u64;
     int64 i64;
     float f32;
     double f64;
@@ -982,6 +985,7 @@ struct SectionBase;
 // StackElement* stack = initial_stack;
 // StackElement* min_stack = initial_stack;
 
+#if 0
 // work in progress
 // FIXME for grow up stack
 #define ALLOC_STACK(n)                                                                  \
@@ -989,6 +993,18 @@ do {                                                                            
     if (stack - n < min_stack)                                                          \
         min_stack = (StackElement*)alloca((min_stack - (stack - n)) * sizeof (*stack)); \
     stack -= n;                                                                         \
+} while (0)
+
+// work in progress
+#define STACK_POP_CHECK(n) \
+do {                                                                                    \
+    assert (n <= stack_depth);  \
+} while (0)
+
+#define STACK_POP_UNSAFE(n) \
+do {                                                                                    \
+    stack_depth -= n;           \
+    stack += n;                 \
 } while (0)
 
 // work in progress
@@ -1011,15 +1027,18 @@ do {                            \                                               
 #define FRAME_PUSH(callee)                      \
 do {                                            \
     ALLOC_STACK (function->locals_size + 1);    \
-    stack [0] = frame = frame;                  \
+    stack [0].frame = frame;                    \
 } while (0)                                     \
 
 // work in progress
-#define FRAME_POP() \
+#define FRAME_POP()                         \
 do {                                        \
-    STACK_POP (function->locals_size + 1);  \
-    function = stack [0];                   \
+    STACK_POP (function->locals_size);      \
+    frame = stack [0].frame;                \
+    STACK_POP (1);                          \
 } while (0)                                 \
+
+#endif
 
 // work in progress
 typedef enum StackElementType
@@ -1062,6 +1081,135 @@ typedef struct StackElement
 // work in progress
 struct Stack : std::stack<StackElement>
 {
+    ValueType& tag (ValueType tag)
+    {
+	    assert (size () >= 1);
+	    assert (top ().type == StackElementType_Value);
+	    assert (top ().value.tag == tag);
+        return top ().value.tag;
+    }
+
+    ValueType& tag ()
+    {
+	    assert (size () >= 1);
+	    assert (top ().type == StackElementType_Value);
+        return top ().value.tag;
+    }
+
+    Value& value ()
+    {
+	    assert (size () >= 1);
+	    assert (top ().type == StackElementType_Value);
+        return top ().value.value;
+    }
+
+    Value& value (ValueType tag)
+    {
+	    assert (size () >= 1);
+	    assert (top ().type == StackElementType_Value);
+	    assert (top ().value.tag == tag);
+        return top ().value.value;
+    }
+
+    void push_i32 (int i)
+    {
+        StackElement element {StackElementType_Value, { ValueType_i32 } };
+        element.value.value.i32 = i;
+        push (element);
+    }
+
+    void push_i64 (int64 i)
+    {
+        StackElement element {StackElementType_Value, { ValueType_i64 } };
+        element.value.value.i64 = i;
+        push (element);
+    }
+
+    void push_f32 (float i)
+    {
+        StackElement element {StackElementType_Value, { ValueType_f32 } };
+        element.value.value.f32 = i;
+        push (element);
+    }
+
+    void push_f64 (double i)
+    {
+        StackElement element {StackElementType_Value, { ValueType_f64 } };
+        element.value.value.f64 = i;
+        push (element);
+    }
+
+    int& i32 ()
+    {
+        return value (ValueType_i32).i32;
+    }
+
+    int64& i64 ()
+    {
+        return value (ValueType_i64).i64;
+    }
+
+    uint& u32 ()
+    {
+        return value (ValueType_i32).u32;
+    }
+
+    uint64& u64 ()
+    {
+        return value (ValueType_i64).u64;
+    }
+
+    float& f32 ()
+    {
+        return value (ValueType_f32).f32;
+    }
+
+    double& f64 ()
+    {
+        return value (ValueType_f64).f64;
+    }
+
+    int pop_i32 ()
+    {
+        auto a = i32 ();
+        pop ();
+        return a;
+    }
+
+    uint pop_u32 ()
+    {
+        auto a = u32 ();
+        pop ();
+        return a;
+    }
+
+    int64 pop_i64 ()
+    {
+        auto a = i64 ();
+        pop ();
+        return a;
+    }
+
+    uint64 pop_u64 ()
+    {
+        auto a = u64 ();
+        pop ();
+        return a;
+    }
+
+    float pop_f32 ()
+    {
+        auto a = f32 ();
+        pop ();
+        return a;
+    }
+
+    double pop_f64 ()
+    {
+        auto a = f64 ();
+        pop ();
+        return a;
+    }
 };
 
 typedef enum Immediate : uint8
@@ -2623,9 +2771,22 @@ void Module::read_module (const char* file_name)
     assert (cursor == end);
 }
 
-struct Interp
+#if _MSC_VER
+#pragma warning (disable:4355) // this used in base member initializer list
+#endif
+
+struct Interp : Stack
 {
+    Interp(const Interp&) = delete;
+    void operator =(const Interp&) = delete;
+
+    Interp() : stack (*this)
+    {
+    }
+
     // FIXME multiple modules
+
+    Stack& stack;
 
     void interp (Module* module, Export* emain)
     {
@@ -2642,6 +2803,520 @@ struct Interp
             DecodeInstructions (module, cmain.decoded_instructions, cursor);
             cmain.cursor = 0;
         }
+    }
+
+    //load
+    //store
+    //reserved
+    //unreach
+    //memsize
+    //memgrow
+    //call
+    //calli
+    //if
+    //loop
+    //else
+    //call
+    //calli
+    //drop
+    //select
+    //local get set tree
+    //gloal get set
+    //nop
+    //block
+    //br
+    //brif
+    //brtable
+    //ret
+    //const
+    //eqz
+    //eq
+    //ne
+    //lt
+    //gt
+    //le
+    //ge
+    //clz
+    //ctz
+    //popcnt
+
+    void Add_i32 ()
+    {
+        const auto a = pop_i32 ();
+        i32 () += a;
+    }
+
+    void Add_i64 ()
+    {
+        const auto a = pop_i64 ();
+        i64 () += a;
+    }
+
+    void Sub_i32 ()
+    {
+        const auto a = pop_i32 ();
+        i32 () -= a;
+    }
+
+    void Sub_i64 ()
+    {
+        const auto a = pop_i64 ();
+        i64 () -= a;
+    }
+
+    void Mul_i32 ()
+    {
+        const auto a = pop_i32 ();
+        i32 () *= a;
+    }
+
+    void Mul_i64 ()
+    {
+        const auto a = pop_i64 ();
+        i64 () *= a;
+    }
+
+    void Div_s_i32 ()
+    {
+        const auto a = pop_i32 ();
+        i32 () /= a;
+    }
+
+    void Div_u_i32 ()
+    {
+        const auto a = pop_u32 ();
+        u32 () /= a;
+    }
+
+    void Rem_s_i32 ()
+    {
+        const auto a = pop_i32 ();
+        i32 () %= a;
+    }
+
+    void Remf_u_i32 ()
+    {
+        const auto a = pop_u32 ();
+        u32 () %= a;
+    }
+
+    void And_i32 ()
+    {
+        const auto a = pop_i32 ();
+        i32 () &= a;
+    }
+
+    void And_i64 ()
+    {
+        const auto a = pop_i64 ();
+        i64 () &= a;
+    }
+
+    void Or_i32 ()
+    {
+        const auto a = pop_i32 ();
+        i32 () |= a;
+    }
+
+    void Or_i64 ()
+    {
+        const auto a = pop_i64 ();
+        i64 () |= a;
+    }
+
+    void Xor_i32 ()
+    {
+        const auto a = pop_i32 ();
+        i32 () ^= a;
+    }
+
+    void Xor_i64 ()
+    {
+        const auto a = pop_i64 ();
+        i64 () ^= a;
+    }
+
+    void Shl_i32 ()
+    {
+        const auto a = pop_i32 ();
+        i32 () <<= (a & 31);
+    }
+
+    void Shl_i64 ()
+    {
+        const auto a = pop_i64 ();
+        i64 () <<= (a & 63);
+    }
+
+    void Shr_s_i32 ()
+    {
+        const auto a = pop_i32 ();
+        i32 () <<= (a & 31);
+    }
+
+    void Shr_s_i64 ()
+    {
+        const auto a = pop_i64 ();
+        i64 () <<= (a & 63);
+    }
+
+    void Shr_u_i32 ()
+    {
+        const auto a = pop_u32 ();
+        u32 () >>= (a & 31);
+    }
+
+    void Shr_u_i64 ()
+    {
+        const auto a = pop_u64 ();
+        u64 () >>= (a & 63);
+    }
+
+    void Rotl_i32 ()
+    {
+        const uint i2 = (pop_u32 () & 31);
+        auto& r = u32 ();
+        auto i1 = u32 ();
+        r = (i1 << i2) | (i1 >> (32 - i2));
+    }
+
+    void Rotr_i64 ()
+    {
+        const uint i2 = (pop_u64 () & 63);
+        auto& r = u64 ();
+        auto i1 = u64 ();
+        r = (i1 >> i2) | (i1 << (64 - i2));
+    }
+
+    void Abs_f32 ()
+    {
+        auto& z = f32 ();
+        z = std::abs (z);
+    }
+
+    void Abs_f64 ()
+    {
+        auto& z = f64 ();
+        z = std::abs (z);
+    }
+
+    void Neg_f32 ()
+    {
+        f32 () *= -1;
+    }
+
+    void Neg_f64 ()
+    {
+        f64 () *= -1;
+    }
+
+    void Ceil_f32 ()
+    {
+        auto& z = f32 ();
+        z = ceilf (z);
+    }
+
+    void Ceil_f64 ()
+    {
+        auto& z = f64 ();
+        z = ceil (z);
+    }
+
+    void Floor_f32 ()
+    {
+        auto& z = f32 ();
+        z = floorf (z);
+    }
+
+    void Floor_f64 ()
+    {
+        auto& z = f64 ();
+        z = floor (z);
+    }
+
+    void Trunc_f32 ()
+    {
+        auto& z = f32 ();
+        z = truncf (z);
+    }
+
+    void Trunc_f64 ()
+    {
+        auto& z = f64 ();
+        z = trunc (z);
+    }
+
+    void Nearest_f32 ()
+    {
+        auto& z = f32 ();
+        z = roundf (z);
+    }
+
+    void Nearest_f64 ()
+    {
+        auto& z = f64 ();
+        z = round (z);
+    }
+
+    void Sqrt_f32 ()
+    {
+        auto& z = f32 ();
+        z = sqrtf (z);
+    }
+
+    void Sqrt_f64 ()
+    {
+        auto& z = f64 ();
+        z = sqrt (z);
+    }
+
+    void Add_f32 ()
+    {
+        const auto a = pop_f32 ();
+        f32 () += a;
+    }
+
+    void Add_f64 ()
+    {
+        const auto a = pop_f64 ();
+        f64 () += a;
+    }
+
+    void Sub_f32 ()
+    {
+        const auto a = pop_f32 ();
+        f32 () -= a;
+    }
+
+    void Sub_f64 ()
+    {
+        const auto a = pop_f64 ();
+        f64 () -= a;
+    }
+
+    void Mul_f32 ()
+    {
+        const auto a = pop_f32 ();
+        f32 () *= a;
+    }
+
+    void Mul_f64 ()
+    {
+        const auto a = pop_f64 ();
+        f64 () *= a;
+    }
+
+    void Div_f32 ()
+    {
+        const auto a = pop_f32 ();
+        f32 () /= a;
+    }
+
+    void Div_f64 ()
+    {
+        const auto a = pop_f64 ();
+        f64 () /= a;
+    }
+
+    // Write our own to control the order.
+    template <typename T>
+    static T min (T a, T b)
+    {
+        return (a <= b) ? a : b;
+    }
+
+    template <typename T>
+    static T max (T a, T b)
+    {
+        return (a >= b) ? a : b;
+    }
+
+    void Min_f32 ()
+    {
+        const auto z2 = pop_f32 ();
+        auto& z1 = f32 ();
+        z1 = min (z1, z2);
+    }
+
+    void Min_f64 ()
+    {
+        const auto z2 = pop_f64 ();
+        auto& z1 = f64 ();
+        z1 = min (z1, z2);
+    }
+
+    void Max_f32 ()
+    {
+        const auto z2 = pop_f32 ();
+        auto& z1 = f32 ();
+        z1 = max (z1, z2);
+    }
+
+    void Max_f64 ()
+    {
+        const auto z2 = pop_f64 ();
+        auto& z1 = f64 ();
+        z1 = max (z1, z2);
+    }
+
+    void Copysign_f32 ()
+    {
+        const auto z2 = pop_f32 ();
+        auto& z1 = f32 ();
+        z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
+    }
+
+    void Copysign_f64 ()
+    {
+        const auto z2 = pop_f64 ();
+        auto& z1 = f64 ();
+        z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
+    }
+
+    void Wrap_i64_i32 ()
+    {
+        i32 () = i64 () & 0xFFFFFFFF; // for sake of big endian
+        tag () = ValueType_i32;
+    }
+
+    void Trunc_f32_s_i32 ()
+    {
+        i32 () = (int)f32 ();
+        tag () = ValueType_i32;
+    }
+
+    void Trunc_f32_u_i32 ()
+    {
+        u32 () = (uint)f32 ();
+        tag () = ValueType_i32;
+    }
+
+    void Trunc_f64_s_i32 ()
+    {
+        i32 () = (int)f64 ();
+        tag () = ValueType_i32;
+    }
+
+    void Trunc_f64_u_i32 ()
+    {
+        u32 () = (uint)f64 ();
+        tag () = ValueType_i32;
+    }
+
+    void Extend_i32_s_i64 ()
+    {
+        i64 () = i32 ();
+        tag () = ValueType_i64;
+    }
+
+    void Extend_i32_u_i64 ()
+    {
+        i64 () = u32 ();
+        tag () = ValueType_i64;
+    }
+
+    void Trunc_f32_s_i64 ()
+    {
+        i64 () = (int64)f32 ();
+        tag () = ValueType_i64;
+    }
+
+    void Trunc_f32_u_i64 ()
+    {
+        u64 () = (uint64)f32 ();
+        tag () = ValueType_i64;
+    }
+
+    void Trunc_f64_s_i64 ()
+    {
+        i64 () = (int64)f64 ();
+        tag () = ValueType_i64;
+    }
+
+    void Trunc_f64_u_i64 ()
+    {
+        u64 () = (uint64)f64 ();
+        tag () = ValueType_i64;
+    }
+
+    void Convert_i32_u_f32 ()
+    {
+        f32 () = (float)u32 ();
+        tag () = ValueType_f32;
+    }
+
+    void Convert_i32_s_f32 ()
+    {
+        f32 () = (float)i32 ();
+        tag () = ValueType_f32;
+    }
+
+    void Convert_i64_u_f32 ()
+    {
+        f32 () = (float)u64 ();
+        tag () = ValueType_f32;
+    }
+
+    void Convert_i64_s_f32 ()
+    {
+        f32 () = (float)i64 ();
+        tag () = ValueType_f32;
+    }
+
+    void Demote_i32_f64 ()
+    {
+        f64 () = (double)i32 ();
+        tag () = ValueType_f64;
+    }
+
+    void Convert_i32_s_f64 ()
+    {
+        f64 () = (double)i32 ();
+        tag () = ValueType_f64;
+    }
+
+    void Convert_i32_u_f64 ()
+    {
+        f64 () = (double)u32 ();
+        tag () = ValueType_f64;
+    }
+
+    void Convert_i64_s_f64 ()
+    {
+        f64 () = (double)i64 ();
+        tag () = ValueType_f64;
+    }
+
+    void Convert_i64_u_f64 ()
+    {
+        f64 () = (double)u64 ();
+        tag () = ValueType_f64;
+    }
+
+    void Promote_f32_f64 ()
+    {
+        tag (ValueType_f32) = ValueType_f64;
+        value ().f64 = value ().f32;
+    }
+
+    void Reinterpret_f32_i32 ()
+    {
+        tag (ValueType_f32) = ValueType_i32;
+    }
+
+    void Reinterpret_i32_f32 ()
+    {
+        tag (ValueType_i32) = ValueType_f32;
+    }
+
+    void Reinterpret_f64_i64 ()
+    {
+        tag (ValueType_f64) = ValueType_i64;
+    }
+
+    void Reinterpret_i64_f64 ()
+    {
+        tag (ValueType_i64) = ValueType_f64;
     }
 };
 
