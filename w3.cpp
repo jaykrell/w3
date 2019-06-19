@@ -50,6 +50,7 @@
 #pragma warning (disable:4127) // while (true) constant conditional
 #pragma warning (disable:4201) // nonstandard extension used: nameless struct/union
 #pragma warning (disable:4296) // always false
+#pragma warning (disable:4355) // this used in base member initializer list
 #pragma warning (disable:4480) // enum base type was non-standard
 #pragma warning (disable:4616) // unknown warning disabled
 #pragma warning (disable:4619) // invalid pragma warning disable
@@ -2770,10 +2771,6 @@ void Module::read_module (const char* file_name)
 
     assert (cursor == end);
 }
-
-#if _MSC_VER
-#pragma warning (disable:4355) // this used in base member initializer list
-#endif
 
 struct Interp : Stack
 {
