@@ -46,11 +46,11 @@
 
 #if _MSC_VER
 #pragma warning (disable:4201) // nameless struct/union
+#pragma warning (disable:4355) // this used in base member initializer list
 #if _MSC_VER <= 1500
 #pragma warning (disable:4127) // while (true) constant conditional
 #pragma warning (disable:4201) // nonstandard extension used: nameless struct/union
 #pragma warning (disable:4296) // always false
-#pragma warning (disable:4355) // this used in base member initializer list
 #pragma warning (disable:4480) // enum base type was non-standard
 #pragma warning (disable:4616) // unknown warning disabled
 #pragma warning (disable:4619) // invalid pragma warning disable
@@ -2971,18 +2971,54 @@ struct Interp : Stack
 
     void Rotl_i32 ()
     {
-        const uint i2 = (pop_u32 () & 31);
+        const int n = 32;
+        const int i2 = (pop_i32 () & (n - 1));
         auto& r = u32 ();
-        auto i1 = u32 ();
-        r = (i1 << i2) | (i1 >> (32 - i2));
+        auto i1 = r;
+#if _MSC_VER
+        r = _rotl (i1, i2);
+#else
+        r = (i1 << i2) | (i1 >> (n - i2));
+#endif
+    }
+
+    void Rotl_i64 ()
+    {
+        const int n = 64;
+        const int i2 = (pop_i64 () & (n - 1));
+        auto& r = u64 ();
+        auto i1 = r;
+#if _MSC_VER
+        r = _rotl64 (i1, i2);
+#else
+        r = (i1 << i2) | (i1 >> (n - i2));
+#endif
+    }
+
+    void Rotr_i32 ()
+    {
+        const int n = 32;
+        const int i2 = (int)(pop_u32 () & (n - 1));
+        auto& r = u32 ();
+        auto i1 = r;
+#if _MSC_VER
+        r = _rotr (i1, i2);
+#else
+        r = (i1 >> i2) | (i1 << (n - i2));
+#endif
     }
 
     void Rotr_i64 ()
     {
-        const uint i2 = (pop_u64 () & 63);
+        const int n = 64;
+        const int i2 = (int)(pop_u64 () & (n - 1));
         auto& r = u64 ();
-        auto i1 = u64 ();
-        r = (i1 >> i2) | (i1 << (64 - i2));
+        auto i1 = r;
+#if _MSC_VER
+        r = _rotr64 (i1, i2);
+#else
+        r = (i1 >> i2) | (i1 << (n - i2));
+#endif
     }
 
     void Abs_f32 ()
