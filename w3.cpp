@@ -79,7 +79,7 @@
 
 #define _ISOC99_SOURCE
 #include <math.h>
-#include <stack> // work in progress
+#include <stack>
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
@@ -952,7 +952,7 @@ struct TableType
     Limits limits;
 };
 
-// Table types have an element type, funcref
+// Table types have an value type, funcref
 const uint TableTypeFuncRef = 0x70;
 
 // Globals are mutable or constant.
@@ -964,7 +964,7 @@ typedef enum Mutable
 
 struct Runtime;
 struct Stack;
-struct StackElement;
+struct StackValue;
 struct ModuleInstance;
 struct Module;
 struct SectionBase;
@@ -981,22 +981,21 @@ struct SectionBase;
 // Such decomposition will also be good for conversion to JIT, LLVM, C++, etc.
 // It is only interpreter, perhaps, that has overwhelming efficiency concern.
 //
-// StackElement initial_stack[1];
+// StackValue initial_stack[1];
 // int stack_depth;
-// StackElement* stack = initial_stack;
-// StackElement* min_stack = initial_stack;
+// StackValue* stack = initial_stack;
+// StackValue* min_stack = initial_stack;
 
-#if 0
-// work in progress
+#if 0 // probably will not do it this way, std::stack and loop instead
 // FIXME for grow up stack
 #define ALLOC_STACK(n)                                                                  \
 do {                                                                                    \
     if (stack - n < min_stack)                                                          \
-        min_stack = (StackElement*)alloca((min_stack - (stack - n)) * sizeof (*stack)); \
+        min_stack = (StackValue*)alloca((min_stack - (stack - n)) * sizeof (*stack)); \
     stack -= n;                                                                         \
 } while (0)
 
-// work in progress
+// probably will not do it this way, std::stack and loop instead
 #define STACK_POP_CHECK(n) \
 do {                                                                                    \
     assert (n <= stack_depth);  \
@@ -1008,7 +1007,7 @@ do {                                                                            
     stack += n;                 \
 } while (0)
 
-// work in progress
+// probably will not do it this way, std::stack and loop instead
 // FIXME for grow up stack
 #define STACK_POP(n) \
 do {                                                                                    \
@@ -1017,21 +1016,21 @@ do {                                                                            
     stack += n;                 \
 } while (0)
 
-// work in progress
+// probably will not do it this way, std::stack and loop instead
 #define STACK_PUSH(v)           \
 do {                            \                                                       \
     ALLOC_STACK (1);            \
     stack [0] = (v);            \
 } while (0)                     \
 
-// work in progress
+// probably will not do it this way, std::stack and loop instead
 #define FRAME_PUSH(callee)                      \
 do {                                            \
     ALLOC_STACK (function->locals_size + 1);    \
     stack [0].frame = frame;                    \
 } while (0)                                     \
 
-// work in progress
+// probably will not do it this way, std::stack and loop instead
 #define FRAME_POP()                         \
 do {                                        \
     STACK_POP (function->locals_size);      \
@@ -1041,15 +1040,13 @@ do {                                        \
 
 #endif
 
-// work in progress
-typedef enum StackElementType
+typedef enum StackTag
 {
-    StackElementType_Value = 1, // i32, i64, f32, f64
-    StackElementType_Label,     // branch target
-    StackElementType_Frame,     // return address + locals + params
-} StackElementType;
+    StackTag_Value = 1, // i32, i64, f32, f64
+    StackTag_Label,     // branch target
+    StackTag_Frame,     // return address + locals + params
+} StackTag;
 
-// work in progress
 typedef struct LabelValue
 {
     // FUTURE spec arity
@@ -1068,24 +1065,24 @@ typedef struct Frame
 } Frame;
 
 // work in progress
-typedef struct StackElement
+typedef struct StackValue
 {
-    StackElementType type : 8;
+    StackTag type : 8;
     union
     {
         TaggedValue value;
         LabelValue label;
         Frame frame;
     };
-} StackElement;
+} StackValue;
 
 // work in progress
-struct Stack : std::stack<StackElement>
+struct Stack : std::stack<StackValue>
 {
     ValueType& tag (ValueType tag)
     {
 	    assert (size () >= 1);
-	    assert (top ().type == StackElementType_Value);
+	    assert (top ().type == StackTag_Value);
 	    assert (top ().value.tag == tag);
         return top ().value.tag;
     }
@@ -1093,51 +1090,91 @@ struct Stack : std::stack<StackElement>
     ValueType& tag ()
     {
 	    assert (size () >= 1);
-	    assert (top ().type == StackElementType_Value);
+	    assert (top ().type == StackTag_Value);
         return top ().value.tag;
     }
 
     Value& value ()
     {
 	    assert (size () >= 1);
-	    assert (top ().type == StackElementType_Value);
+	    assert (top ().type == StackTag_Value);
         return top ().value.value;
     }
 
     Value& value (ValueType tag)
     {
 	    assert (size () >= 1);
-	    assert (top ().type == StackElementType_Value);
+	    assert (top ().type == StackTag_Value);
 	    assert (top ().value.tag == tag);
         return top ().value.value;
     }
 
+    void push (StackValue value)
+    {
+        // TODO
+    }
+
     void push_i32 (int i)
     {
-        StackElement element = {StackElementType_Value, { ValueType_i32 } };
-        element.value.value.i32 = i;
-        push (element);
+        StackValue value = {StackTag_Value, { ValueType_i32 } };
+        value.value.value.i32 = i;
+        push (value);
     }
 
     void push_i64 (int64 i)
     {
-        StackElement element = {StackElementType_Value, { ValueType_i64 } };
-        element.value.value.i64 = i;
-        push (element);
+        StackValue value = {StackTag_Value, { ValueType_i64 } };
+        value.value.value.i64 = i;
+        push (value);
+    }
+
+    void push_u32 (uint i)
+    {
+        push ((int)i);
+    }
+
+    void push_u64 (uint64 i)
+    {
+        push ((int64)i);
     }
 
     void push_f32 (float i)
     {
-        StackElement element = {StackElementType_Value, { ValueType_f32 } };
-        element.value.value.f32 = i;
-        push (element);
+        StackValue value = {StackTag_Value, { ValueType_f32 } };
+        value.value.value.f32 = i;
+        push (value);
     }
 
     void push_f64 (double i)
     {
-        StackElement element = {StackElementType_Value, { ValueType_f64 } };
-        element.value.value.f64 = i;
-        push (element);
+        StackValue value = {StackTag_Value, { ValueType_f64 } };
+        value.value.value.f64 = i;
+        push (value);
+    }
+
+    void push_bool (bool b)
+    {
+        push_i32 (b);
+    }
+
+    void push (int a)
+    {
+        push_i32 (a);
+    }
+
+    void push (int64 a)
+    {
+        push_i64 (a);
+    }
+
+    void push (float a)
+    {
+        push_f32 (a);
+    }
+
+    void push (double a)
+    {
+        push_f64 (a);
     }
 
     int& i32 ()
@@ -1168,6 +1205,41 @@ struct Stack : std::stack<StackElement>
     double& f64 ()
     {
         return value (ValueType_f64).f64;
+    }
+
+    int& unchecked_i32 ()
+    {
+        return value ().i32;
+    }
+
+    int64& unchecked_i64 ()
+    {
+        return value ().i64;
+    }
+
+    uint& unchecked_u32 ()
+    {
+        return value ().u32;
+    }
+
+    uint64& unchecked_u64 ()
+    {
+        return value ().u64;
+    }
+
+    float& unchecked_f32 ()
+    {
+        return value ().f32;
+    }
+
+    double& unchecked_f64 ()
+    {
+        return value ().f64;
+    }
+
+    void push (bool a)
+    {
+        push ((int)a);
     }
 
     int pop_i32 ()
@@ -1394,7 +1466,7 @@ FRELOP (0x66, Ge, 64) \
 \
  IUNOP (0x67, Clz,     32) \
  IUNOP (0x68, Ctz,     32) \
- IUNOP (0x69, Popcnt,  32) \
+ IUNOP (0x69, count_set_bits,  32) \
 IBINOP (0x6A, Add,     32) \
 IBINOP (0x6B, Sub,     32) \
 IBINOP (0x6C, Mul,     32) \
@@ -1413,7 +1485,7 @@ IBINOP (0x78, Rotr,    32) \
 \
  IUNOP (0x79, Clz,     64) \
  IUNOP (0x7A, Ctz,     64) \
- IUNOP (0x7B, Popcnt,  64) \
+ IUNOP (0x7B, count_set_bits,  64) \
 IBINOP (0x7C, Add,     64) \
 IBINOP (0x7D, Sub,     64) \
 IBINOP (0x7E, Mul,     64) \
@@ -2832,10 +2904,154 @@ struct Interp : Stack
     //lt
     //gt
     //le
-    //ge
-    //clz
-    //ctz
-    //popcnt
+
+    void Le_s_i32 ()
+    {
+        const int b = pop_i32 ();
+        push (pop_i32 () <= b);
+    }
+
+    void Le_s_i64 ()
+    {
+        const int64 b = pop_i64 ();
+        push (pop_i64 () <= b);
+
+    }
+
+    void Le_u_i32 ()
+    {
+        const uint b = pop_u32 ();
+        push (pop_u32 () <= b);
+    }
+
+    void Le_u_i64 ()
+    {
+        const uint64 b = pop_u64 ();
+        push (pop_u64 () <= b);
+
+    }
+
+    void Le_f32 ()
+    {
+        const float z2 = pop_f32 ();
+        const float z1 = pop_f32 ();
+        push_bool (z1 <= z2);
+    }
+
+    void Le_f64 ()
+    {
+        const double z2 = pop_f64 ();
+        const double z1 = pop_f64 ();
+        push_bool (z1 <= z2);
+    }
+
+    void Ge_i32 ()
+    {
+        const int b = pop_i32 ();
+        const int a = pop_i32 ();
+        push_bool (a >= b);
+    }
+
+    void Ge_i64 ()
+    {
+        const int64 b = pop_i64 ();
+        const int64 a = pop_i64 ();
+        push_bool (a >= b);
+    }
+
+    void Ge_f32 ()
+    {
+        const float b = pop_f32 ();
+        const float a = pop_f32 ();
+        push_bool (a >= b);
+    }
+
+    void Ge_f64 ()
+    {
+        const double b = pop_f64 ();
+        const double a = pop_f64 ();
+        push_bool (a >= b);
+    }
+
+    template <typename T>
+    uint count_set_bits (T a)
+    {
+        uint n = 0;
+        while (a)
+        {
+            n += (a & 1);
+            a >>= 1;
+        }
+        return n;
+    }
+
+    template <typename T>
+    uint count_trailing_zeros (T a)
+    {
+        uint n = 0;
+        while (!(a & 1))
+        {
+            ++n;
+            a >>= 1;
+        }
+        return n;
+    }
+
+    template <typename T>
+    uint count_leading_zeros (T a)
+    {
+        uint n = 0;
+        while (!(a & (((T)1) << ((sizeof (T) * 8) - 1))))
+        {
+            ++n;
+            a <<= 1;
+        }
+        return n;
+    }
+
+    void Popcnt_i32 ()
+    {
+        auto& a = u32 ();
+#if _MSC_VERx
+        a = __popcnt (a);
+#else
+        a = count_set_bits (a);
+#endif
+    }
+
+    void Popcnt_i64 ()
+    {
+        auto& a = u64 ();
+#if _MSC_VER
+        a = __popcnt64 (a);
+#else
+        a = count_set_bits (a);
+#endif
+    }
+
+    void Ctz_i32 ()
+    {
+        auto& a = u32 ();
+        a = count_trailing_zeros (a);
+    }
+
+    void Ctz_i64 ()
+    {
+        auto& a = u64 ();
+        a = count_trailing_zeros (a);
+    }
+
+    void Clz_i32 ()
+    {
+        auto& a = u32 ();
+        a = count_leading_zeros (a);
+    }
+
+    void Clz_i64 ()
+    {
+        uint64& a = u64 ();
+        a = count_leading_zeros (a);
+    }
 
     void Add_i32 ()
     {
@@ -2947,77 +3163,77 @@ struct Interp : Stack
 
     void Shr_s_i32 ()
     {
-        const auto a = pop_i32 ();
-        i32 () <<= (a & 31);
+        const auto b = pop_i32 ();
+        i32 () <<= (b & 31);
     }
 
     void Shr_s_i64 ()
     {
-        const auto a = pop_i64 ();
-        i64 () <<= (a & 63);
+        const auto b = pop_i64 ();
+        i64 () <<= (b & 63);
     }
 
     void Shr_u_i32 ()
     {
-        const auto a = pop_u32 ();
-        u32 () >>= (a & 31);
+        const uint b = pop_u32 ();
+        u32 () >>= (b & 31);
     }
 
     void Shr_u_i64 ()
     {
-        const auto a = pop_u64 ();
-        u64 () >>= (a & 63);
+        const uint64 b = pop_u64 ();
+        u64 () >>= (b & 63);
     }
 
     void Rotl_i32 ()
     {
         const int n = 32;
-        const int i2 = (pop_i32 () & (n - 1));
-        auto& r = u32 ();
-        auto i1 = r;
+        const int b = (pop_i32 () & (n - 1));
+        uint& r = u32 ();
+        uint a = r;
 #if _MSC_VER
-        r = _rotl (i1, i2);
+        r = _rotl (a, b);
 #else
-        r = (i1 << i2) | (i1 >> (n - i2));
+        r = ((a << b) | (a >> (n - b)));
 #endif
     }
 
     void Rotl_i64 ()
     {
         const int n = 64;
-        const int i2 = (pop_i64 () & (n - 1));
+        const int b = (pop_i64 () & (n - 1));
         auto& r = u64 ();
-        auto i1 = r;
+        auto a = r;
 #if _MSC_VER
-        r = _rotl64 (i1, i2);
+        r = _rotl64 (a, b);
 #else
-        r = (i1 << i2) | (i1 >> (n - i2));
+        r = (a << b) | (a >> (n - b));
 #endif
     }
 
     void Rotr_i32 ()
     {
         const int n = 32;
-        const int i2 = (int)(pop_u32 () & (n - 1));
+        const int b = (int)(pop_u32 () & (n - 1));
         auto& r = u32 ();
-        auto i1 = r;
+        auto a = r;
 #if _MSC_VER
-        r = _rotr (i1, i2);
+        r = _rotr (a, b);
 #else
-        r = (i1 >> i2) | (i1 << (n - i2));
+        r = (a >> b) | (a << (n - b));
 #endif
     }
 
     void Rotr_i64 ()
     {
         const int n = 64;
-        const int i2 = (int)(pop_u64 () & (n - 1));
+        const int b = (int)(pop_u64 () & (n - 1));
         auto& r = u64 ();
-        auto i1 = r;
+        auto a = r;
 #if _MSC_VER
-        r = _rotr64 (i1, i2);
+        r = _rotr64 (a, b);
 #else
-        r = (i1 >> i2) | (i1 << (n - i2));
+        r = (a >> b) | (a << (n - b));
 #endif
     }
 
@@ -3117,25 +3333,25 @@ struct Interp : Stack
 
     void Sub_f32 ()
     {
-        const auto a = pop_f32 ();
+        const float a = pop_f32 ();
         f32 () -= a;
     }
 
     void Sub_f64 ()
     {
-        const auto a = pop_f64 ();
+        const double a = pop_f64 ();
         f64 () -= a;
     }
 
     void Mul_f32 ()
     {
-        const auto a = pop_f32 ();
+        const float a = pop_f32 ();
         f32 () *= a;
     }
 
     void Mul_f64 ()
     {
-        const auto a = pop_f64 ();
+        const double a = pop_f64 ();
         f64 () *= a;
     }
 
@@ -3147,7 +3363,7 @@ struct Interp : Stack
 
     void Div_f64 ()
     {
-        const auto a = pop_f64 ();
+        const double a = pop_f64 ();
         f64 () /= a;
     }
 
@@ -3173,7 +3389,7 @@ struct Interp : Stack
 
     void Min_f64 ()
     {
-        const auto z2 = pop_f64 ();
+        const double z2 = pop_f64 ();
         auto& z1 = f64 ();
         z1 = min (z1, z2);
     }
@@ -3187,8 +3403,8 @@ struct Interp : Stack
 
     void Max_f64 ()
     {
-        const auto z2 = pop_f64 ();
-        auto& z1 = f64 ();
+        const double z2 = pop_f64 ();
+        double& z1 = f64 ();
         z1 = max (z1, z2);
     }
 
@@ -3201,8 +3417,8 @@ struct Interp : Stack
 
     void Copysign_f64 ()
     {
-        const auto z2 = pop_f64 ();
-        auto& z1 = f64 ();
+        const double z2 = pop_f64 ();
+        double& z1 = f64 ();
         z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
     }
 
@@ -3316,7 +3532,7 @@ struct Interp : Stack
 
     void Convert_i64_s_f64 ()
     {
-        f64 () = (double)i64 ();
+        unchecked_f64 () = (double)i64 ();
         tag () = ValueType_f64;
     }
 
