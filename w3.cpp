@@ -45,6 +45,16 @@
 #endif
 
 #if _MSC_VER
+#if _MSC_VER <= 1100
+#include "yvals.h"
+#pragma warning (disable:4018) // unsigned/signed
+#pragma warning (disable:4146) // negated unsigned is unsigned
+#pragma warning (disable:4238) // <utility> nonstandard extension used : class rvalue used as lvalue
+#pragma warning (disable:4244) // int to char conversion
+#pragma warning (disable:4511) // copy construct could not be generated
+#pragma warning (disable:4512) // assignment operator could not be generated
+#pragma warning (disable:4663) // C++ language change: to explicitly specialize class template..
+#endif
 #pragma warning (disable:4201) // nameless struct/union
 #pragma warning (disable:4355) // this used in base member initializer list
 #if _MSC_VER <= 1500
@@ -61,7 +71,9 @@
 #pragma warning (disable:4514) // unused function
 #pragma warning (disable:4710) // function not inlined
 #pragma warning (disable:4820) // padding
+#if _MSC_VER > 1100 //TODO which version?
 #pragma warning (push)
+#endif
 #pragma warning (disable:4626) // assignment implicitly deleted
 #pragma warning (disable:4571) // catch(...)
 #pragma warning (disable:4625) // copy constructor implicitly deleted
@@ -96,6 +108,10 @@
 #define NOMINMAX 1
 #include <io.h>
 #include <windows.h>
+__declspec(dllimport) int __stdcall IsDebuggerPresent(void);
+#if _MSC_VER <= 1100 // TODO which version?
+#define __debugbreak DebugBreak
+#endif
 #else
 #define IsDebuggerPresent() (0)
 #define __debugbreak() ((void)0)
@@ -106,7 +122,9 @@
 #endif
 #if _MSC_VER
 #include <malloc.h> // for _alloca
+#if _MSC_VER > 1100 //TODO which version?
 #pragma warning (pop)
+#endif
 #endif
 
 #if _MSC_VER && _MSC_VER <= 1500
@@ -129,6 +147,18 @@ typedef uint32_t uint;
 
 namespace w3
 {
+
+template <typename T>
+T Min(const T& a, const T& b)
+{
+    return (a <= b) ? a : b;
+}
+
+template <typename T>
+T Max(const T& a, const T& b)
+{
+    return (a >= b) ? a : b;
+}
 
 // Portable to old (and new) Visual C++ runtime.
 uint
@@ -597,7 +627,7 @@ IntGetPrecision (int64 a)
 {
     // How many bits needed to represent.
     // i.e. so leading bit is extendible sign bit, or 64
-    return std::min (64u, 1 + UIntGetPrecision (int_split_sign_magnitude_t (a).u));
+    return Min (64u, 1 + UIntGetPrecision (int_split_sign_magnitude_t (a).u));
 }
 
 static
@@ -701,7 +731,7 @@ uint
 IntToHex_GetLength_AtLeast8 (int64 a)
 {
     uint const len = IntToHex_GetLength (a);
-    return std::max (len, 8u);
+    return Max (len, 8u);
 }
 
 static
@@ -709,7 +739,7 @@ uint
 UIntToHex_GetLength_AtLeast8 (uint64 a)
 {
     uint const len = UIntToHex_GetLength (a);
-    return std::max (len, 8u);
+    return Max (len, 8u);
 }
 
 static
@@ -759,7 +789,7 @@ struct stdout_stream : stream
         const char* pc = (const char*)bytes;
         while (count > 0)
         {
-            uint const n = (uint)std::min (count, ((size_t)1024) * 1024 * 1024);
+            uint const n = (uint)Min (count, ((size_t)1024) * 1024 * 1024);
 #if _MSC_VER
             ::_write (_fileno (stdout), pc, n);
 #else
@@ -779,7 +809,7 @@ struct stderr_stream : stream
         const char* pc = (const char*)bytes;
         while (count > 0)
         {
-            uint const n = (uint)std::min (count, ((size_t)1024) * 1024 * 1024);
+            uint const n = (uint)Min (count, ((size_t)1024) * 1024 * 1024);
 #if _MSC_VER
             ::_write (_fileno (stderr), pc, n);
 #else
@@ -3011,7 +3041,7 @@ struct Interp : Stack
 
     void Popcnt_i32 ()
     {
-        auto& a = u32 ();
+        uint& a = u32 ();
 #if _MSC_VERx
         a = __popcnt (a);
 #else
@@ -3021,7 +3051,7 @@ struct Interp : Stack
 
     void Popcnt_i64 ()
     {
-        auto& a = u64 ();
+        uint64& a = u64 ();
 #if _MSC_VER
         a = __popcnt64 (a);
 #else
@@ -3031,19 +3061,19 @@ struct Interp : Stack
 
     void Ctz_i32 ()
     {
-        auto& a = u32 ();
+        uint& a = u32 ();
         a = count_trailing_zeros (a);
     }
 
     void Ctz_i64 ()
     {
-        auto& a = u64 ();
+        uint64& a = u64 ();
         a = count_trailing_zeros (a);
     }
 
     void Clz_i32 ()
     {
-        auto& a = u32 ();
+        uint& a = u32 ();
         a = count_leading_zeros (a);
     }
 
@@ -3055,7 +3085,7 @@ struct Interp : Stack
 
     void Add_i32 ()
     {
-        const auto a = pop_i32 ();
+        const int a = pop_i32 ();
         i32 () += a;
     }
 
@@ -3367,45 +3397,32 @@ struct Interp : Stack
         f64 () /= a;
     }
 
-    // Write our own to control the order.
-    template <typename T>
-    static T min (T a, T b)
-    {
-        return (a <= b) ? a : b;
-    }
-
-    template <typename T>
-    static T max (T a, T b)
-    {
-        return (a >= b) ? a : b;
-    }
-
     void Min_f32 ()
     {
         const auto z2 = pop_f32 ();
         auto& z1 = f32 ();
-        z1 = min (z1, z2);
+        z1 = Min (z1, z2);
     }
 
     void Min_f64 ()
     {
         const double z2 = pop_f64 ();
-        auto& z1 = f64 ();
-        z1 = min (z1, z2);
+        double& z1 = f64 ();
+        z1 = Min (z1, z2);
     }
 
     void Max_f32 ()
     {
         const auto z2 = pop_f32 ();
         auto& z1 = f32 ();
-        z1 = max (z1, z2);
+        z1 = Max (z1, z2);
     }
 
     void Max_f64 ()
     {
         const double z2 = pop_f64 ();
         double& z1 = f64 ();
-        z1 = max (z1, z2);
+        z1 = Max (z1, z2);
     }
 
     void Copysign_f32 ()
