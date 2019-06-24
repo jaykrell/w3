@@ -3506,109 +3506,109 @@ struct Interp : Stack
 
     void Wrap_i64_i32 ()
     {
-        i32 () = i64 () & 0xFFFFFFFF; // for sake of big endian
+        unchecked_i32 () = (int)(i64 () & 0xFFFFFFFF);
         tag () = ValueType_i32;
     }
 
     void Trunc_f32_s_i32 ()
     {
-        i32 () = (int)f32 ();
+        unchecked_i32 () = (int)f32 ();
         tag () = ValueType_i32;
     }
 
     void Trunc_f32_u_i32 ()
     {
-        u32 () = (uint)f32 ();
+        unchecked_u32 () = (uint)f32 ();
         tag () = ValueType_i32;
     }
 
     void Trunc_f64_s_i32 ()
     {
-        i32 () = (int)f64 ();
+        unchecked_i32 () = (int)f64 ();
         tag () = ValueType_i32;
     }
 
     void Trunc_f64_u_i32 ()
     {
-        u32 () = (uint)f64 ();
+        unchecked_u32 () = (uint)f64 ();
         tag () = ValueType_i32;
     }
 
     void Extend_i32_s_i64 ()
     {
-        i64 () = i32 ();
+        unchecked_i64 () = (int64)i32 ();
         tag () = ValueType_i64;
     }
 
     void Extend_i32_u_i64 ()
     {
-        i64 () = u32 ();
+        unchecked_i64 () = (uint64)u32 ();
         tag () = ValueType_i64;
     }
 
     void Trunc_f32_s_i64 ()
     {
-        i64 () = (int64)f32 ();
+        unchecked_i64 () = (int64)f32 ();
         tag () = ValueType_i64;
     }
 
     void Trunc_f32_u_i64 ()
     {
-        u64 () = (uint64)f32 ();
+        unchecked_u64 () = (uint64)f32 ();
         tag () = ValueType_i64;
     }
 
     void Trunc_f64_s_i64 ()
     {
-        i64 () = (int64)f64 ();
+        unchecked_i64 () = (int64)f64 ();
         tag () = ValueType_i64;
     }
 
     void Trunc_f64_u_i64 ()
     {
-        u64 () = (uint64)f64 ();
+        unchecked_u64 () = (uint64)f64 ();
         tag () = ValueType_i64;
     }
 
     void Convert_i32_u_f32 ()
     {
-        f32 () = (float)u32 ();
+        unchecked_f32 () = (float)(uint)u32 ();
         tag () = ValueType_f32;
     }
 
     void Convert_i32_s_f32 ()
     {
-        f32 () = (float)i32 ();
+        unchecked_f32 () = (float)(int)i32 ();
         tag () = ValueType_f32;
     }
 
     void Convert_i64_u_f32 ()
     {
-        f32 () = (float)u64 ();
+        unchecked_f32 () = (float)u64 ();
         tag () = ValueType_f32;
     }
 
     void Convert_i64_s_f32 ()
     {
-        f32 () = (float)i64 ();
+        unchecked_f32 () = (float)i64 ();
         tag () = ValueType_f32;
     }
 
     void Demote_i32_f64 ()
     {
-        f64 () = (double)i32 ();
+        unchecked_f64 () = (double)i32 ();
         tag () = ValueType_f64;
     }
 
     void Convert_i32_s_f64 ()
     {
-        f64 () = (double)i32 ();
+        unchecked_f64 () = (double)i32 ();
         tag () = ValueType_f64;
     }
 
     void Convert_i32_u_f64 ()
     {
-        f64 () = (double)u32 ();
+        unchecked_f64 () = (double)u32 ();
         tag () = ValueType_f64;
     }
 
@@ -3626,8 +3626,8 @@ struct Interp : Stack
 
     void Promote_f32_f64 ()
     {
-        tag (ValueType_f32) = ValueType_f64;
-        value ().f64 = value ().f32;
+        unchecked_f64 () = (double)f32 ();
+        tag () = ValueType_f64;
     }
 
     void Reinterpret_f32_i32 ()
