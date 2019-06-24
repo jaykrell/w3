@@ -1141,7 +1141,7 @@ struct Stack : std::stack<StackValue>
 
     void push (StackValue value)
     {
-        // TODO
+        std::stack<StackValue>::push (value);
     }
 
     void push_i32 (int i)
@@ -1160,12 +1160,12 @@ struct Stack : std::stack<StackValue>
 
     void push_u32 (uint i)
     {
-        push ((int)i);
+        push_i32 ((int)i);
     }
 
     void push_u64 (uint64 i)
     {
-        push ((int64)i);
+        push_i64 ((int64)i);
     }
 
     void push_f32 (float i)
@@ -1185,26 +1185,6 @@ struct Stack : std::stack<StackValue>
     void push_bool (bool b)
     {
         push_i32 (b);
-    }
-
-    void push (int a)
-    {
-        push_i32 (a);
-    }
-
-    void push (int64 a)
-    {
-        push_i64 (a);
-    }
-
-    void push (float a)
-    {
-        push_f32 (a);
-    }
-
-    void push (double a)
-    {
-        push_f64 (a);
     }
 
     int& i32 ()
@@ -1265,11 +1245,6 @@ struct Stack : std::stack<StackValue>
     double& unchecked_f64 ()
     {
         return value ().f64;
-    }
-
-    void push (bool a)
-    {
-        push ((int)a);
     }
 
     int pop_i32 ()
@@ -2928,36 +2903,110 @@ struct Interp : Stack
     //brtable
     //ret
     //const
-    //eqz
-    //eq
     //ne
     //lt
     //gt
     //le
 
+    void Eqz_i32 ()
+    {
+        push_bool (pop_i32 () == 0);
+    }
+
+    void Eqz_i64 ()
+    {
+        push_bool (pop_i64 () == 0);
+    }
+
+    void Eq_i32 ()
+    {
+        push_bool (pop_i32 () == pop_i32 ());
+    }
+
+    void Eq_i64 ()
+    {
+        push_bool (pop_i64 () == pop_i64 ());
+    }
+
+    void Ne_i32 ()
+    {
+        push_bool (pop_i32 () != pop_i32 ());
+    }
+
+    void Ne_i64 ()
+    {
+        push_bool (pop_i64 () != pop_i64 ());
+    }
+
+    // Lt
+
+    void Lt_s_i32 ()
+    {
+        int b = pop_i32 ();
+        int a = pop_i32 ();
+        push_bool (a < b);
+    }
+
+    void Lt_u_i32 ()
+    {
+        uint b = pop_u32 ();
+        uint a = pop_u32 ();
+        push_bool (a < b);
+    }
+
+    void Lt_s_i64 ()
+    {
+        int64 b = pop_i64 ();
+        int64 a = pop_i64 ();
+        push_bool (a < b);
+    }
+
+    void Lt_u_i64 ()
+    {
+        uint64 b = pop_u32 ();
+        uint64 a = pop_u32 ();
+        push_bool (a < b);
+    }
+
+    void Lt_f32 ()
+    {
+        float b = pop_f32 ();
+        float a = pop_f32 ();
+        push_bool (a < b);
+    }
+
+    void Lt_f64 ()
+    {
+        double b = pop_f64 ();
+        double a = pop_f64 ();
+        push_bool (a < b);
+    }
+
+    // Le
+
     void Le_s_i32 ()
     {
         const int b = pop_i32 ();
-        push (pop_i32 () <= b);
+        push_bool (pop_i32 () <= b);
     }
 
     void Le_s_i64 ()
     {
         const int64 b = pop_i64 ();
-        push (pop_i64 () <= b);
+        push_bool (pop_i64 () <= b);
 
     }
 
     void Le_u_i32 ()
     {
         const uint b = pop_u32 ();
-        push (pop_u32 () <= b);
+        push_bool (pop_u32 () <= b);
     }
 
     void Le_u_i64 ()
     {
         const uint64 b = pop_u64 ();
-        push (pop_u64 () <= b);
+        push_bool (pop_u64 () <= b);
 
     }
 
@@ -2975,14 +3024,30 @@ struct Interp : Stack
         push_bool (z1 <= z2);
     }
 
-    void Ge_i32 ()
+    // Ge
+
+    void Ge_u_i32 ()
+    {
+        const uint b = pop_u32 ();
+        const uint a = pop_u32 ();
+        push_bool (a >= b);
+    }
+
+    void Ge_u_i64 ()
+    {
+        const uint64 b = pop_u64 ();
+        const uint64 a = pop_u64 ();
+        push_bool (a >= b);
+    }
+
+    void Ge_s_i32 ()
     {
         const int b = pop_i32 ();
         const int a = pop_i32 ();
         push_bool (a >= b);
     }
 
-    void Ge_i64 ()
+    void Ge_s_i64 ()
     {
         const int64 b = pop_i64 ();
         const int64 a = pop_i64 ();
