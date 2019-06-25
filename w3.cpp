@@ -2110,7 +2110,6 @@ struct SectionBase
 struct SectionTraits
 {
     const char* name;
-    SectionBase* (*make) ();
 };
 
 template <uint N>
@@ -2260,22 +2259,12 @@ struct TypesSection : Section<1>
 {
     std::vector<FunctionType> functionTypes;
 
-    static SectionBase* make ()
-    {
-        return new TypesSection ();
-    }
-
     virtual void read (Module* module, uint8*& cursor);
 };
 
 struct ImportsSection : Section<2>
 {
     std::vector<Import> data;
-
-    static SectionBase* make ()
-    {
-        return new ImportsSection ();
-    }
 
     virtual void read (Module* module, uint8*& cursor)
     {
@@ -2287,11 +2276,6 @@ struct ImportsSection : Section<2>
 
 struct FunctionsSection : Section<3>
 {
-    static SectionBase* make ()
-    {
-        return new FunctionsSection ();
-    }
-
     virtual void read (Module* module, uint8*& cursor)
     {
         read_functions (module, cursor);
@@ -2302,21 +2286,11 @@ struct FunctionsSection : Section<3>
 
 struct TablesSection : Section<4>
 {
-    static SectionBase* make ()
-    {
-        return new TablesSection ();
-    }
-
     virtual void read (Module* module, uint8*& cursor);
 };
 
 struct MemorySection : Section<5>
 {
-    static SectionBase* make ()
-    {
-        return new MemorySection ();
-    }
-
     virtual void read (Module* module, uint8*& cursor)
     {
         ThrowString ("Memory::read not yet implemented");
@@ -2326,11 +2300,6 @@ struct MemorySection : Section<5>
 
 struct GlobalsSection : Section<6>
 {
-    static SectionBase* make ()
-    {
-        return new GlobalsSection ();
-    }
-
     void read_globals (Module* module, uint8*& cursor);
 
     virtual void read (Module* module, uint8*& cursor)
@@ -2341,11 +2310,6 @@ struct GlobalsSection : Section<6>
 
 struct ExportsSection : Section<7>
 {
-    static SectionBase* make ()
-    {
-        return new ExportsSection ();
-    }
-
     void read_exports (Module* module, uint8*& cursor);
 
     virtual void read (Module* module, uint8*& cursor)
@@ -2356,11 +2320,6 @@ struct ExportsSection : Section<7>
 
 struct StartSection : Section<8>
 {
-    static SectionBase* make ()
-    {
-        return new StartSection ();
-    }
-
     virtual void read (Module* module, uint8*& cursor)
     {
         ThrowString ("Start::read not yet implemented");
@@ -2369,11 +2328,6 @@ struct StartSection : Section<8>
 
 struct ElementsSection : Section<9>
 {
-    static SectionBase* make ()
-    {
-        return new ElementsSection ();
-    }
-
     void read_elements (Module* module, uint8*& cursor);
 
     virtual void read (Module* module, uint8*& cursor)
@@ -2384,11 +2338,6 @@ struct ElementsSection : Section<9>
 
 struct CodeSection : Section<10>
 {
-    static SectionBase* make ()
-    {
-        return new CodeSection ();
-    }
-
     void read_code (Module* module, uint8*& cursor);
 
     virtual void read (Module* module, uint8*& cursor)
@@ -2399,11 +2348,6 @@ struct CodeSection : Section<10>
 
 struct DataSection : Section<11>
 {
-    static SectionBase* make ()
-    {
-        return new DataSection ();
-    }
-
     void read_data (Module* module, uint8*& cursor);
 
     virtual void read (Module* module, uint8*& cursor)
@@ -2751,7 +2695,7 @@ SectionTraits section_traits [ ] =
     SECTION (DataSection) \
 
 #undef SECTION
-#define SECTION(x) {#x, &x::make },
+#define SECTION(x) {#x},
 SECTIONS
 
 };
@@ -3017,7 +2961,6 @@ struct IInterp
 #endif
 INSTRUCTIONS
 };
-
 
 struct Interp : Stack, IInterp
 {
