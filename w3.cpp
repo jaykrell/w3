@@ -3000,7 +3000,26 @@ void Module::read_module (const char* file_name)
     assert (cursor == end);
 }
 
-struct Interp : Stack
+struct IInterp
+{
+    virtual ~IInterp ()
+    {
+    }
+
+    virtual void Reserved () = 0;
+#undef INSTRUCTION
+#if 0
+    // TODO
+    // Pure virtual here helps enforce we have everything.
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) virtual void name () = 0;
+#else
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name () { abort (); }
+#endif
+INSTRUCTIONS
+};
+
+
+struct Interp : Stack, IInterp
 {
 private:
     Interp(const Interp&);
