@@ -3401,7 +3401,7 @@ INTERP (Popcnt_i32)
 INTERP (Popcnt_i64)
 {
     uint64& a = u64 ();
-#if _MSC_VER
+#if _MSC_VER && _WIN64
     a = __popcnt64 (a);
 #else
     a = count_set_bits (a);
