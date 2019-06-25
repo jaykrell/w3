@@ -144,7 +144,7 @@ __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 
 #if _MSC_VER && _MSC_VER <= 1500
 typedef signed __int8 int8;
-//typedef signed __int16 int16;
+typedef signed __int16 int16;
 typedef __int64 int64;
 typedef unsigned __int8 uint8;
 typedef unsigned __int16 uint16;
@@ -154,7 +154,7 @@ typedef unsigned __int32 uint;
 
 // C99 / C++?
 //typedef int8_t int8;
-////typedef int16_t int16;
+//typedef int16_t int16;
 //typedef int64_t int64;
 //typedef uint8_t uint8;
 //typedef uint16_t uint16;
@@ -168,7 +168,7 @@ typedef unsigned char       uint8;
 #error unable to find 8bit integer
 #endif
 #if USHRT_MAX == 0x0FFFFUL
-//typedef          short      int16;
+typedef          short      int16;
 typedef unsigned short     uint16;
 #else
 #error unable to find 16bit integer
@@ -1325,7 +1325,6 @@ struct Stack : std::stack<StackValue>
         set (ValueType_i64).u64 = a;
     }
 
-
     void set_f32 (float a)
     {
         set (ValueType_f32).f32 = a;
@@ -2019,9 +2018,9 @@ struct InstructionEncoding
     void (*interp) (Module*); // Module* probably wrong
 };
 
-struct InstructionDecoded
+struct DecodedInstruction
 {
-    InstructionDecoded ()
+    DecodedInstruction ()
     {
         name = (InstructionEnum)-1;
         align = offset = (uint)-1;
@@ -2172,6 +2171,7 @@ struct Import
 // work in progress
 struct ModuleInstance
 {
+    std::vector<uint8> memory;
     Module* module;
 };
 
@@ -2197,13 +2197,13 @@ struct Function // section3
 struct Global
 {
     GlobalType global_type;
-    std::vector<InstructionDecoded> init;
+    std::vector<DecodedInstruction> init;
 };
 
 struct Element
 {
     uint table;
-    std::vector<InstructionDecoded> offset_instructions;
+    std::vector<DecodedInstruction> offset_instructions;
     uint offset;
     std::vector<uint> functions;
 };
@@ -2229,7 +2229,7 @@ struct Data // section11
     Data () : memory (0), bytes (0) { }
 
     uint memory;
-    std::vector<InstructionDecoded> expr;
+    std::vector<DecodedInstruction> expr;
     void* bytes;
 };
 
@@ -2238,7 +2238,7 @@ struct Code // section3 and section10
     uint size;
     uint8* cursor;
     std::vector<uint8> locals; // TODO
-    std::vector<InstructionDecoded> decoded_instructions; // section10
+    std::vector<DecodedInstruction> decoded_instructions; // section10
 };
 
 // Initial representation of X and XSection are the same.
@@ -2251,7 +2251,6 @@ struct FunctionType
     std::vector<ValueType> parameters;
     std::vector<ValueType> results;
 
-    void read_vector_ValueType (std::vector<ValueType>& result, Module* module, uint8*& cursor);
     void read_function_type (Module* module, uint8*& cursor);
 };
 
@@ -2423,36 +2422,37 @@ struct Module
     bool read_mutable (uint8*& cursor);
     void read_section (uint8*& cursor);
     void read_module (const char* file_name);
+    void read_vector_ValueType (std::vector<ValueType>& result, uint8*& cursor);
 };
 
 static
 void
-DecodeInstructions (Module* module, std::vector<InstructionDecoded>& instructions, uint8*& cursor);
+DecodeInstructions (Module* module, std::vector<DecodedInstruction>& instructions, uint8*& cursor);
 
 void DataSection::read_data (Module* module, uint8*& cursor)
 {
-    uint size = module->read_varuint32 (cursor);
-    printf ("reading data11 size:%X\n", size);
-    module->data.resize (size);
-    for (uint i = 0; i < size; ++i)
+    const uint size1 = module->read_varuint32 (cursor);
+    printf ("reading data11 size:%X\n", size1);
+    module->data.resize (size1);
+    for (uint i = 0; i < size1; ++i)
     {
         Data& a = module->data [i];
         a.memory = module->read_varuint32 (cursor);
         DecodeInstructions (module, a.expr, cursor);
-        size = module->read_varuint32 (cursor);
-        if (cursor + size > module->end)
+        const uint size2 = module->read_varuint32 (cursor);
+        if (cursor + size2 > module->end)
             ThrowString ("data out of bounds");
         a.bytes = cursor;
-        cursor += size;
-        printf ("data [%u]:{%X}\n", i++, ((unsigned char*)a.bytes) [0]);
+        printf ("data [%u]:{%X}\n", i, cursor [0]);
+        cursor += size2;
     }
-    printf ("read data11 size:%X\n", size);
+    printf ("read data11 size:%X\n", size1);
 }
 
 void CodeSection::read_code (Module* module, uint8*& cursor)
 {
-    uint8* end = module->end;
-    uint size = module->read_varuint32 (cursor);
+    uint8 const * const end = module->end;
+    const uint size = module->read_varuint32 (cursor);
     if (cursor + size > module->end)
         ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%u", cursor, end, size, __LINE__));
     module->code.resize (size);
@@ -2470,7 +2470,7 @@ void CodeSection::read_code (Module* module, uint8*& cursor)
 
 void ElementsSection::read_elements (Module* module, uint8*& cursor)
 {
-    uint size1 = module->read_varuint32 (cursor);
+    const uint size1 = module->read_varuint32 (cursor);
     printf ("reading elements9 size1:%X\n", size1);
     module->elements.resize (size1);
     for (uint i = 0; i < size1; ++i)
@@ -2478,7 +2478,7 @@ void ElementsSection::read_elements (Module* module, uint8*& cursor)
         Element& a = module->elements [i];
         a.table = module->read_varuint32 (cursor);
         DecodeInstructions (module, a.offset_instructions, cursor);
-        uint size2 = module->read_varuint32 (cursor);
+        const uint size2 = module->read_varuint32 (cursor);
         a.functions.resize (size2);
         for (uint j = 0; j < size2; ++j)
         {
@@ -2492,7 +2492,7 @@ void ElementsSection::read_elements (Module* module, uint8*& cursor)
 
 void ExportsSection::read_exports (Module* module, uint8*& cursor)
 {
-    uint size = module->read_varuint32 (cursor);
+    const uint size = module->read_varuint32 (cursor);
     printf ("reading exports7 count:%X\n", size);
     module->exports.resize (size);
     for (uint i = 0; i < size; ++i)
@@ -2515,7 +2515,7 @@ void ExportsSection::read_exports (Module* module, uint8*& cursor)
 
 void GlobalsSection::read_globals (Module* module, uint8*& cursor)
 {
-    uint size = module->read_varuint32 (cursor);
+    const uint size = module->read_varuint32 (cursor);
     printf ("reading globals6 size:%X\n", size);
     module->globals.resize (size);
     for (uint i = 0; i < size; ++i)
@@ -2531,7 +2531,7 @@ void GlobalsSection::read_globals (Module* module, uint8*& cursor)
 
 void TablesSection::read (Module* module, uint8*& cursor)
 {
-    uint size = module->read_varuint32 (cursor);
+    const uint size = module->read_varuint32 (cursor);
     printf ("reading tables size:%X\n", size);
     ThrowString ("Tables::read not yet implemented");
     // Hello world does not have this section.
@@ -2540,7 +2540,7 @@ void TablesSection::read (Module* module, uint8*& cursor)
 void FunctionsSection::read_functions (Module* module, uint8*& cursor)
 {
     printf ("reading section 3\n");
-    uint size = module->read_varuint32 (cursor);
+    const uint size = module->read_varuint32 (cursor);
     module->functions.resize (size);
     for (uint i = 0; i < size; ++i)
     {
@@ -2553,7 +2553,7 @@ void FunctionsSection::read_functions (Module* module, uint8*& cursor)
 void ImportsSection::read_imports (Module* module, uint8*& cursor)
 {
     printf ("reading section 2\n");
-    size_t size = module->read_varuint32 (cursor);
+    const size_t size = module->read_varuint32 (cursor);
     data.resize (size);
     for (uint i = 0; i < size; ++i)
     {
@@ -2584,28 +2584,28 @@ void ImportsSection::read_imports (Module* module, uint8*& cursor)
     printf ("read section 2\n");
 }
 
-void FunctionType::read_vector_ValueType (std::vector<ValueType>& result, Module* module, uint8*& cursor)
+void Module::read_vector_ValueType (std::vector<ValueType>& result, uint8*& cursor)
 {
-    uint size = module->read_varuint32 (cursor);
+    const uint size = read_varuint32 (cursor);
     result.resize (size);
     for (uint i = 0; i < size; ++i)
-        result [i] = module->read_valuetype (cursor);
+        result [i] = read_valuetype (cursor);
 }
 
 void FunctionType::read_function_type (Module* module, uint8*& cursor)
 {
-    read_vector_ValueType (parameters, module, cursor);
-    read_vector_ValueType (results, module, cursor);
+    module->read_vector_ValueType (parameters, cursor);
+    module->read_vector_ValueType (results, cursor);
 }
 
 void TypesSection::read (Module* module, uint8*& cursor)
 {
     printf ("reading section 1\n");
-    uint size = module->read_varuint32 (cursor);
+    const uint size = module->read_varuint32 (cursor);
     functionTypes.resize (size);
     for (uint i = 0; i < size; ++i)
     {
-        uint marker = module->read_byte (cursor);
+        const uint marker = module->read_byte (cursor);
         if (marker != 0x60)
             ThrowString ("malformed2 in Types::read");
         functionTypes [i].read_function_type (module, cursor);
@@ -2615,12 +2615,12 @@ void TypesSection::read (Module* module, uint8*& cursor)
 
 static
 void
-DecodeInstructions (Module* module, std::vector<InstructionDecoded>& instructions, uint8*& cursor)
+DecodeInstructions (Module* module, std::vector<DecodedInstruction>& instructions, uint8*& cursor)
 {
     while (1)
     {
         InstructionEncoding e;
-        InstructionDecoded i;
+        DecodedInstruction i;
         switch (uint b0 = module->read_byte (cursor))
         {
         case BlockEnd:
@@ -2719,7 +2719,7 @@ float Module::read_f32 (uint8*& cursor)
     union {
         uint8 bytes [4];
         float f32;
-    } u = { };
+    } u;
     for (int i = 0; i < 4; ++i)
         u.bytes [i] = (uint8)read_byte (cursor);
     return u.f32;
@@ -2732,7 +2732,7 @@ double Module::read_f64 (uint8*& cursor)
     union {
         uint8 bytes [8];
         double f64;
-    } u = { };
+    } u;
     for (int i = 0; i < 8; ++i)
         u.bytes [i] = (uint8)read_byte (cursor);
     return u.f64;
@@ -2754,7 +2754,7 @@ uint Module::read_byte (uint8*& cursor)
 // i.e. string_view or such pointing right into the mmap
 String Module::read_string (uint8*& cursor)
 {
-    uint size = read_varuint32 (cursor);
+    const uint size = read_varuint32 (cursor);
     if (size + cursor > end)
         ThrowString ("malformed in read_string");
     // TODO UTF8 handling
@@ -2773,7 +2773,7 @@ String Module::read_string (uint8*& cursor)
 
 void Module::read_vector_varuint32 (std::vector<uint>& result, uint8*& cursor)
 {
-    uint size = read_varuint32 (cursor);
+    const uint size = read_varuint32 (cursor);
     result.resize (size);
     for (uint i = 0; i < size; ++i)
         result [i] = read_varuint32 (cursor);
@@ -2788,7 +2788,7 @@ uint Module::read_varuint32 (uint8*& cursor)
 Limits Module::read_limits (uint8*& cursor)
 {
     Limits limits = { };
-    uint tag = read_byte (cursor);
+    const uint tag = read_byte (cursor);
     switch (tag)
     {
     case 0:
@@ -2807,13 +2807,13 @@ Limits Module::read_limits (uint8*& cursor)
 
 MemoryType Module::read_memorytype (uint8*& cursor)
 {
-    MemoryType m = { read_limits (cursor) };
+    const MemoryType m = { read_limits (cursor) };
     return m;
 }
 
 bool Module::read_mutable (uint8*& cursor)
 {
-    uint m = read_byte (cursor);
+    const uint m = read_byte (cursor);
     switch (m)
     {
     case 0:
@@ -2826,7 +2826,7 @@ bool Module::read_mutable (uint8*& cursor)
 
 ValueType Module::read_valuetype (uint8*& cursor)
 {
-    uint value_type = read_byte (cursor);
+    const uint value_type = read_byte (cursor);
     switch (value_type)
     {
     default:
@@ -2871,7 +2871,7 @@ void Module::read_section (uint8*& cursor)
     uint8* payload = 0;
     uint name_size = 0;
 
-    uint id = read_varuint7 (cursor);
+    const uint id = read_varuint7 (cursor);
 
     if (id > 11)
         ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context (move to module or section)
@@ -2950,14 +2950,14 @@ struct IInterp
     {
     }
 
-    virtual void Reserved () = 0;
+    virtual void Reserved (DecodedInstruction* instr) = 0;
 #undef INSTRUCTION
 #if 0
     // TODO
     // Pure virtual here helps enforce we have everything.
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) virtual void name () = 0;
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) virtual void name (DecodedInstruction* instr) = 0;
 #else
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name () { abort (); }
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name (DecodedInstruction* instr) { abort (); }
 #endif
 INSTRUCTIONS
 };
@@ -2970,7 +2970,12 @@ private:
 public:
     Interp() : stack (*this)
     {
+        frame = 0;
     }
+
+    void* LoadStore (DecodedInstruction*, size_t size);
+
+    Frame* frame;
 
     // FIXME multiple modules
 
@@ -2997,15 +3002,13 @@ public:
         }
     }
 
-    void Reserved ();
+    void Reserved (DecodedInstruction*);
 
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name ();
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name (DecodedInstruction* instr);
 INSTRUCTIONS
 };
 
-//load
-//store
 //unreach
 //memsize
 //memgrow
@@ -3027,11 +3030,147 @@ INSTRUCTIONS
 //ret
 //const
 
-void Interp::Nop ()
+void* Interp::LoadStore (DecodedInstruction* instr, size_t size)
+{
+    // TODO spec says effective_address is 33 bits.
+    // TODO overflow esp. on 32bit
+    const size_t effective_address = pop_i32 () + instr->offset;
+    assert (effective_address + size < frame->module->memory.size());
+    return &frame->module->memory [effective_address];
+}
+
+#undef INTERP
+#define INTERP(x) void Interp::x (DecodedInstruction* instr)
+
+INTERP (i32_Load)
+{
+    push_i32 (*(int*)LoadStore (instr, 4));
+}
+
+INTERP (i32_Load8s)
+{
+    push_i32 (*(int8*)LoadStore (instr, 1));
+}
+
+INTERP (i32_Load16s)
+{
+    push_i32 (*(int16*)LoadStore (instr, 2));
+}
+
+INTERP (i32_Load8u)
+{
+    push_i32 (*(uint8*)LoadStore (instr, 1));
+}
+
+INTERP (i32_Load16u)
+{
+    push_i32 (*(uint16*)LoadStore (instr, 2));
+}
+
+INTERP (i64_Load)
+{
+    push_i64 (*(int64*)LoadStore (instr, 8));
+}
+
+INTERP (i64_Load8s)
+{
+    push_i64 (*(int8*)LoadStore (instr, 1));
+}
+
+INTERP (i64_Load16s)
+{
+    push_i64 (*(int16*)LoadStore (instr, 2));
+}
+
+INTERP (i64_Load8u)
+{
+    push_i64 (*(uint8*)LoadStore (instr, 1));
+}
+
+INTERP (i64_Load16u)
+{
+    push_i64 (*(uint16*)LoadStore (instr, 2));
+}
+
+INTERP (i64_Load32s)
+{
+    push_i64 (*(int*)LoadStore (instr, 4));
+}
+
+INTERP (i64_Load32u)
+{
+    push_i64 (*(uint*)LoadStore (instr, 4));
+}
+
+INTERP (f32_Load)
+{
+    push_f32 (*(float*)LoadStore (instr, 4));
+}
+
+INTERP (f64_Load)
+{
+    push_f64 (*(double*)LoadStore (instr, 8));
+}
+
+INTERP (i32_Store)
+{
+    const uint a = pop_u32 ();
+    *(uint*)LoadStore (instr, 4) = a;
+}
+
+INTERP (i32_Store8)
+{
+    const uint a = pop_u32 ();
+    *(uint8*)LoadStore (instr, 1) = (uint8)(a & 0xFF);
+}
+
+INTERP (i32_Store16)
+{
+    const uint a = pop_u32 ();
+    *(uint16*)LoadStore (instr, 1) = (uint16)(a & 0xFFFF);
+}
+
+INTERP (i64_Store8)
+{
+    const uint64 a = pop_u64 ();
+    *(uint8*)LoadStore (instr, 1) = (uint8)(a & 0xFF);
+}
+
+INTERP (i64_Store16)
+{
+    const uint64 a = pop_u64 ();
+    *(uint16*)LoadStore (instr, 2) = (uint16)(a & 0xFFFF);
+}
+
+INTERP (i64_Store32)
+{
+    const uint64 a = pop_u64 ();
+    *(uint*)LoadStore (instr, 4) = (uint)(a & 0xFFFFFFFF);
+}
+
+INTERP (i64_Store)
+{
+    const uint64 a = pop_u64 ();
+    *(uint64*)LoadStore (instr, 8) = a;
+}
+
+INTERP (f32_Store)
+{
+    float a = pop_f32 ();
+    *(float*)LoadStore (instr, 4) = a;
+}
+
+INTERP (f64_Store)
+{
+    double a = pop_f64 ();
+    *(double*)LoadStore (instr, 8) = a;
+}
+
+INTERP (Nop)
 {
 }
 
-void Interp:: Reserved ()
+void Interp:: Reserved (DecodedInstruction* instr)
 {
     static const char reserved [] = "reserved\n";
 #if _WIN32
@@ -3047,74 +3186,74 @@ void Interp:: Reserved ()
     abort ();
 }
 
-void Interp::Eqz_i32 ()
+INTERP (Eqz_i32)
 {
     push_bool (pop_i32 () == 0);
 }
 
-void Interp::Eqz_i64 ()
+INTERP (Eqz_i64)
 {
     push_bool (pop_i64 () == 0);
 }
 
-void Interp::Eq_i32 ()
+INTERP (Eq_i32)
 {
     push_bool (pop_i32 () == pop_i32 ());
 }
 
-void Interp::Eq_i64 ()
+INTERP (Eq_i64)
 {
     push_bool (pop_i64 () == pop_i64 ());
 }
 
-void Interp::Ne_i32 ()
+INTERP (Ne_i32)
 {
     push_bool (pop_i32 () != pop_i32 ());
 }
 
-void Interp::Ne_i64 ()
+INTERP (Ne_i64)
 {
     push_bool (pop_i64 () != pop_i64 ());
 }
 
 // Lt
 
-void Interp::Lt_i32s ()
+INTERP (Lt_i32s)
 {
     int b = pop_i32 ();
     int a = pop_i32 ();
     push_bool (a < b);
 }
 
-void Interp::Lt_i32u ()
+INTERP (Lt_i32u)
 {
     uint b = pop_u32 ();
     uint a = pop_u32 ();
     push_bool (a < b);
 }
 
-void Interp::Lt_i64s ()
+INTERP (Lt_i64s)
 {
     int64 b = pop_i64 ();
     int64 a = pop_i64 ();
     push_bool (a < b);
 }
 
-void Interp::Lt_i64u ()
+INTERP (Lt_i64u)
 {
     uint64 b = pop_u32 ();
     uint64 a = pop_u32 ();
     push_bool (a < b);
 }
 
-void Interp::Lt_f32 ()
+INTERP (Lt_f32)
 {
     float b = pop_f32 ();
     float a = pop_f32 ();
     push_bool (a < b);
 }
 
-void Interp::Lt_f64 ()
+INTERP (Lt_f64)
 {
     double b = pop_f64 ();
     double a = pop_f64 ();
@@ -3123,40 +3262,40 @@ void Interp::Lt_f64 ()
 
 // Le
 
-void Interp::Le_i32s ()
+INTERP (Le_i32s)
 {
     const int b = pop_i32 ();
     push_bool (pop_i32 () <= b);
 }
 
-void Interp::Le_i64s ()
+INTERP (Le_i64s)
 {
     const int64 b = pop_i64 ();
     push_bool (pop_i64 () <= b);
 
 }
 
-void Interp::Le_i32u ()
+INTERP (Le_i32u)
 {
     const uint b = pop_u32 ();
     push_bool (pop_u32 () <= b);
 }
 
-void Interp::Le_i64u ()
+INTERP (Le_i64u)
 {
     const uint64 b = pop_u64 ();
     push_bool (pop_u64 () <= b);
 
 }
 
-void Interp::Le_f32 ()
+INTERP (Le_f32)
 {
     const float z2 = pop_f32 ();
     const float z1 = pop_f32 ();
     push_bool (z1 <= z2);
 }
 
-void Interp::Le_f64 ()
+INTERP (Le_f64)
 {
     const double z2 = pop_f64 ();
     const double z1 = pop_f64 ();
@@ -3165,42 +3304,42 @@ void Interp::Le_f64 ()
 
 // Ge
 
-void Interp::Ge_i32u ()
+INTERP (Ge_i32u)
 {
     const uint b = pop_u32 ();
     const uint a = pop_u32 ();
     push_bool (a >= b);
 }
 
-void Interp::Ge_i64u ()
+INTERP (Ge_i64u)
 {
     const uint64 b = pop_u64 ();
     const uint64 a = pop_u64 ();
     push_bool (a >= b);
 }
 
-void Interp::Ge_i32s ()
+INTERP (Ge_i32s)
 {
     const int b = pop_i32 ();
     const int a = pop_i32 ();
     push_bool (a >= b);
 }
 
-void Interp::Ge_i64s ()
+INTERP (Ge_i64s)
 {
     const int64 b = pop_i64 ();
     const int64 a = pop_i64 ();
     push_bool (a >= b);
 }
 
-void Interp::Ge_f32 ()
+INTERP (Ge_f32)
 {
     const float b = pop_f32 ();
     const float a = pop_f32 ();
     push_bool (a >= b);
 }
 
-void Interp::Ge_f64 ()
+INTERP (Ge_f64)
 {
     const double b = pop_f64 ();
     const double a = pop_f64 ();
@@ -3251,7 +3390,7 @@ count_leading_zeros (T a)
 
 #if 0 // TODO
 
-void Interp::Popcnt_i32 ()
+INTERP (Popcnt_i32)
 {
     uint& a = u32 ();
 #if _MSC_VER
@@ -3261,7 +3400,7 @@ void Interp::Popcnt_i32 ()
 #endif
 }
 
-void Interp::Popcnt_i64 ()
+INTERP (Popcnt_i64)
 {
     uint64& a = u64 ();
 #if _MSC_VER
@@ -3273,163 +3412,163 @@ void Interp::Popcnt_i64 ()
 
 #endif
 
-void Interp::Ctz_i32 ()
+INTERP (Ctz_i32)
 {
     uint& a = u32 ();
     a = count_trailing_zeros (a);
 }
 
-void Interp::Ctz_i64 ()
+INTERP (Ctz_i64)
 {
     uint64& a = u64 ();
     a = count_trailing_zeros (a);
 }
 
-void Interp::Clz_i32 ()
+INTERP (Clz_i32)
 {
     uint& a = u32 ();
     a = count_leading_zeros (a);
 }
 
-void Interp::Clz_i64 ()
+INTERP (Clz_i64)
 {
     uint64& a = u64 ();
     a = count_leading_zeros (a);
 }
 
-void Interp::Add_i32 ()
+INTERP (Add_i32)
 {
     const int a = pop_i32 ();
     i32 () += a;
 }
 
-void Interp::Add_i64 ()
+INTERP (Add_i64)
 {
     const int64 a = pop_i64 ();
     i64 () += a;
 }
 
-void Interp::Sub_i32 ()
+INTERP (Sub_i32)
 {
     const int a = pop_i32 ();
     i32 () -= a;
 }
 
-void Interp::Sub_i64 ()
+INTERP (Sub_i64)
 {
     const int64 a = pop_i64 ();
     i64 () -= a;
 }
 
-void Interp::Mul_i32 ()
+INTERP (Mul_i32)
 {
     const int a = pop_i32 ();
     i32 () *= a;
 }
 
-void Interp::Mul_i64 ()
+INTERP (Mul_i64)
 {
     const int64 a = pop_i64 ();
     i64 () *= a;
 }
 
-void Interp::Div_s_i32 ()
+INTERP (Div_s_i32)
 {
     const int a = pop_i32 ();
     i32 () /= a;
 }
 
-void Interp::Div_u_i32 ()
+INTERP (Div_u_i32)
 {
     const uint a = pop_u32 ();
     u32 () /= a;
 }
 
-void Interp::Rem_s_i32 ()
+INTERP (Rem_s_i32)
 {
     const int a = pop_i32 ();
     i32 () %= a;
 }
 
-void Interp::Rem_u_i32 ()
+INTERP (Rem_u_i32)
 {
     const uint a = pop_u32 ();
     u32 () %= a;
 }
 
-void Interp::And_i32 ()
+INTERP (And_i32)
 {
     const int a = pop_i32 ();
     i32 () &= a;
 }
 
-void Interp::And_i64 ()
+INTERP (And_i64)
 {
     const int64 a = pop_i64 ();
     i64 () &= a;
 }
 
-void Interp::Or_i32 ()
+INTERP (Or_i32)
 {
     const int a = pop_i32 ();
     i32 () |= a;
 }
 
-void Interp::Or_i64 ()
+INTERP (Or_i64)
 {
     const int64 a = pop_i64 ();
     i64 () |= a;
 }
 
-void Interp::Xor_i32 ()
+INTERP (Xor_i32)
 {
     const int a = pop_i32 ();
     i32 () ^= a;
 }
 
-void Interp::Xor_i64 ()
+INTERP (Xor_i64)
 {
     const int64 a = pop_i64 ();
     i64 () ^= a;
 }
 
-void Interp::Shl_i32 ()
+INTERP (Shl_i32)
 {
     const int a = pop_i32 ();
     i32 () <<= (a & 31);
 }
 
-void Interp::Shl_i64 ()
+INTERP (Shl_i64)
 {
     const int64 a = pop_i64 ();
     i64 () <<= (a & 63);
 }
 
-void Interp::Shr_s_i32 ()
+INTERP (Shr_s_i32)
 {
     const int b = pop_i32 ();
     i32 () <<= (b & 31);
 }
 
-void Interp::Shr_s_i64 ()
+INTERP (Shr_s_i64)
 {
     const int64 b = pop_i64 ();
     i64 () <<= (b & 63);
 }
 
-void Interp::Shr_u_i32 ()
+INTERP (Shr_u_i32)
 {
     const uint b = pop_u32 ();
     u32 () >>= (b & 31);
 }
 
-void Interp::Shr_u_i64 ()
+INTERP (Shr_u_i64)
 {
     const uint64 b = pop_u64 ();
     u64 () >>= (b & 63);
 }
 
-void Interp::Rotl_i32 ()
+INTERP (Rotl_i32)
 {
     const int n = 32;
     const int b = (pop_i32 () & (n - 1));
@@ -3442,7 +3581,7 @@ void Interp::Rotl_i32 ()
 #endif
 }
 
-void Interp::Rotl_i64 ()
+INTERP (Rotl_i64)
 {
     const int n = 64;
     const int b = (pop_i64 () & (n - 1));
@@ -3455,7 +3594,7 @@ void Interp::Rotl_i64 ()
 #endif
 }
 
-void Interp::Rotr_i32 ()
+INTERP (Rotr_i32)
 {
     const int n = 32;
     const int b = (int)(pop_u32 () & (n - 1));
@@ -3468,7 +3607,7 @@ void Interp::Rotr_i32 ()
 #endif
 }
 
-void Interp::Rotr_i64 ()
+INTERP (Rotr_i64)
 {
     const int n = 64;
     const int b = (int)(pop_u64 () & (n - 1));
@@ -3481,172 +3620,172 @@ void Interp::Rotr_i64 ()
 #endif
 }
 
-void Interp::Abs_f32 ()
+INTERP (Abs_f32)
 {
     float& z = f32 ();
     z = std::abs (z);
 }
 
-void Interp::Abs_f64 ()
+INTERP (Abs_f64)
 {
     double& z = f64 ();
     z = std::abs (z);
 }
 
-void Interp::Neg_f32 ()
+INTERP (Neg_f32)
 {
     f32 () *= -1;
 }
 
-void Interp::Neg_f64 ()
+INTERP (Neg_f64)
 {
     f64 () *= -1;
 }
 
-void Interp::Ceil_f32 ()
+INTERP (Ceil_f32)
 {
     float& z = f32 ();
     z = ceilf (z);
 }
 
-void Interp::Ceil_f64 ()
+INTERP (Ceil_f64)
 {
     double& z = f64 ();
     z = ceil (z);
 }
 
-void Interp::Floor_f32 ()
+INTERP (Floor_f32)
 {
     float& z = f32 ();
     z = floorf (z);
 }
 
-void Interp::Floor_f64 ()
+INTERP (Floor_f64)
 {
     double& z = f64 ();
     z = floor (z);
 }
 
-void Interp::Trunc_f32 ()
+INTERP (Trunc_f32)
 {
     float& z = f32 ();
     z = truncf (z); // TODO C99
 }
 
-void Interp::Trunc_f64 ()
+INTERP (Trunc_f64)
 {
     double& z = f64 ();
     z = trunc (z);
 }
 
-void Interp::Nearest_f32 ()
+INTERP (Nearest_f32)
 {
     float& z = f32 ();
     z = roundf (z);
 }
 
-void Interp::Nearest_f64 ()
+INTERP (Nearest_f64)
 {
     double& z = f64 ();
     z = round (z);
 }
 
-void Interp::Sqrt_f32 ()
+INTERP (Sqrt_f32)
 {
     float& z = f32 ();
     z = sqrtf (z);
 }
 
-void Interp::Sqrt_f64 ()
+INTERP (Sqrt_f64)
 {
     double& z = f64 ();
     z = sqrt (z);
 }
 
-void Interp::Add_f32 ()
+INTERP (Add_f32)
 {
     const float a = pop_f32 ();
     f32 () += a;
 }
 
-void Interp::Add_f64 ()
+INTERP (Add_f64)
 {
     const double a = pop_f64 ();
     f64 () += a;
 }
 
-void Interp::Sub_f32 ()
+INTERP (Sub_f32)
 {
     const float a = pop_f32 ();
     f32 () -= a;
 }
 
-void Interp::Sub_f64 ()
+INTERP (Sub_f64)
 {
     const double a = pop_f64 ();
     f64 () -= a;
 }
 
-void Interp::Mul_f32 ()
+INTERP (Mul_f32)
 {
     const float a = pop_f32 ();
     f32 () *= a;
 }
 
-void Interp::Mul_f64 ()
+INTERP (Mul_f64)
 {
     const double a = pop_f64 ();
     f64 () *= a;
 }
 
-void Interp::Div_f32 ()
+INTERP (Div_f32)
 {
     const float a = pop_f32 ();
     f32 () /= a;
 }
 
-void Interp::Div_f64 ()
+INTERP (Div_f64)
 {
     const double a = pop_f64 ();
     f64 () /= a;
 }
 
-void Interp::Min_f32 ()
+INTERP (Min_f32)
 {
     const float z2 = pop_f32 ();
     float& z1 = f32 ();
     z1 = Min (z1, z2);
 }
 
-void Interp::Min_f64 ()
+INTERP (Min_f64)
 {
     const double z2 = pop_f64 ();
     double& z1 = f64 ();
     z1 = Min (z1, z2);
 }
 
-void Interp::Max_f32 ()
+INTERP (Max_f32)
 {
     const float z2 = pop_f32 ();
     float& z1 = f32 ();
     z1 = Max (z1, z2);
 }
 
-void Interp::Max_f64 ()
+INTERP (Max_f64)
 {
     const double z2 = pop_f64 ();
     double& z1 = f64 ();
     z1 = Max (z1, z2);
 }
 
-void Interp::Copysign_f32 ()
+INTERP (Copysign_f32)
 {
     const float z2 = pop_f32 ();
     float& z1 = f32 ();
     z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
 }
 
-void Interp::Copysign_f64 ()
+INTERP (Copysign_f64)
 {
     const double z2 = pop_f64 ();
     double& z1 = f64 ();
@@ -3655,129 +3794,129 @@ void Interp::Copysign_f64 ()
 
 // Various lossless and lossy conversions.
 
-void Interp::i32_Wrap_i64 ()
+INTERP (i32_Wrap_i64)
 {
     set_i32 ((int)(i64 () & 0xFFFFFFFF));
 }
 
-void Interp::i32_Trunc_f32s ()
+INTERP (i32_Trunc_f32s)
 {
     set_i32 ((int)f32 ());
 }
 
-void Interp::i32_Trunc_f32u ()
+INTERP (i32_Trunc_f32u)
 {
     set_u32 ((uint)f32 ());
 }
 
-void Interp::i32_Trunc_f64s ()
+INTERP (i32_Trunc_f64s)
 {
     set_i32 ((int)f64 ());
 }
 
-void Interp::i32_Trunc_f64u ()
+INTERP (i32_Trunc_f64u)
 {
     set_u32 ((uint)f64 ());
 }
 
-void Interp::i64_Extend_i32s ()
+INTERP (i64_Extend_i32s)
 {
     set_i64 ((int64)i32 ());
 }
 
-void Interp::i64_Extend_i32u ()
+INTERP (i64_Extend_i32u)
 {
     set_u64 ((uint64)u32 ());
 }
 
-void Interp::i64_Trunc_f32s ()
+INTERP (i64_Trunc_f32s)
 {
     set_i64 ((int64)f32 ());
 }
 
-void Interp::i64_Trunc_f32u ()
+INTERP (i64_Trunc_f32u)
 {
     set_u64 ((uint64)f32 ());
 }
 
-void Interp::i64_Trunc_f64s ()
+INTERP (i64_Trunc_f64s)
 {
     set_i64 ((int64)f64 ());
 }
 
-void Interp::i64_Trunc_f64u ()
+INTERP (i64_Trunc_f64u)
 {
     set_u64 ((uint64)f64 ());
 }
 
-void Interp::f32_Convert_i32u ()
+INTERP (f32_Convert_i32u)
 {
     set_f32 ((float)(uint)u32 ());
 }
 
-void Interp::f32_Convert_i32s ()
+INTERP (f32_Convert_i32s)
 {
     set_f32 ((float)(int)i32 ());
 }
 
-void Interp::f32_Convert_i64u ()
+INTERP (f32_Convert_i64u)
 {
     set_f32 ((float)u64 ());
 }
 
-void Interp::f32_Convert_i64s ()
+INTERP (f32_Convert_i64s)
 {
     set_f32 ((float)i64 ());
 }
 
-void Interp::f32_Demote_f64 ()
+INTERP (f32_Demote_f64)
 {
     set_f32 ((float)f64 ());
 }
 
-void Interp::f64_Convert_i32s ()
+INTERP (f64_Convert_i32s)
 {
     set_f64 ((double)i32 ());
 }
 
-void Interp::f64_Convert_i32u ()
+INTERP (f64_Convert_i32u)
 {
     set_f64 ((double)u32 ());
 }
 
-void Interp::f64_Convert_i64s ()
+INTERP (f64_Convert_i64s)
 {
     set_f64 ((double)i64 ());
 }
 
-void Interp::f64_Convert_i64u ()
+INTERP (f64_Convert_i64u)
 {
     set_f64 ((double)u64 ());
 }
 
-void Interp::f64_Promote_f32 ()
+INTERP (f64_Promote_f32)
 {
     set_f64 ((double)f32 ());
 }
 
 // reinterpret; these could be more automated
 
-void Interp::i32_Reinterpret_f32 ()
+INTERP (i32_Reinterpret_f32)
 {
     tag (ValueType_f32) = ValueType_i32;
 }
 
-void Interp::f32_Reinterpret_i32 ()
+INTERP (f32_Reinterpret_i32)
 {
     tag (ValueType_i32) = ValueType_f32;
 }
 
-void Interp::i64_Reinterpret_f64 ()
+INTERP (i64_Reinterpret_f64)
 {
     tag (ValueType_f64) = ValueType_i64;
 }
 
-void Interp::f64_Reinterpret_i64 ()
+INTERP (f64_Reinterpret_i64)
 {
     tag (ValueType_i64) = ValueType_f64;
 }
