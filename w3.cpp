@@ -23,7 +23,7 @@
 // later some JIT
 
 #if _MSC_VER && _MSC_VER <= 1500
-#error This version of Visual C++ is too old. Known bad versions include 5.0 and 2008. Known good includes 1900/2017.
+//#error This version of Visual C++ is too old. Known bad versions include 5.0 and 2008. Known good includes 1900/2017.
 #endif
 
 #define _CRT_SECURE_NO_WARNINGS 1
@@ -45,6 +45,15 @@
 #endif
 
 #if _MSC_VER
+
+
+#if _MSC_VER <= 1500 // TODO which version?
+float truncf (float);
+double trunc (double);
+float roundf (float);
+double round (double);
+#endif
+
 #if _MSC_VER <= 1100
 #include "yvals.h"
 #pragma warning (disable:4018) // unsigned/signed
@@ -136,13 +145,46 @@ typedef unsigned __int16 uint16;
 typedef unsigned __int64 uint64;
 typedef unsigned __int32 uint;
 #else
-typedef int8_t int8;
-//typedef int16_t int16;
-typedef int64_t int64;
-typedef uint8_t uint8;
-typedef uint16_t uint16;
-typedef uint64_t uint64;
-typedef uint32_t uint;
+
+// C99 / C++?
+//typedef int8_t int8;
+////typedef int16_t int16;
+//typedef int64_t int64;
+//typedef uint8_t uint8;
+//typedef uint16_t uint16;
+//typedef uint64_t uint64;
+//typedef uint32_t uint;
+
+#if UCHAR_MAX == 0x0FFUL
+typedef   signed char        int8;
+typedef unsigned char       uint8;
+#else
+#error unable to find 8bit integer
+#endif
+#if USHRT_MAX == 0x0FFFFUL
+//typedef          short      int16;
+typedef unsigned short     uint16;
+#else
+#error unable to find 16bit integer
+#endif
+#if UINT_MAX == 0x0FFFFFFFFUL
+typedef          int        int32;
+typedef unsigned int       uint32;
+typedef unsigned int       uint;
+#elif ULONG_MAX == 0x0FFFFFFFFUL
+typedef          long       int32;
+typedef unsigned long      UINT32;
+#else
+#error unable to find 32bit integer
+#endif
+#if _MSC_VER || __DECC || __DECCXX || defined (__int64)
+typedef          __int64    int64;
+typedef unsigned __int64   uint64;
+#else
+typedef          long long  int64;
+typedef unsigned long long uint64;
+#endif
+
 #endif
 
 namespace w3
@@ -762,7 +804,7 @@ UIntToHex_AtLeast8 (uint64 a, char* buf)
 
 struct stream
 {
-    virtual void write (const void* bytes, size_t count) = 0;
+    virtual void write (const void* bytes, size_t size) = 0;
     void prints (const char* a) { write (a, strlen (a)); }
     void prints (const std::string& a) { prints (a.c_str ()); }
     void printc (char a) { write (&a, 1); }
@@ -783,19 +825,19 @@ struct stream
 
 struct stdout_stream : stream
 {
-    virtual void write (const void* bytes, size_t count)
+    virtual void write (const void* bytes, size_t size)
     {
         fflush (stdout);
         const char* pc = (const char*)bytes;
-        while (count > 0)
+        while (size > 0)
         {
-            uint const n = (uint)Min (count, ((size_t)1024) * 1024 * 1024);
+            uint const n = (uint)Min (size, ((size_t)1024) * 1024 * 1024);
 #if _MSC_VER
             ::_write (_fileno (stdout), pc, n);
 #else
             ::write (fileno (stdout), pc, n);
 #endif
-            count -= n;
+            size -= n;
             pc += n;
         }
     }
@@ -803,19 +845,19 @@ struct stdout_stream : stream
 
 struct stderr_stream : stream
 {
-    virtual void write (const void* bytes, size_t count)
+    virtual void write (const void* bytes, size_t size)
     {
         fflush (stderr);
         const char* pc = (const char*)bytes;
-        while (count > 0)
+        while (size > 0)
         {
-            uint const n = (uint)Min (count, ((size_t)1024) * 1024 * 1024);
+            uint const n = (uint)Min (size, ((size_t)1024) * 1024 * 1024);
 #if _MSC_VER
             ::_write (_fileno (stderr), pc, n);
 #else
             ::write (fileno (stderr), pc, n);
 #endif
-            count -= n;
+            size -= n;
             pc += n;
         }
     }
@@ -923,6 +965,7 @@ typedef enum Type : uint8
     Type_f64 = 0x7C,
 } Type;
 
+// This should probabably be combined with ResultType, and called Tag.
 typedef enum ValueType : uint8
 {
     ValueType_i32 = 0x7F,
@@ -947,6 +990,7 @@ typedef struct TaggedValue
     Value value;
 } TaggedValue;
 
+// This should probabably be combined with ValueType, and called Tag.
 typedef enum ResultType : uint8
 {
     ResultType_i32 = 0x7F,
@@ -1144,6 +1188,8 @@ struct Stack : std::stack<StackValue>
         std::stack<StackValue>::push (value);
     }
 
+    // type specific pushers
+
     void push_i32 (int i)
     {
         StackValue value = {StackTag_Value, { ValueType_i32 } };
@@ -1187,6 +1233,8 @@ struct Stack : std::stack<StackValue>
         push_i32 (b);
     }
 
+    // accessors, check tag, return ref
+
     int& i32 ()
     {
         return value (ValueType_i32).i32;
@@ -1217,35 +1265,57 @@ struct Stack : std::stack<StackValue>
         return value (ValueType_f64).f64;
     }
 
-    int& unchecked_i32 ()
+    // setter, changes tag, returns ref
+
+    Value& set (ValueType tag)
     {
-        return value ().i32;
+	    assert (size () >= 1);
+        StackValue& t = top ();
+        TaggedValue& v = t.value;
+	    assert (t.type == StackTag_Value);
+        v.tag = tag;
+        return v.value;
     }
 
-    int64& unchecked_i64 ()
+    // type-specific setters
+
+    void set_i32 (int a)
     {
-        return value ().i64;
+        set (ValueType_i32).i32 = a;
     }
 
-    uint& unchecked_u32 ()
+    void set_u32 (uint a)
     {
-        return value ().u32;
+        set (ValueType_i32).u32 = a;
     }
 
-    uint64& unchecked_u64 ()
+    void set_bool (bool a)
     {
-        return value ().u64;
+        set_i32 (a);
     }
 
-    float& unchecked_f32 ()
+    void set_i64 (int64 a)
     {
-        return value ().f32;
+        set (ValueType_i64).i64 = a;
     }
 
-    double& unchecked_f64 ()
+    void set_u64 (uint64 a)
     {
-        return value ().f64;
+        set (ValueType_i64).u64 = a;
     }
+
+
+    void set_f32 (float a)
+    {
+        set (ValueType_f32).f32 = a;
+    }
+
+    void set_f64 (double a)
+    {
+        set (ValueType_f64).f64 = a;
+    }
+
+    // type specific poppers
 
     int pop_i32 ()
     {
@@ -1873,7 +1943,8 @@ INTERP (FBinOp)
 
 constexpr int bits_for_uint (uint a)
 {
-#define X(x) if (a < (1u << x)) return x;
+    return
+#define X(x) (a < (1u << x)) ? x :
     X( 1) X( 2) X( 3) X( 4)
     X( 5) X( 6) X( 7) X( 8)
     X( 9) X(10) X(11) X(12)
@@ -1883,7 +1954,7 @@ constexpr int bits_for_uint (uint a)
     X(25) X(26) X(27) X(28)
     X(29) X(30) X(31)
 #undef X
-    return 32;
+    32;
 }
 
 #endif
@@ -2150,16 +2221,212 @@ struct Code // section3 and section10
     std::vector<InstructionDecoded> decoded_instructions; // section10
 };
 
+// Initial representation of X and XSection are the same.
+// This might evolve, i.e. into separate TypesSection and Types,
+// or just Types that is not Section.
+
+struct FunctionType
+{
+    // CONSIDER pointer into mmf
+    std::vector<ValueType> parameters;
+    std::vector<ValueType> results;
+
+    void read_vector_ValueType (std::vector<ValueType>& result, Module* module, uint8*& cursor);
+    void read_function_type (Module* module, uint8*& cursor);
+};
+
+struct TypesSection : Section<1>
+{
+    std::vector<FunctionType> functionTypes;
+
+    static SectionBase* make ()
+    {
+        return new TypesSection ();
+    }
+
+    virtual void read (Module* module, uint8*& cursor);
+};
+
+struct ImportsSection : Section<2>
+{
+    std::vector<Import> data;
+
+    static SectionBase* make ()
+    {
+        return new ImportsSection ();
+    }
+
+    virtual void read (Module* module, uint8*& cursor)
+    {
+        read_imports (module, cursor);
+    }
+
+    void read_imports (Module* module, uint8*& cursor);
+};
+
+struct FunctionsSection : Section<3>
+{
+    static SectionBase* make ()
+    {
+        return new FunctionsSection ();
+    }
+
+    virtual void read (Module* module, uint8*& cursor)
+    {
+        read_functions (module, cursor);
+    }
+
+    void read_functions (Module* module, uint8*& cursor);
+};
+
+struct TablesSection : Section<4>
+{
+    static SectionBase* make ()
+    {
+        return new TablesSection ();
+    }
+
+    virtual void read (Module* module, uint8*& cursor);
+};
+
+struct MemorySection : Section<5>
+{
+    static SectionBase* make ()
+    {
+        return new MemorySection ();
+    }
+
+    virtual void read (Module* module, uint8*& cursor)
+    {
+        ThrowString ("Memory::read not yet implemented");
+        // Hello world does not have this section.
+    }
+};
+
+struct GlobalsSection : Section<6>
+{
+    static SectionBase* make ()
+    {
+        return new GlobalsSection ();
+    }
+
+    void read_globals (Module* module, uint8*& cursor);
+
+    virtual void read (Module* module, uint8*& cursor)
+    {
+        read_globals (module, cursor);
+    }
+};
+
+struct ExportsSection : Section<7>
+{
+    static SectionBase* make ()
+    {
+        return new ExportsSection ();
+    }
+
+    void read_exports (Module* module, uint8*& cursor);
+
+    virtual void read (Module* module, uint8*& cursor)
+    {
+        read_exports (module, cursor);
+    }
+};
+
+struct StartSection : Section<8>
+{
+    static SectionBase* make ()
+    {
+        return new StartSection ();
+    }
+
+    virtual void read (Module* module, uint8*& cursor)
+    {
+        ThrowString ("Start::read not yet implemented");
+    }
+};
+
+struct ElementsSection : Section<9>
+{
+    static SectionBase* make ()
+    {
+        return new ElementsSection ();
+    }
+
+    void read_elements (Module* module, uint8*& cursor);
+
+    virtual void read (Module* module, uint8*& cursor)
+    {
+        read_elements (module, cursor);
+    }
+};
+
+struct CodeSection : Section<10>
+{
+    static SectionBase* make ()
+    {
+        return new CodeSection ();
+    }
+
+    void read_code (Module* module, uint8*& cursor);
+
+    virtual void read (Module* module, uint8*& cursor)
+    {
+        read_code (module, cursor);
+    }
+};
+
+struct DataSection : Section<11>
+{
+    static SectionBase* make ()
+    {
+        return new DataSection ();
+    }
+
+    void read_data (Module* module, uint8*& cursor);
+
+    virtual void read (Module* module, uint8*& cursor)
+    {
+        read_data (module, cursor);
+    }
+};
+
 struct Module
 {
-    Module () : base (0), file_size (0), end (0), main (0) { }
+    Module () : base (0), file_size (0), end (0), main (0)
+    {
+        sections [0] = NULL;
+        sections [1] = &types_section;
+        sections [2] = &imports_section;
+        sections [3] = &functions_section;
+        sections [4] = &tables_section;
+        sections [5] = &memory_section;
+        sections [6] = &globals_section;
+        sections [7] = &exports_section;
+        sections [8] = &start_section;
+        sections [9] = &elements_section;
+        sections [10] = &code_section;
+        sections [11] = &data_section;
+    }
 
     MemoryMappedFile mmf;
     uint8* base;
     uint64 file_size;
     uint8* end;
-    std::vector<std::shared_ptr<SectionBase>> sections;
-    std::vector<std::shared_ptr<SectionBase>> custom_sections; // FIXME
+    SectionBase* sections [12];
+    //std::vector<std::shared_ptr<SectionBase>> custom_sections; // FIXME
+
+    TypesSection types_section;
+    ImportsSection imports_section;
+    FunctionsSection functions_section;
+    TablesSection tables_section;
+    MemorySection memory_section;
+    GlobalsSection globals_section;
+    ExportsSection exports_section;
+    StartSection start_section;
+    ElementsSection elements_section;
+    CodeSection code_section;
+    DataSection data_section;
 
     std::vector<Function> functions; // section3 and section10
     std::vector<TableType> tables; // section3
@@ -2192,6 +2459,193 @@ struct Module
     void read_section (uint8*& cursor);
     void read_module (const char* file_name);
 };
+
+void
+DecodeInstructions (Module* module, std::vector<InstructionDecoded>& instructions, uint8*& cursor);
+
+void DataSection::read_data (Module* module, uint8*& cursor)
+{
+    uint size = module->read_varuint32 (cursor);
+    printf ("reading data11 size:%X\n", size);
+    module->data.resize (size);
+    for (uint i = 0; i < size; ++i)
+    {
+        Data& a = module->data [i];
+        a.memory = module->read_varuint32 (cursor);
+        DecodeInstructions (module, a.expr, cursor);
+        size = module->read_varuint32 (cursor);
+        if (cursor + size > module->end)
+            ThrowString ("data out of bounds");
+        a.bytes = cursor;
+        cursor += size;
+        printf ("data [%u]:{%X}\n", i++, ((unsigned char*)a.bytes) [0]);
+    }
+    printf ("read data11 size:%X\n", size);
+}
+
+void CodeSection::read_code (Module* module, uint8*& cursor)
+{
+    uint8* end = module->end;
+    uint size = module->read_varuint32 (cursor);
+    if (cursor + size > module->end)
+        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%u", cursor, end, size, __LINE__));
+    module->code.resize (size);
+    for (uint i = 0; i < size; ++i)
+    {
+        Code& a = module->code [i];
+        a.size = module->read_varuint32 (cursor);
+        if (cursor + a.size > module->end)
+            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%u", cursor, end, a.size, __LINE__));
+        a.cursor = cursor;
+        cursor += a.size;
+        printf ("code [%X]: %p/%X\n", i++, a.cursor, a.size);
+    }
+}
+
+void ElementsSection::read_elements (Module* module, uint8*& cursor)
+{
+    uint size1 = module->read_varuint32 (cursor);
+    printf ("reading elements9 size1:%X\n", size1);
+    module->elements.resize (size1);
+    for (uint i = 0; i < size1; ++i)
+    {
+        Element& a = module->elements [i];
+        a.table = module->read_varuint32 (cursor);
+        DecodeInstructions (module, a.offset_instructions, cursor);
+        uint size2 = module->read_varuint32 (cursor);
+        a.functions.resize (size2);
+        for (uint j = 0; j < size2; ++j)
+        {
+            uint& b = a.functions [j];
+            b = module->read_varuint32 (cursor);
+            printf ("elem.function [i:%u/%u]:%u\n", j++, size2, b);
+        }
+    }
+    printf ("read elements9 size:%X\n", size1);
+}
+
+void ExportsSection::read_exports (Module* module, uint8*& cursor)
+{
+    uint size = module->read_varuint32 (cursor);
+    printf ("reading exports7 count:%X\n", size);
+    module->exports.resize (size);
+    for (uint i = 0; i < size; ++i)
+    {
+        Export& a = module->exports [i];
+        a.name = module->read_string (cursor);
+        a.tag = (ExportTag)module->read_byte (cursor);
+        a.function = module->read_varuint32 (cursor);
+        a.is_main = a.name.builtin == BuiltinString_main;
+        printf ("read_export %s tag:%X index:%X\n", a.name.c_str (), a.tag, a.function);
+
+        if (a.is_main)
+        {
+            assert (!module->main);
+            module->main = &a;
+        }
+    }
+    printf ("read exports7 size:%X\n", size);
+}
+
+void GlobalsSection::read_globals (Module* module, uint8*& cursor)
+{
+    uint size = module->read_varuint32 (cursor);
+    printf ("reading globals6 size:%X\n", size);
+    module->globals.resize (size);
+    for (uint i = 0; i < size; ++i)
+    {
+        Global& a = module->globals [i];
+        a.global_type = module->read_globaltype (cursor);
+        printf ("read_globals value_type:%X  mutable:%X init:%p\n", a.global_type.value_type, a.global_type.is_mutable, cursor);
+        DecodeInstructions (module, a.init, cursor);
+        // Init points to code -- Instructions until end of block 0x0B Instruction.
+    }
+    printf ("read globals6 size:%X\n", size);
+}
+
+void TablesSection::read (Module* module, uint8*& cursor)
+{
+    uint size = module->read_varuint32 (cursor);
+    printf ("reading tables size:%X\n", size);
+    ThrowString ("Tables::read not yet implemented");
+    // Hello world does not have this section.
+}
+
+void FunctionsSection::read_functions (Module* module, uint8*& cursor)
+{
+    printf ("reading section 3\n");
+    uint size = module->read_varuint32 (cursor);
+    module->functions.resize (size);
+    for (uint i = 0; i < size; ++i)
+    {
+        Function& a = module->functions [i];
+        a.function_type = module->read_varuint32 (cursor);
+    }
+    printf ("read section 3\n");
+}
+
+void ImportsSection::read_imports (Module* module, uint8*& cursor)
+{
+    printf ("reading section 2\n");
+    size_t size = module->read_varuint32 (cursor);
+    data.resize (size);
+    for (uint i = 0; i < size; ++i)
+    {
+        Import& r = data [i];
+        r.module = module->read_string (cursor);
+        r.name = module->read_string (cursor);
+        ImportTag tag = r.tag = (ImportTag)module->read_byte (cursor);
+        printf ("import %s.%s %X\n", r.module.c_str (), r.name.c_str (), (uint)tag);
+        switch (tag)
+        {
+            // TODO more specific import type and vtable?
+        case ImportTag_Function:
+            r.function = module->read_varuint32 (cursor);
+            break;
+        case ImportTag_Table:
+            r.table = module->read_tabletype (cursor);
+            break;
+        case ImportTag_Memory:
+            r.memory = module->read_memorytype (cursor);
+            break;
+        case ImportTag_Global:
+            r.global = module->read_globaltype (cursor);
+            break;
+        default:
+            ThrowString ("invalid ImportTag");
+        }
+    }
+    printf ("read section 2\n");
+}
+
+void FunctionType::read_vector_ValueType (std::vector<ValueType>& result, Module* module, uint8*& cursor)
+{
+    uint size = module->read_varuint32 (cursor);
+    result.resize (size);
+    for (uint i = 0; i < size; ++i)
+        result [i] = module->read_valuetype (cursor);
+}
+
+void FunctionType::read_function_type (Module* module, uint8*& cursor)
+{
+    read_vector_ValueType (parameters, module, cursor);
+    read_vector_ValueType (results, module, cursor);
+}
+
+void TypesSection::read (Module* module, uint8*& cursor)
+{
+    printf ("reading section 1\n");
+    uint size = module->read_varuint32 (cursor);
+    functionTypes.resize (size);
+    for (uint i = 0; i < size; ++i)
+    {
+        uint marker = module->read_byte (cursor);
+        if (marker != 0x60)
+            ThrowString ("malformed2 in Types::read");
+        functionTypes [i].read_function_type (module, cursor);
+    }
+    printf ("read section 1\n");
+}
 
 void
 DecodeInstructions (Module* module, std::vector<InstructionDecoded>& instructions, uint8*& cursor)
@@ -2251,351 +2705,25 @@ DecodeInstructions (Module* module, std::vector<InstructionDecoded>& instruction
                 break;
             }
             printf ("2 %s %X %d\n", InstructionName (i.name), i.i32, i.i32);
-            instructions.emplace_back (i);
+            instructions.push_back (i);
         }
     }
 }
-
-// Initial representation of X and XSection are the same.
-// This might evolve, i.e. into separate TypesSection and Types,
-// or just Types that is not Section.
-
-struct FunctionType
-{
-    // CONSIDER pointer into mmf
-    std::vector<ValueType> parameters;
-    std::vector<ValueType> results;
-
-    void read_vector_ValueType (std::vector<ValueType>& result, Module* module, uint8*& cursor)
-    {
-        uint count = module->read_varuint32 (cursor);
-        result.resize (count);
-        for (uint i = 0; i < count; ++i)
-            result [i] = module->read_valuetype (cursor);
-    }
-
-    void read_function_type (Module* module, uint8*& cursor)
-    {
-        read_vector_ValueType (parameters, module, cursor);
-        read_vector_ValueType (results, module, cursor);
-    }
-};
-
-struct Types : Section<1>
-{
-    std::vector<FunctionType> functionTypes;
-
-    static SectionBase* make ()
-    {
-        return new Types ();
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        printf ("reading section 1\n");
-        uint count = module->read_varuint32 (cursor);
-        functionTypes.resize (count);
-        for (uint i = 0; i < count; ++i)
-        {
-            uint marker = module->read_byte (cursor);
-            if (marker != 0x60)
-                ThrowString ("malformed2 in Types::read");
-            functionTypes [i].read_function_type (module, cursor);
-        }
-        printf ("read section 1\n");
-    }
-};
-
-struct Imports : Section<2>
-{
-    std::vector<Import> data;
-
-    static SectionBase* make ()
-    {
-        return new Imports ();
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        read_imports (module, cursor);
-    }
-
-    void read_imports (Module* module, uint8*& cursor)
-    {
-        printf ("reading section 2\n");
-        size_t count = module->read_varuint32 (cursor);
-        data.resize (count);
-        for (auto& r : data)
-        {
-            r.module = module->read_string (cursor);
-            r.name = module->read_string (cursor);
-            ImportTag tag = r.tag = (ImportTag)module->read_byte (cursor);
-            printf ("import %s.%s %X\n", r.module.c_str (), r.name.c_str (), (uint)tag);
-            switch (tag)
-            {
-                // TODO more specific import type and vtable?
-            case ImportTag_Function:
-                r.function = module->read_varuint32 (cursor);
-                break;
-            case ImportTag_Table:
-                r.table = module->read_tabletype (cursor);
-                break;
-            case ImportTag_Memory:
-                r.memory = module->read_memorytype (cursor);
-                break;
-            case ImportTag_Global:
-                r.global = module->read_globaltype (cursor);
-                break;
-            default:
-                ThrowString ("invalid ImportTag");
-            }
-        }
-        printf ("read section 2\n");
-    }
-};
-
-struct Functions : Section<3>
-{
-    static SectionBase* make ()
-    {
-        return new Functions ();
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        read_functions (module, cursor);
-    }
-
-    void read_functions (Module* module, uint8*& cursor)
-    {
-        printf ("reading section 3\n");
-        uint count = module->read_varuint32 (cursor);
-        module->functions.resize (count);
-        for (auto& a : module->functions)
-            a.function_type = module->read_varuint32 (cursor);
-        printf ("read section 3\n");
-    }
-};
-
-struct Tables : Section<4>
-{
-    static SectionBase* make ()
-    {
-        return new Tables ();
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        uint count = module->read_varuint32 (cursor);
-        printf ("reading tables count:%X\n", count);
-        ThrowString ("Tables::read not yet implemented");
-        // Hello world does not have this section.
-    }
-};
-
-struct Memory : Section<5>
-{
-    static SectionBase* make ()
-    {
-        return new Memory ();
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        ThrowString ("Memory::read not yet implemented");
-        // Hello world does not have this section.
-    }
-};
-
-struct Globals : Section<6>
-{
-    static SectionBase* make ()
-    {
-        return new Globals ();
-    }
-
-    void read_globals (Module* module, uint8*& cursor)
-    {
-        uint count = module->read_varuint32 (cursor);
-        printf ("reading globals6 count:%X\n", count);
-        module->globals.resize (count);
-        for (auto& a: module->globals)
-        {
-            a.global_type = module->read_globaltype (cursor);
-            printf ("read_globals value_type:%X  mutable:%X init:%p\n", a.global_type.value_type, a.global_type.is_mutable, cursor);
-            DecodeInstructions (module, a.init, cursor);
-            // Init points to code -- Instructions until end of block 0x0B Instruction.
-        }
-        printf ("read globals6 count:%X\n", count);
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        read_globals (module, cursor);
-    }
-};
-
-struct Exports : Section<7>
-{
-    static SectionBase* make ()
-    {
-        return new Exports ();
-    }
-
-    void read_exports (Module* module, uint8*& cursor)
-    {
-        uint count = module->read_varuint32 (cursor);
-        printf ("reading exports7 count:%X\n", count);
-        module->exports.resize (count);
-        for (auto& a: module->exports)
-        {
-            a.name = module->read_string (cursor);
-            a.tag = (ExportTag)module->read_byte (cursor);
-            a.function = module->read_varuint32 (cursor);
-            a.is_main = a.name.builtin == BuiltinString_main;
-            printf ("read_export %s tag:%X index:%X\n", a.name.c_str (), a.tag, a.function);
-
-            if (a.is_main)
-            {
-                assert (!module->main);
-                module->main = &a;
-            }
-        }
-        printf ("read exports7 count:%X\n", count);
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        read_exports (module, cursor);
-    }
-};
-
-struct Start : Section<8>
-{
-    static SectionBase* make ()
-    {
-        return new Start ();
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        ThrowString ("Start::read not yet implemented");
-    }
-};
-
-struct Elements : Section<9>
-{
-    static SectionBase* make ()
-    {
-        return new Elements ();
-    }
-
-    void read_elements (Module* module, uint8*& cursor)
-    {
-        uint count = module->read_varuint32 (cursor);
-        printf ("reading elements9 count:%X\n", count);
-        module->elements.resize (count);
-        for (auto& a: module->elements)
-        {
-            a.table = module->read_varuint32 (cursor);
-            DecodeInstructions (module, a.offset_instructions, cursor);
-            count = module->read_varuint32 (cursor);
-            a.functions.resize (count);
-            int i = 0;
-            for (auto& b: a.functions)
-            {
-                b = module->read_varuint32 (cursor);
-                printf ("elem.function [i:%d/%d]:%d\n", i++, count, b);
-            }
-        }
-        printf ("read elements9 count:%X\n", count);
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        read_elements (module, cursor);
-    }
-};
-
-struct CodeSection : Section<10>
-{
-    static SectionBase* make ()
-    {
-        return new CodeSection ();
-    }
-
-    void read_code (Module* module, uint8*& cursor)
-    {
-        uint8* end = module->end;
-        uint size = module->read_varuint32 (cursor);
-        if (cursor + size > module->end)
-            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%u", cursor, end, size, __LINE__));
-        uint i = 0;
-        module->code.resize (size);
-        for (auto& a : module->code)
-        {
-            a.size = module->read_varuint32 (cursor);
-            if (cursor + a.size > module->end)
-                ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%u", cursor, end, a.size, __LINE__));
-            a.cursor = cursor;
-            cursor += a.size;
-            printf ("code [%X]: %p/%X\n", i++, a.cursor, a.size);
-        }
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        read_code (module, cursor);
-    }
-};
-
-struct DataSection : Section<11>
-{
-    static SectionBase* make ()
-    {
-        return new DataSection ();
-    }
-
-    void read_data (Module* module, uint8*& cursor)
-    {
-        uint size = module->read_varuint32 (cursor);
-        printf ("reading data11 size:%X\n", size);
-        module->data.resize (size);
-        uint i = 0;
-        for (auto& a: module->data)
-        {
-            a.memory = module->read_varuint32 (cursor);
-            DecodeInstructions (module, a.expr, cursor);
-            size = module->read_varuint32 (cursor);
-            if (cursor + size > module->end)
-                ThrowString ("data out of bounds");
-            a.bytes = cursor;
-            cursor += size;
-            printf ("data [%u]:{%X}\n", i++, ((unsigned char*)a.bytes) [0]);
-        }
-        printf ("read data11 size:%X\n", size);
-    }
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        read_data (module, cursor);
-    }
-};
 
 const
 SectionTraits section_traits [ ] =
 {
     { 0 },
 #define SECTIONS        \
-    SECTION (Types)     \
-    SECTION (Imports)   \
-    SECTION (Functions) \
-    SECTION (Tables)    \
-    SECTION (Memory)    \
-    SECTION (Globals)   \
-    SECTION (Exports)   \
-    SECTION (Start)     \
-    SECTION (Elements)  \
+    SECTION (TypesSection)     \
+    SECTION (ImportsSection)   \
+    SECTION (FunctionsSection) \
+    SECTION (TablesSection)    \
+    SECTION (MemorySection)    \
+    SECTION (GlobalsSection)   \
+    SECTION (ExportsSection)   \
+    SECTION (StartSection)     \
+    SECTION (ElementsSection) \
     SECTION (CodeSection) \
     SECTION (DataSection) \
 
@@ -2624,7 +2752,7 @@ float Module::read_f32 (uint8*& cursor)
     union {
         uint8 bytes [4];
         float f32;
-    } u;
+    } u = { };
     for (int i = 0; i < 4; ++i)
         u.bytes [i] = (uint8)read_byte (cursor);
     return u.f32;
@@ -2637,7 +2765,7 @@ double Module::read_f64 (uint8*& cursor)
     union {
         uint8 bytes [8];
         double f64;
-    } u;
+    } u = { };
     for (int i = 0; i < 8; ++i)
         u.bytes [i] = (uint8)read_byte (cursor);
     return u.f64;
@@ -2678,9 +2806,9 @@ String Module::read_string (uint8*& cursor)
 
 void Module::read_vector_varuint32 (std::vector<uint>& result, uint8*& cursor)
 {
-    uint count = read_varuint32 (cursor);
-    result.resize (count);
-    for (uint i = 0; i < count; ++i)
+    uint size = read_varuint32 (cursor);
+    result.resize (size);
+    for (uint i = 0; i < size; ++i)
         result [i] = read_varuint32 (cursor);
 }
 
@@ -2712,7 +2840,8 @@ Limits Module::read_limits (uint8*& cursor)
 
 MemoryType Module::read_memorytype (uint8*& cursor)
 {
-    return MemoryType { read_limits (cursor) };
+    MemoryType m = { read_limits (cursor) };
+    return m;
 }
 
 bool Module::read_mutable (uint8*& cursor)
@@ -2747,7 +2876,7 @@ ValueType Module::read_valuetype (uint8*& cursor)
 
 GlobalType Module::read_globaltype (uint8*& cursor)
 {
-    GlobalType globalType {};
+    GlobalType globalType = { };
     globalType.value_type = read_valuetype (cursor);
     globalType.is_mutable = read_mutable (cursor);
     return globalType;
@@ -2763,7 +2892,7 @@ TableElementType Module::read_elementtype (uint8*& cursor)
 
 TableType Module::read_tabletype (uint8*& cursor)
 {
-    TableType tableType {};
+    TableType tableType = { };
     tableType.element_type = read_elementtype (cursor);
     tableType.limits = read_limits (cursor);
     return tableType;
@@ -2803,7 +2932,7 @@ void Module::read_section (uint8*& cursor)
         return;
     }
 
-    auto section = sections [id] = std::shared_ptr <SectionBase> (section_traits [id].make ()); // FIXME unnecessary dynamism
+    SectionBase* section = sections [id];
     section->id = id;
     section->name.data = (char*)name;
     section->name.size = name_size;
@@ -2816,7 +2945,6 @@ void Module::read_section (uint8*& cursor)
 
 void Module::read_module (const char* file_name)
 {
-    sections.resize (12); // FIXME mostly can be fixed size, but handle custom sections
     mmf.read (file_name);
     base = (uint8*)mmf.base;
     file_size = mmf.file.get_file_size ();
@@ -2840,7 +2968,7 @@ void Module::read_module (const char* file_name)
     if (file_size == 8)
         return;
 
-    auto cursor = base + 8;
+    uint8* cursor = base + 8;
     while (cursor < end)
     {
         read_section (cursor);
@@ -2851,9 +2979,10 @@ void Module::read_module (const char* file_name)
 
 struct Interp : Stack
 {
-    Interp(const Interp&) = delete;
-    void operator =(const Interp&) = delete;
-
+private:
+    Interp(const Interp&);
+    void operator =(const Interp&);
+public:
     Interp() : stack (*this)
     {
     }
@@ -2869,7 +2998,7 @@ struct Interp : Stack
         Assert (emain->function < module->code.size ());
         Assert (module->functions.size () == module->code.size ());
 
-//        Function& fmain = module->functions [emain->function];
+//      Function& fmain = module->functions [emain->function];
         Code& cmain = module->code [emain->function];
         uint8* cursor = cmain.cursor;
         if (cursor)
@@ -2881,7 +3010,6 @@ struct Interp : Stack
 
     //load
     //store
-    //reserved
     //unreach
     //memsize
     //memgrow
@@ -2896,17 +3024,32 @@ struct Interp : Stack
     //select
     //local get set tree
     //gloal get set
-    //nop
     //block
     //br
     //brif
     //brtable
     //ret
     //const
-    //ne
-    //lt
-    //gt
-    //le
+
+    void Nop ()
+    {
+    }
+
+    void Reserved ()
+    {
+        static const char reserved [] = "reserved\n";
+#if _WIN32
+        if (IsDebuggerPresent())
+        {
+            OutputDebugStringA (reserved);
+            DebugBreak();
+        }
+        _write (1, reserved, sizeof (reserved) - 1);
+#else
+        write (1, reserved, sizeof (reserved) - 1);
+#endif
+        abort ();
+    }
 
     void Eqz_i32 ()
     {
@@ -3107,7 +3250,7 @@ struct Interp : Stack
     void Popcnt_i32 ()
     {
         uint& a = u32 ();
-#if _MSC_VERx
+#if 0 // _MSC_VER > 1500 // TODO
         a = __popcnt (a);
 #else
         a = count_set_bits (a);
@@ -3117,7 +3260,7 @@ struct Interp : Stack
     void Popcnt_i64 ()
     {
         uint64& a = u64 ();
-#if _MSC_VER
+#if _MSC_VER > 1500 // TODO
         a = __popcnt64 (a);
 #else
         a = count_set_bits (a);
@@ -3156,115 +3299,115 @@ struct Interp : Stack
 
     void Add_i64 ()
     {
-        const auto a = pop_i64 ();
+        const int64 a = pop_i64 ();
         i64 () += a;
     }
 
     void Sub_i32 ()
     {
-        const auto a = pop_i32 ();
+        const int a = pop_i32 ();
         i32 () -= a;
     }
 
     void Sub_i64 ()
     {
-        const auto a = pop_i64 ();
+        const int64 a = pop_i64 ();
         i64 () -= a;
     }
 
     void Mul_i32 ()
     {
-        const auto a = pop_i32 ();
+        const int a = pop_i32 ();
         i32 () *= a;
     }
 
     void Mul_i64 ()
     {
-        const auto a = pop_i64 ();
+        const int64 a = pop_i64 ();
         i64 () *= a;
     }
 
     void Div_s_i32 ()
     {
-        const auto a = pop_i32 ();
+        const int a = pop_i32 ();
         i32 () /= a;
     }
 
     void Div_u_i32 ()
     {
-        const auto a = pop_u32 ();
+        const uint a = pop_u32 ();
         u32 () /= a;
     }
 
     void Rem_s_i32 ()
     {
-        const auto a = pop_i32 ();
+        const int a = pop_i32 ();
         i32 () %= a;
     }
 
     void Remf_u_i32 ()
     {
-        const auto a = pop_u32 ();
+        const uint a = pop_u32 ();
         u32 () %= a;
     }
 
     void And_i32 ()
     {
-        const auto a = pop_i32 ();
+        const int a = pop_i32 ();
         i32 () &= a;
     }
 
     void And_i64 ()
     {
-        const auto a = pop_i64 ();
+        const int64 a = pop_i64 ();
         i64 () &= a;
     }
 
     void Or_i32 ()
     {
-        const auto a = pop_i32 ();
+        const int a = pop_i32 ();
         i32 () |= a;
     }
 
     void Or_i64 ()
     {
-        const auto a = pop_i64 ();
+        const int64 a = pop_i64 ();
         i64 () |= a;
     }
 
     void Xor_i32 ()
     {
-        const auto a = pop_i32 ();
+        const int a = pop_i32 ();
         i32 () ^= a;
     }
 
     void Xor_i64 ()
     {
-        const auto a = pop_i64 ();
+        const int64 a = pop_i64 ();
         i64 () ^= a;
     }
 
     void Shl_i32 ()
     {
-        const auto a = pop_i32 ();
+        const int a = pop_i32 ();
         i32 () <<= (a & 31);
     }
 
     void Shl_i64 ()
     {
-        const auto a = pop_i64 ();
+        const int64 a = pop_i64 ();
         i64 () <<= (a & 63);
     }
 
     void Shr_s_i32 ()
     {
-        const auto b = pop_i32 ();
+        const int b = pop_i32 ();
         i32 () <<= (b & 31);
     }
 
     void Shr_s_i64 ()
     {
-        const auto b = pop_i64 ();
+        const int64 b = pop_i64 ();
         i64 () <<= (b & 63);
     }
 
@@ -3297,8 +3440,8 @@ struct Interp : Stack
     {
         const int n = 64;
         const int b = (pop_i64 () & (n - 1));
-        auto& r = u64 ();
-        auto a = r;
+        uint64& r = u64 ();
+        uint64 a = r;
 #if _MSC_VER
         r = _rotl64 (a, b);
 #else
@@ -3310,8 +3453,8 @@ struct Interp : Stack
     {
         const int n = 32;
         const int b = (int)(pop_u32 () & (n - 1));
-        auto& r = u32 ();
-        auto a = r;
+        uint& r = u32 ();
+        uint a = r;
 #if _MSC_VER
         r = _rotr (a, b);
 #else
@@ -3323,8 +3466,8 @@ struct Interp : Stack
     {
         const int n = 64;
         const int b = (int)(pop_u64 () & (n - 1));
-        auto& r = u64 ();
-        auto a = r;
+        uint64& r = u64 ();
+        uint64 a = r;
 #if _MSC_VER
         r = _rotr64 (a, b);
 #else
@@ -3334,13 +3477,13 @@ struct Interp : Stack
 
     void Abs_f32 ()
     {
-        auto& z = f32 ();
+        float& z = f32 ();
         z = std::abs (z);
     }
 
     void Abs_f64 ()
     {
-        auto& z = f64 ();
+        double& z = f64 ();
         z = std::abs (z);
     }
 
@@ -3356,73 +3499,73 @@ struct Interp : Stack
 
     void Ceil_f32 ()
     {
-        auto& z = f32 ();
+        float& z = f32 ();
         z = ceilf (z);
     }
 
     void Ceil_f64 ()
     {
-        auto& z = f64 ();
+        double& z = f64 ();
         z = ceil (z);
     }
 
     void Floor_f32 ()
     {
-        auto& z = f32 ();
+        float& z = f32 ();
         z = floorf (z);
     }
 
     void Floor_f64 ()
     {
-        auto& z = f64 ();
+        double& z = f64 ();
         z = floor (z);
     }
 
     void Trunc_f32 ()
     {
-        auto& z = f32 ();
-        z = truncf (z);
+        float& z = f32 ();
+        z = truncf (z); // TODO C99
     }
 
     void Trunc_f64 ()
     {
-        auto& z = f64 ();
+        double& z = f64 ();
         z = trunc (z);
     }
 
     void Nearest_f32 ()
     {
-        auto& z = f32 ();
+        float& z = f32 ();
         z = roundf (z);
     }
 
     void Nearest_f64 ()
     {
-        auto& z = f64 ();
+        double& z = f64 ();
         z = round (z);
     }
 
     void Sqrt_f32 ()
     {
-        auto& z = f32 ();
+        float& z = f32 ();
         z = sqrtf (z);
     }
 
     void Sqrt_f64 ()
     {
-        auto& z = f64 ();
+        double& z = f64 ();
         z = sqrt (z);
     }
 
     void Add_f32 ()
     {
-        const auto a = pop_f32 ();
+        const float a = pop_f32 ();
         f32 () += a;
     }
 
     void Add_f64 ()
     {
-        const auto a = pop_f64 ();
+        const double a = pop_f64 ();
         f64 () += a;
     }
 
@@ -3452,7 +3595,7 @@ struct Interp : Stack
 
     void Div_f32 ()
     {
-        const auto a = pop_f32 ();
+        const float a = pop_f32 ();
         f32 () /= a;
     }
 
@@ -3464,8 +3607,8 @@ struct Interp : Stack
 
     void Min_f32 ()
     {
-        const auto z2 = pop_f32 ();
-        auto& z1 = f32 ();
+        const float z2 = pop_f32 ();
+        float& z1 = f32 ();
         z1 = Min (z1, z2);
     }
 
@@ -3478,8 +3621,8 @@ struct Interp : Stack
 
     void Max_f32 ()
     {
-        const auto z2 = pop_f32 ();
-        auto& z1 = f32 ();
+        const float z2 = pop_f32 ();
+        float& z1 = f32 ();
         z1 = Max (z1, z2);
     }
 
@@ -3492,8 +3635,8 @@ struct Interp : Stack
 
     void Copysign_f32 ()
     {
-        const auto z2 = pop_f32 ();
-        auto& z1 = f32 ();
+        const float z2 = pop_f32 ();
+        float& z1 = f32 ();
         z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
     }
 
@@ -3506,128 +3649,107 @@ struct Interp : Stack
 
     void Wrap_i64_i32 ()
     {
-        unchecked_i32 () = (int)(i64 () & 0xFFFFFFFF);
-        tag () = ValueType_i32;
+        set_i32 ((int)(i64 () & 0xFFFFFFFF));
     }
 
     void Trunc_f32_s_i32 ()
     {
-        unchecked_i32 () = (int)f32 ();
-        tag () = ValueType_i32;
+        set_i32 ((int)f32 ());
     }
 
     void Trunc_f32_u_i32 ()
     {
-        unchecked_u32 () = (uint)f32 ();
-        tag () = ValueType_i32;
+        set_u32 ((uint)f32 ());
     }
 
     void Trunc_f64_s_i32 ()
     {
-        unchecked_i32 () = (int)f64 ();
-        tag () = ValueType_i32;
+        set_i32 ((int)f64 ());
     }
 
     void Trunc_f64_u_i32 ()
     {
-        unchecked_u32 () = (uint)f64 ();
-        tag () = ValueType_i32;
+        set_u32 ((uint)f64 ());
     }
 
     void Extend_i32_s_i64 ()
     {
-        unchecked_i64 () = (int64)i32 ();
-        tag () = ValueType_i64;
+        set_i64 ((int64)i32 ());
     }
 
     void Extend_i32_u_i64 ()
     {
-        unchecked_i64 () = (uint64)u32 ();
-        tag () = ValueType_i64;
+        set_i64 ((uint64)u32 ());
     }
 
     void Trunc_f32_s_i64 ()
     {
-        unchecked_i64 () = (int64)f32 ();
-        tag () = ValueType_i64;
+        set_i64 ((int64)f32 ());
     }
 
     void Trunc_f32_u_i64 ()
     {
-        unchecked_u64 () = (uint64)f32 ();
-        tag () = ValueType_i64;
+        set_u64 ((uint64)f32 ());
     }
 
     void Trunc_f64_s_i64 ()
     {
-        unchecked_i64 () = (int64)f64 ();
-        tag () = ValueType_i64;
+        set_i64 ((int64)f64 ());
     }
 
     void Trunc_f64_u_i64 ()
     {
-        unchecked_u64 () = (uint64)f64 ();
-        tag () = ValueType_i64;
+        set_u64 ((uint64)f64 ());
     }
 
     void Convert_i32_u_f32 ()
     {
-        unchecked_f32 () = (float)(uint)u32 ();
-        tag () = ValueType_f32;
+        set_f32 ((float)(uint)u32 ());
     }
 
     void Convert_i32_s_f32 ()
     {
-        unchecked_f32 () = (float)(int)i32 ();
-        tag () = ValueType_f32;
+        set_f32 ((float)(int)i32 ());
     }
 
     void Convert_i64_u_f32 ()
     {
-        unchecked_f32 () = (float)u64 ();
-        tag () = ValueType_f32;
+        set_f32 ((float)u64 ());
     }
 
     void Convert_i64_s_f32 ()
     {
-        unchecked_f32 () = (float)i64 ();
-        tag () = ValueType_f32;
+        set_f32 ((float)i64 ());
     }
 
     void Demote_i32_f64 ()
     {
-        unchecked_f64 () = (double)i32 ();
-        tag () = ValueType_f64;
+        set_f64 ((double)i32 ());
     }
 
     void Convert_i32_s_f64 ()
     {
-        unchecked_f64 () = (double)i32 ();
-        tag () = ValueType_f64;
+        set_f64 ((double)i32 ());
     }
 
     void Convert_i32_u_f64 ()
     {
-        unchecked_f64 () = (double)u32 ();
-        tag () = ValueType_f64;
+        set_f64 ((double)u32 ());
     }
 
     void Convert_i64_s_f64 ()
     {
-        unchecked_f64 () = (double)i64 ();
-        tag () = ValueType_f64;
+        set_f64 ((double)i64 ());
     }
 
     void Convert_i64_u_f64 ()
     {
-        f64 () = (double)u64 ();
-        tag () = ValueType_f64;
+        set_f64 ((double)u64 ());
     }
 
     void Promote_f32_f64 ()
     {
-        unchecked_f64 () = (double)f32 ();
-        tag () = ValueType_f64;
+        set_f64 ((double)f32 ());
     }
 
     void Reinterpret_f32_i32 ()
