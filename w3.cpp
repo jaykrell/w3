@@ -1644,12 +1644,12 @@ CVTOP (0xB2, Convert, i32, u, f32) \
 CVTOP (0xB3, Convert, i32, s, f32) \
 CVTOP (0xB4, Convert, i64, u, f32) \
 CVTOP (0xB5, Convert, i64, s, f32) \
-CVTOP (0xB6, Demote,  i32, u, f64) \
+CVTOP (0xB6, Demote,  f64, , f32) \
 CVTOP (0xB7, Convert, i32, s, f64) \
 CVTOP (0xB8, Convert, i32, u, f64) \
 CVTOP (0xB9, Convert, i64, s, f64) \
 CVTOP (0xBA, Convert, i64, u, f64) \
-CVTOP (0xBB, Promote, f32, s, f64) \
+CVTOP (0xBB, Promote, f32, , f64) \
 \
 CVTOP (0xBC, Reinterpret, f32, , i32) \
 CVTOP (0xBD, Reinterpret, f64, , i64) \
@@ -3029,778 +3029,798 @@ public:
             DecodeInstructions (module, cmain.decoded_instructions, cursor);
             cmain.cursor = 0;
         }
-    }
-
-    //load
-    //store
-    //unreach
-    //memsize
-    //memgrow
-    //call
-    //calli
-    //if
-    //loop
-    //else
-    //call
-    //calli
-    //drop
-    //select
-    //local get set tree
-    //gloal get set
-    //block
-    //br
-    //brif
-    //brtable
-    //ret
-    //const
-
-    void Nop ()
-    {
-    }
-
-    void Reserved ()
-    {
-        static const char reserved [] = "reserved\n";
-#if _WIN32
-        if (IsDebuggerPresent())
+        size_t size = cmain.decoded_instructions.size ();
+        for (size_t i = 0; i < size; ++i)
         {
-            OutputDebugStringA (reserved);
-            DebugBreak();
         }
-        _write (1, reserved, sizeof (reserved) - 1);
-#else
-        write (1, reserved, sizeof (reserved) - 1);
-#endif
-        abort ();
     }
 
-    void Eqz_i32 ()
-    {
-        push_bool (pop_i32 () == 0);
-    }
-
-    void Eqz_i64 ()
-    {
-        push_bool (pop_i64 () == 0);
-    }
-
-    void Eq_i32 ()
-    {
-        push_bool (pop_i32 () == pop_i32 ());
-    }
-
-    void Eq_i64 ()
-    {
-        push_bool (pop_i64 () == pop_i64 ());
-    }
-
-    void Ne_i32 ()
-    {
-        push_bool (pop_i32 () != pop_i32 ());
-    }
-
-    void Ne_i64 ()
-    {
-        push_bool (pop_i64 () != pop_i64 ());
-    }
-
-    // Lt
-
-    void Lt_s_i32 ()
-    {
-        int b = pop_i32 ();
-        int a = pop_i32 ();
-        push_bool (a < b);
-    }
-
-    void Lt_u_i32 ()
-    {
-        uint b = pop_u32 ();
-        uint a = pop_u32 ();
-        push_bool (a < b);
-    }
-
-    void Lt_s_i64 ()
-    {
-        int64 b = pop_i64 ();
-        int64 a = pop_i64 ();
-        push_bool (a < b);
-    }
-
-    void Lt_u_i64 ()
-    {
-        uint64 b = pop_u32 ();
-        uint64 a = pop_u32 ();
-        push_bool (a < b);
-    }
-
-    void Lt_f32 ()
-    {
-        float b = pop_f32 ();
-        float a = pop_f32 ();
-        push_bool (a < b);
-    }
-
-    void Lt_f64 ()
-    {
-        double b = pop_f64 ();
-        double a = pop_f64 ();
-        push_bool (a < b);
-    }
-
-    // Le
-
-    void Le_s_i32 ()
-    {
-        const int b = pop_i32 ();
-        push_bool (pop_i32 () <= b);
-    }
-
-    void Le_s_i64 ()
-    {
-        const int64 b = pop_i64 ();
-        push_bool (pop_i64 () <= b);
-
-    }
-
-    void Le_u_i32 ()
-    {
-        const uint b = pop_u32 ();
-        push_bool (pop_u32 () <= b);
-    }
-
-    void Le_u_i64 ()
-    {
-        const uint64 b = pop_u64 ();
-        push_bool (pop_u64 () <= b);
-
-    }
-
-    void Le_f32 ()
-    {
-        const float z2 = pop_f32 ();
-        const float z1 = pop_f32 ();
-        push_bool (z1 <= z2);
-    }
-
-    void Le_f64 ()
-    {
-        const double z2 = pop_f64 ();
-        const double z1 = pop_f64 ();
-        push_bool (z1 <= z2);
-    }
-
-    // Ge
-
-    void Ge_u_i32 ()
-    {
-        const uint b = pop_u32 ();
-        const uint a = pop_u32 ();
-        push_bool (a >= b);
-    }
-
-    void Ge_u_i64 ()
-    {
-        const uint64 b = pop_u64 ();
-        const uint64 a = pop_u64 ();
-        push_bool (a >= b);
-    }
-
-    void Ge_s_i32 ()
-    {
-        const int b = pop_i32 ();
-        const int a = pop_i32 ();
-        push_bool (a >= b);
-    }
-
-    void Ge_s_i64 ()
-    {
-        const int64 b = pop_i64 ();
-        const int64 a = pop_i64 ();
-        push_bool (a >= b);
-    }
-
-    void Ge_f32 ()
-    {
-        const float b = pop_f32 ();
-        const float a = pop_f32 ();
-        push_bool (a >= b);
-    }
-
-    void Ge_f64 ()
-    {
-        const double b = pop_f64 ();
-        const double a = pop_f64 ();
-        push_bool (a >= b);
-    }
-
-    template <typename T>
-    uint count_set_bits (T a)
-    {
-        uint n = 0;
-        while (a)
-        {
-            n += (a & 1);
-            a >>= 1;
-        }
-        return n;
-    }
-
-    template <typename T>
-    uint count_trailing_zeros (T a)
-    {
-        uint n = 0;
-        while (!(a & 1))
-        {
-            ++n;
-            a >>= 1;
-        }
-        return n;
-    }
-
-    template <typename T>
-    uint count_leading_zeros (T a)
-    {
-        uint n = 0;
-        while (!(a & (((T)1) << ((sizeof (T) * 8) - 1))))
-        {
-            ++n;
-            a <<= 1;
-        }
-        return n;
-    }
-
-    void Popcnt_i32 ()
-    {
-        uint& a = u32 ();
-#if _MSC_VER
-        a = __popcnt (a);
-#else
-        a = count_set_bits (a);
-#endif
-    }
-
-    void Popcnt_i64 ()
-    {
-        uint64& a = u64 ();
-#if _MSC_VER
-        a = __popcnt64 (a);
-#else
-        a = count_set_bits (a);
-#endif
-    }
-
-    void Ctz_i32 ()
-    {
-        uint& a = u32 ();
-        a = count_trailing_zeros (a);
-    }
-
-    void Ctz_i64 ()
-    {
-        uint64& a = u64 ();
-        a = count_trailing_zeros (a);
-    }
-
-    void Clz_i32 ()
-    {
-        uint& a = u32 ();
-        a = count_leading_zeros (a);
-    }
-
-    void Clz_i64 ()
-    {
-        uint64& a = u64 ();
-        a = count_leading_zeros (a);
-    }
-
-    void Add_i32 ()
-    {
-        const int a = pop_i32 ();
-        i32 () += a;
-    }
-
-    void Add_i64 ()
-    {
-        const int64 a = pop_i64 ();
-        i64 () += a;
-    }
-
-    void Sub_i32 ()
-    {
-        const int a = pop_i32 ();
-        i32 () -= a;
-    }
-
-    void Sub_i64 ()
-    {
-        const int64 a = pop_i64 ();
-        i64 () -= a;
-    }
-
-    void Mul_i32 ()
-    {
-        const int a = pop_i32 ();
-        i32 () *= a;
-    }
-
-    void Mul_i64 ()
-    {
-        const int64 a = pop_i64 ();
-        i64 () *= a;
-    }
-
-    void Div_s_i32 ()
-    {
-        const int a = pop_i32 ();
-        i32 () /= a;
-    }
-
-    void Div_u_i32 ()
-    {
-        const uint a = pop_u32 ();
-        u32 () /= a;
-    }
-
-    void Rem_s_i32 ()
-    {
-        const int a = pop_i32 ();
-        i32 () %= a;
-    }
-
-    void Remf_u_i32 ()
-    {
-        const uint a = pop_u32 ();
-        u32 () %= a;
-    }
-
-    void And_i32 ()
-    {
-        const int a = pop_i32 ();
-        i32 () &= a;
-    }
-
-    void And_i64 ()
-    {
-        const int64 a = pop_i64 ();
-        i64 () &= a;
-    }
-
-    void Or_i32 ()
-    {
-        const int a = pop_i32 ();
-        i32 () |= a;
-    }
-
-    void Or_i64 ()
-    {
-        const int64 a = pop_i64 ();
-        i64 () |= a;
-    }
-
-    void Xor_i32 ()
-    {
-        const int a = pop_i32 ();
-        i32 () ^= a;
-    }
-
-    void Xor_i64 ()
-    {
-        const int64 a = pop_i64 ();
-        i64 () ^= a;
-    }
-
-    void Shl_i32 ()
-    {
-        const int a = pop_i32 ();
-        i32 () <<= (a & 31);
-    }
-
-    void Shl_i64 ()
-    {
-        const int64 a = pop_i64 ();
-        i64 () <<= (a & 63);
-    }
-
-    void Shr_s_i32 ()
-    {
-        const int b = pop_i32 ();
-        i32 () <<= (b & 31);
-    }
-
-    void Shr_s_i64 ()
-    {
-        const int64 b = pop_i64 ();
-        i64 () <<= (b & 63);
-    }
-
-    void Shr_u_i32 ()
-    {
-        const uint b = pop_u32 ();
-        u32 () >>= (b & 31);
-    }
-
-    void Shr_u_i64 ()
-    {
-        const uint64 b = pop_u64 ();
-        u64 () >>= (b & 63);
-    }
+    void Reserved ();
 
-    void Rotl_i32 ()
-    {
-        const int n = 32;
-        const int b = (pop_i32 () & (n - 1));
-        uint& r = u32 ();
-        uint a = r;
-#if _MSC_VER
-        r = _rotl (a, b);
-#else
-        r = ((a << b) | (a >> (n - b)));
-#endif
-    }
-
-    void Rotl_i64 ()
-    {
-        const int n = 64;
-        const int b = (pop_i64 () & (n - 1));
-        uint64& r = u64 ();
-        uint64 a = r;
-#if _MSC_VER
-        r = _rotl64 (a, b);
-#else
-        r = (a << b) | (a >> (n - b));
-#endif
-    }
-
-    void Rotr_i32 ()
-    {
-        const int n = 32;
-        const int b = (int)(pop_u32 () & (n - 1));
-        uint& r = u32 ();
-        uint a = r;
-#if _MSC_VER
-        r = _rotr (a, b);
-#else
-        r = (a >> b) | (a << (n - b));
-#endif
-    }
-
-    void Rotr_i64 ()
-    {
-        const int n = 64;
-        const int b = (int)(pop_u64 () & (n - 1));
-        uint64& r = u64 ();
-        uint64 a = r;
-#if _MSC_VER
-        r = _rotr64 (a, b);
-#else
-        r = (a >> b) | (a << (n - b));
-#endif
-    }
-
-    void Abs_f32 ()
-    {
-        float& z = f32 ();
-        z = std::abs (z);
-    }
-
-    void Abs_f64 ()
-    {
-        double& z = f64 ();
-        z = std::abs (z);
-    }
-
-    void Neg_f32 ()
-    {
-        f32 () *= -1;
-    }
-
-    void Neg_f64 ()
-    {
-        f64 () *= -1;
-    }
-
-    void Ceil_f32 ()
-    {
-        float& z = f32 ();
-        z = ceilf (z);
-    }
-
-    void Ceil_f64 ()
-    {
-        double& z = f64 ();
-        z = ceil (z);
-    }
-
-    void Floor_f32 ()
-    {
-        float& z = f32 ();
-        z = floorf (z);
-    }
-
-    void Floor_f64 ()
-    {
-        double& z = f64 ();
-        z = floor (z);
-    }
-
-    void Trunc_f32 ()
-    {
-        float& z = f32 ();
-        z = truncf (z); // TODO C99
-    }
-
-    void Trunc_f64 ()
-    {
-        double& z = f64 ();
-        z = trunc (z);
-    }
-
-    void Nearest_f32 ()
-    {
-        float& z = f32 ();
-        z = roundf (z);
-    }
-
-    void Nearest_f64 ()
-    {
-        double& z = f64 ();
-        z = round (z);
-    }
-
-    void Sqrt_f32 ()
-    {
-        float& z = f32 ();
-        z = sqrtf (z);
-    }
-
-    void Sqrt_f64 ()
-    {
-        double& z = f64 ();
-        z = sqrt (z);
-    }
-
-    void Add_f32 ()
-    {
-        const float a = pop_f32 ();
-        f32 () += a;
-    }
-
-    void Add_f64 ()
-    {
-        const double a = pop_f64 ();
-        f64 () += a;
-    }
-
-    void Sub_f32 ()
-    {
-        const float a = pop_f32 ();
-        f32 () -= a;
-    }
-
-    void Sub_f64 ()
-    {
-        const double a = pop_f64 ();
-        f64 () -= a;
-    }
-
-    void Mul_f32 ()
-    {
-        const float a = pop_f32 ();
-        f32 () *= a;
-    }
-
-    void Mul_f64 ()
-    {
-        const double a = pop_f64 ();
-        f64 () *= a;
-    }
-
-    void Div_f32 ()
-    {
-        const float a = pop_f32 ();
-        f32 () /= a;
-    }
-
-    void Div_f64 ()
-    {
-        const double a = pop_f64 ();
-        f64 () /= a;
-    }
-
-    void Min_f32 ()
-    {
-        const float z2 = pop_f32 ();
-        float& z1 = f32 ();
-        z1 = Min (z1, z2);
-    }
-
-    void Min_f64 ()
-    {
-        const double z2 = pop_f64 ();
-        double& z1 = f64 ();
-        z1 = Min (z1, z2);
-    }
-
-    void Max_f32 ()
-    {
-        const float z2 = pop_f32 ();
-        float& z1 = f32 ();
-        z1 = Max (z1, z2);
-    }
-
-    void Max_f64 ()
-    {
-        const double z2 = pop_f64 ();
-        double& z1 = f64 ();
-        z1 = Max (z1, z2);
-    }
-
-    void Copysign_f32 ()
-    {
-        const float z2 = pop_f32 ();
-        float& z1 = f32 ();
-        z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
-    }
-
-    void Copysign_f64 ()
-    {
-        const double z2 = pop_f64 ();
-        double& z1 = f64 ();
-        z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
-    }
-
-    // Various lossless and lossy conversions.
-
-    void Wrap_i64_i32 ()
-    {
-        set_i32 ((int)(i64 () & 0xFFFFFFFF));
-    }
-
-    void Trunc_f32_s_i32 ()
-    {
-        set_i32 ((int)f32 ());
-    }
-
-    void Trunc_f32_u_i32 ()
-    {
-        set_u32 ((uint)f32 ());
-    }
-
-    void Trunc_f64_s_i32 ()
-    {
-        set_i32 ((int)f64 ());
-    }
-
-    void Trunc_f64_u_i32 ()
-    {
-        set_u32 ((uint)f64 ());
-    }
-
-    void Extend_i32_s_i64 ()
-    {
-        set_i64 ((int64)i32 ());
-    }
-
-    void Extend_i32_u_i64 ()
-    {
-        set_u64 ((uint64)u32 ());
-    }
-
-    void Trunc_f32_s_i64 ()
-    {
-        set_i64 ((int64)f32 ());
-    }
-
-    void Trunc_f32_u_i64 ()
-    {
-        set_u64 ((uint64)f32 ());
-    }
-
-    void Trunc_f64_s_i64 ()
-    {
-        set_i64 ((int64)f64 ());
-    }
-
-    void Trunc_f64_u_i64 ()
-    {
-        set_u64 ((uint64)f64 ());
-    }
-
-    void Convert_i32_u_f32 ()
-    {
-        set_f32 ((float)(uint)u32 ());
-    }
-
-    void Convert_i32_s_f32 ()
-    {
-        set_f32 ((float)(int)i32 ());
-    }
-
-    void Convert_i64_u_f32 ()
-    {
-        set_f32 ((float)u64 ());
-    }
-
-    void Convert_i64_s_f32 ()
-    {
-        set_f32 ((float)i64 ());
-    }
-
-    void Demote_i32_f64 ()
-    {
-        set_f64 ((double)i32 ());
-    }
-
-    void Convert_i32_s_f64 ()
-    {
-        set_f64 ((double)i32 ());
-    }
-
-    void Convert_i32_u_f64 ()
-    {
-        set_f64 ((double)u32 ());
-    }
-
-    void Convert_i64_s_f64 ()
-    {
-        set_f64 ((double)i64 ());
-    }
-
-    void Convert_i64_u_f64 ()
-    {
-        set_f64 ((double)u64 ());
-    }
-
-    void Promote_f32_f64 ()
-    {
-        set_f64 ((double)f32 ());
-    }
-
-    // reinterpret
-
-    void Reinterpret_f32_i32 ()
-    {
-        tag (ValueType_f32) = ValueType_i32;
-    }
-
-    void Reinterpret_i32_f32 ()
-    {
-        tag (ValueType_i32) = ValueType_f32;
-    }
-
-    void Reinterpret_f64_i64 ()
-    {
-        tag (ValueType_f64) = ValueType_i64;
-    }
-
-    void Reinterpret_i64_f64 ()
-    {
-        tag (ValueType_i64) = ValueType_f64;
-    }
+#undef INSTRUCTION
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name ();
+INSTRUCTIONS
 };
 
+//load
+//store
+//unreach
+//memsize
+//memgrow
+//call
+//calli
+//if
+//loop
+//else
+//call
+//calli
+//drop
+//select
+//local get set tree
+//gloal get set
+//block
+//br
+//brif
+//brtable
+//ret
+//const
+
+void Interp::Nop ()
+{
 }
+
+void Interp:: Reserved ()
+{
+    static const char reserved [] = "reserved\n";
+#if _WIN32
+    if (IsDebuggerPresent())
+    {
+        OutputDebugStringA (reserved);
+        DebugBreak();
+    }
+    _write (1, reserved, sizeof (reserved) - 1);
+#else
+    write (1, reserved, sizeof (reserved) - 1);
+#endif
+    abort ();
+}
+
+void Interp::Eqz_i32 ()
+{
+    push_bool (pop_i32 () == 0);
+}
+
+void Interp::Eqz_i64 ()
+{
+    push_bool (pop_i64 () == 0);
+}
+
+void Interp::Eq_i32 ()
+{
+    push_bool (pop_i32 () == pop_i32 ());
+}
+
+void Interp::Eq_i64 ()
+{
+    push_bool (pop_i64 () == pop_i64 ());
+}
+
+void Interp::Ne_i32 ()
+{
+    push_bool (pop_i32 () != pop_i32 ());
+}
+
+void Interp::Ne_i64 ()
+{
+    push_bool (pop_i64 () != pop_i64 ());
+}
+
+// Lt
+
+void Interp::Lt_i32s ()
+{
+    int b = pop_i32 ();
+    int a = pop_i32 ();
+    push_bool (a < b);
+}
+
+void Interp::Lt_i32u ()
+{
+    uint b = pop_u32 ();
+    uint a = pop_u32 ();
+    push_bool (a < b);
+}
+
+void Interp::Lt_i64s ()
+{
+    int64 b = pop_i64 ();
+    int64 a = pop_i64 ();
+    push_bool (a < b);
+}
+
+void Interp::Lt_i64u ()
+{
+    uint64 b = pop_u32 ();
+    uint64 a = pop_u32 ();
+    push_bool (a < b);
+}
+
+void Interp::Lt_f32 ()
+{
+    float b = pop_f32 ();
+    float a = pop_f32 ();
+    push_bool (a < b);
+}
+
+void Interp::Lt_f64 ()
+{
+    double b = pop_f64 ();
+    double a = pop_f64 ();
+    push_bool (a < b);
+}
+
+// Le
+
+void Interp::Le_i32s ()
+{
+    const int b = pop_i32 ();
+    push_bool (pop_i32 () <= b);
+}
+
+void Interp::Le_i64s ()
+{
+    const int64 b = pop_i64 ();
+    push_bool (pop_i64 () <= b);
+
+}
+
+void Interp::Le_i32u ()
+{
+    const uint b = pop_u32 ();
+    push_bool (pop_u32 () <= b);
+}
+
+void Interp::Le_i64u ()
+{
+    const uint64 b = pop_u64 ();
+    push_bool (pop_u64 () <= b);
+
+}
+
+void Interp::Le_f32 ()
+{
+    const float z2 = pop_f32 ();
+    const float z1 = pop_f32 ();
+    push_bool (z1 <= z2);
+}
+
+void Interp::Le_f64 ()
+{
+    const double z2 = pop_f64 ();
+    const double z1 = pop_f64 ();
+    push_bool (z1 <= z2);
+}
+
+// Ge
+
+void Interp::Ge_i32u ()
+{
+    const uint b = pop_u32 ();
+    const uint a = pop_u32 ();
+    push_bool (a >= b);
+}
+
+void Interp::Ge_i64u ()
+{
+    const uint64 b = pop_u64 ();
+    const uint64 a = pop_u64 ();
+    push_bool (a >= b);
+}
+
+void Interp::Ge_i32s ()
+{
+    const int b = pop_i32 ();
+    const int a = pop_i32 ();
+    push_bool (a >= b);
+}
+
+void Interp::Ge_i64s ()
+{
+    const int64 b = pop_i64 ();
+    const int64 a = pop_i64 ();
+    push_bool (a >= b);
+}
+
+void Interp::Ge_f32 ()
+{
+    const float b = pop_f32 ();
+    const float a = pop_f32 ();
+    push_bool (a >= b);
+}
+
+void Interp::Ge_f64 ()
+{
+    const double b = pop_f64 ();
+    const double a = pop_f64 ();
+    push_bool (a >= b);
+}
+
+template <typename T>
+static
+uint
+count_set_bits (T a)
+{
+    uint n = 0;
+    while (a)
+    {
+        n += (a & 1);
+        a >>= 1;
+    }
+    return n;
+}
+
+template <typename T>
+static
+uint
+count_trailing_zeros (T a)
+{
+    uint n = 0;
+    while (!(a & 1))
+    {
+        ++n;
+        a >>= 1;
+    }
+    return n;
+}
+
+template <typename T>
+static
+uint
+count_leading_zeros (T a)
+{
+    uint n = 0;
+    while (!(a & (((T)1) << ((sizeof (T) * 8) - 1))))
+    {
+        ++n;
+        a <<= 1;
+    }
+    return n;
+}
+
+#if 0 // TODO
+
+void Interp::Popcnt_i32 ()
+{
+    uint& a = u32 ();
+#if _MSC_VER
+    a = __popcnt (a);
+#else
+    a = count_set_bits (a);
+#endif
+}
+
+void Interp::Popcnt_i64 ()
+{
+    uint64& a = u64 ();
+#if _MSC_VER
+    a = __popcnt64 (a);
+#else
+    a = count_set_bits (a);
+#endif
+}
+
+#endif
+
+void Interp::Ctz_i32 ()
+{
+    uint& a = u32 ();
+    a = count_trailing_zeros (a);
+}
+
+void Interp::Ctz_i64 ()
+{
+    uint64& a = u64 ();
+    a = count_trailing_zeros (a);
+}
+
+void Interp::Clz_i32 ()
+{
+    uint& a = u32 ();
+    a = count_leading_zeros (a);
+}
+
+void Interp::Clz_i64 ()
+{
+    uint64& a = u64 ();
+    a = count_leading_zeros (a);
+}
+
+void Interp::Add_i32 ()
+{
+    const int a = pop_i32 ();
+    i32 () += a;
+}
+
+void Interp::Add_i64 ()
+{
+    const int64 a = pop_i64 ();
+    i64 () += a;
+}
+
+void Interp::Sub_i32 ()
+{
+    const int a = pop_i32 ();
+    i32 () -= a;
+}
+
+void Interp::Sub_i64 ()
+{
+    const int64 a = pop_i64 ();
+    i64 () -= a;
+}
+
+void Interp::Mul_i32 ()
+{
+    const int a = pop_i32 ();
+    i32 () *= a;
+}
+
+void Interp::Mul_i64 ()
+{
+    const int64 a = pop_i64 ();
+    i64 () *= a;
+}
+
+void Interp::Div_s_i32 ()
+{
+    const int a = pop_i32 ();
+    i32 () /= a;
+}
+
+void Interp::Div_u_i32 ()
+{
+    const uint a = pop_u32 ();
+    u32 () /= a;
+}
+
+void Interp::Rem_s_i32 ()
+{
+    const int a = pop_i32 ();
+    i32 () %= a;
+}
+
+void Interp::Rem_u_i32 ()
+{
+    const uint a = pop_u32 ();
+    u32 () %= a;
+}
+
+void Interp::And_i32 ()
+{
+    const int a = pop_i32 ();
+    i32 () &= a;
+}
+
+void Interp::And_i64 ()
+{
+    const int64 a = pop_i64 ();
+    i64 () &= a;
+}
+
+void Interp::Or_i32 ()
+{
+    const int a = pop_i32 ();
+    i32 () |= a;
+}
+
+void Interp::Or_i64 ()
+{
+    const int64 a = pop_i64 ();
+    i64 () |= a;
+}
+
+void Interp::Xor_i32 ()
+{
+    const int a = pop_i32 ();
+    i32 () ^= a;
+}
+
+void Interp::Xor_i64 ()
+{
+    const int64 a = pop_i64 ();
+    i64 () ^= a;
+}
+
+void Interp::Shl_i32 ()
+{
+    const int a = pop_i32 ();
+    i32 () <<= (a & 31);
+}
+
+void Interp::Shl_i64 ()
+{
+    const int64 a = pop_i64 ();
+    i64 () <<= (a & 63);
+}
+
+void Interp::Shr_s_i32 ()
+{
+    const int b = pop_i32 ();
+    i32 () <<= (b & 31);
+}
+
+void Interp::Shr_s_i64 ()
+{
+    const int64 b = pop_i64 ();
+    i64 () <<= (b & 63);
+}
+
+void Interp::Shr_u_i32 ()
+{
+    const uint b = pop_u32 ();
+    u32 () >>= (b & 31);
+}
+
+void Interp::Shr_u_i64 ()
+{
+    const uint64 b = pop_u64 ();
+    u64 () >>= (b & 63);
+}
+
+void Interp::Rotl_i32 ()
+{
+    const int n = 32;
+    const int b = (pop_i32 () & (n - 1));
+    uint& r = u32 ();
+    uint a = r;
+#if _MSC_VER
+    r = _rotl (a, b);
+#else
+    r = ((a << b) | (a >> (n - b)));
+#endif
+}
+
+void Interp::Rotl_i64 ()
+{
+    const int n = 64;
+    const int b = (pop_i64 () & (n - 1));
+    uint64& r = u64 ();
+    uint64 a = r;
+#if _MSC_VER
+    r = _rotl64 (a, b);
+#else
+    r = (a << b) | (a >> (n - b));
+#endif
+}
+
+void Interp::Rotr_i32 ()
+{
+    const int n = 32;
+    const int b = (int)(pop_u32 () & (n - 1));
+    uint& r = u32 ();
+    uint a = r;
+#if _MSC_VER
+    r = _rotr (a, b);
+#else
+    r = (a >> b) | (a << (n - b));
+#endif
+}
+
+void Interp::Rotr_i64 ()
+{
+    const int n = 64;
+    const int b = (int)(pop_u64 () & (n - 1));
+    uint64& r = u64 ();
+    uint64 a = r;
+#if _MSC_VER
+    r = _rotr64 (a, b);
+#else
+    r = (a >> b) | (a << (n - b));
+#endif
+}
+
+void Interp::Abs_f32 ()
+{
+    float& z = f32 ();
+    z = std::abs (z);
+}
+
+void Interp::Abs_f64 ()
+{
+    double& z = f64 ();
+    z = std::abs (z);
+}
+
+void Interp::Neg_f32 ()
+{
+    f32 () *= -1;
+}
+
+void Interp::Neg_f64 ()
+{
+    f64 () *= -1;
+}
+
+void Interp::Ceil_f32 ()
+{
+    float& z = f32 ();
+    z = ceilf (z);
+}
+
+void Interp::Ceil_f64 ()
+{
+    double& z = f64 ();
+    z = ceil (z);
+}
+
+void Interp::Floor_f32 ()
+{
+    float& z = f32 ();
+    z = floorf (z);
+}
+
+void Interp::Floor_f64 ()
+{
+    double& z = f64 ();
+    z = floor (z);
+}
+
+void Interp::Trunc_f32 ()
+{
+    float& z = f32 ();
+    z = truncf (z); // TODO C99
+}
+
+void Interp::Trunc_f64 ()
+{
+    double& z = f64 ();
+    z = trunc (z);
+}
+
+void Interp::Nearest_f32 ()
+{
+    float& z = f32 ();
+    z = roundf (z);
+}
+
+void Interp::Nearest_f64 ()
+{
+    double& z = f64 ();
+    z = round (z);
+}
+
+void Interp::Sqrt_f32 ()
+{
+    float& z = f32 ();
+    z = sqrtf (z);
+}
+
+void Interp::Sqrt_f64 ()
+{
+    double& z = f64 ();
+    z = sqrt (z);
+}
+
+void Interp::Add_f32 ()
+{
+    const float a = pop_f32 ();
+    f32 () += a;
+}
+
+void Interp::Add_f64 ()
+{
+    const double a = pop_f64 ();
+    f64 () += a;
+}
+
+void Interp::Sub_f32 ()
+{
+    const float a = pop_f32 ();
+    f32 () -= a;
+}
+
+void Interp::Sub_f64 ()
+{
+    const double a = pop_f64 ();
+    f64 () -= a;
+}
+
+void Interp::Mul_f32 ()
+{
+    const float a = pop_f32 ();
+    f32 () *= a;
+}
+
+void Interp::Mul_f64 ()
+{
+    const double a = pop_f64 ();
+    f64 () *= a;
+}
+
+void Interp::Div_f32 ()
+{
+    const float a = pop_f32 ();
+    f32 () /= a;
+}
+
+void Interp::Div_f64 ()
+{
+    const double a = pop_f64 ();
+    f64 () /= a;
+}
+
+void Interp::Min_f32 ()
+{
+    const float z2 = pop_f32 ();
+    float& z1 = f32 ();
+    z1 = Min (z1, z2);
+}
+
+void Interp::Min_f64 ()
+{
+    const double z2 = pop_f64 ();
+    double& z1 = f64 ();
+    z1 = Min (z1, z2);
+}
+
+void Interp::Max_f32 ()
+{
+    const float z2 = pop_f32 ();
+    float& z1 = f32 ();
+    z1 = Max (z1, z2);
+}
+
+void Interp::Max_f64 ()
+{
+    const double z2 = pop_f64 ();
+    double& z1 = f64 ();
+    z1 = Max (z1, z2);
+}
+
+void Interp::Copysign_f32 ()
+{
+    const float z2 = pop_f32 ();
+    float& z1 = f32 ();
+    z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
+}
+
+void Interp::Copysign_f64 ()
+{
+    const double z2 = pop_f64 ();
+    double& z1 = f64 ();
+    z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
+}
+
+// Various lossless and lossy conversions.
+
+void Interp::i32_Wrap_i64 ()
+{
+    set_i32 ((int)(i64 () & 0xFFFFFFFF));
+}
+
+void Interp::i32_Trunc_f32s ()
+{
+    set_i32 ((int)f32 ());
+}
+
+void Interp::i32_Trunc_f32u ()
+{
+    set_u32 ((uint)f32 ());
+}
+
+void Interp::i32_Trunc_f64s ()
+{
+    set_i32 ((int)f64 ());
+}
+
+void Interp::i32_Trunc_f64u ()
+{
+    set_u32 ((uint)f64 ());
+}
+
+void Interp::i64_Extend_i32s ()
+{
+    set_i64 ((int64)i32 ());
+}
+
+void Interp::i64_Extend_i32u ()
+{
+    set_u64 ((uint64)u32 ());
+}
+
+void Interp::i64_Trunc_f32s ()
+{
+    set_i64 ((int64)f32 ());
+}
+
+void Interp::i64_Trunc_f32u ()
+{
+    set_u64 ((uint64)f32 ());
+}
+
+void Interp::i64_Trunc_f64s ()
+{
+    set_i64 ((int64)f64 ());
+}
+
+void Interp::i64_Trunc_f64u ()
+{
+    set_u64 ((uint64)f64 ());
+}
+
+void Interp::f32_Convert_i32u ()
+{
+    set_f32 ((float)(uint)u32 ());
+}
+
+void Interp::f32_Convert_i32s ()
+{
+    set_f32 ((float)(int)i32 ());
+}
+
+void Interp::f32_Convert_i64u ()
+{
+    set_f32 ((float)u64 ());
+}
+
+void Interp::f32_Convert_i64s ()
+{
+    set_f32 ((float)i64 ());
+}
+
+void Interp::f32_Demote_f64 ()
+{
+    set_f32 ((float)f64 ());
+}
+
+void Interp::f64_Convert_i32s ()
+{
+    set_f64 ((double)i32 ());
+}
+
+void Interp::f64_Convert_i32u ()
+{
+    set_f64 ((double)u32 ());
+}
+
+void Interp::f64_Convert_i64s ()
+{
+    set_f64 ((double)i64 ());
+}
+
+void Interp::f64_Convert_i64u ()
+{
+    set_f64 ((double)u64 ());
+}
+
+void Interp::f64_Promote_f32 ()
+{
+    set_f64 ((double)f32 ());
+}
+
+// reinterpret; these could be more automated
+
+void Interp::i32_Reinterpret_f32 ()
+{
+    tag (ValueType_f32) = ValueType_i32;
+}
+
+void Interp::f32_Reinterpret_i32 ()
+{
+    tag (ValueType_i32) = ValueType_f32;
+}
+
+void Interp::i64_Reinterpret_f64 ()
+{
+    tag (ValueType_f64) = ValueType_i64;
+}
+
+void Interp::f64_Reinterpret_i64 ()
+{
+    tag (ValueType_i64) = ValueType_f64;
+}
+
+};
 
 using namespace w3; // TODO C or C++?
 
