@@ -878,6 +878,7 @@ struct stderr_stream : stream
     }
 };
 
+static
 uint
 read_byte (uint8*& cursor, const uint8* end)
 {
@@ -886,6 +887,7 @@ read_byte (uint8*& cursor, const uint8* end)
     return *cursor++;
 }
 
+static
 uint64
 read_varuint64 (uint8*& cursor, const uint8* end)
 {
@@ -902,6 +904,7 @@ read_varuint64 (uint8*& cursor, const uint8* end)
     return result;
 }
 
+static
 uint
 read_varuint32 (uint8*& cursor, const uint8* end)
 {
@@ -918,6 +921,7 @@ read_varuint32 (uint8*& cursor, const uint8* end)
     return result;
 }
 
+static
 uint
 read_varuint7 (uint8*& cursor, const uint8* end)
 {
@@ -927,6 +931,7 @@ read_varuint7 (uint8*& cursor, const uint8* end)
     return result;
 }
 
+static
 int64
 read_varint64 (uint8*& cursor, const uint8* end)
 {
@@ -948,6 +953,7 @@ read_varint64 (uint8*& cursor, const uint8* end)
     return result;
 }
 
+static
 int
 read_varint32 (uint8*& cursor, const uint8* end)
 {
@@ -2475,6 +2481,7 @@ struct Module
     void read_module (const char* file_name);
 };
 
+static
 void
 DecodeInstructions (Module* module, std::vector<InstructionDecoded>& instructions, uint8*& cursor);
 
@@ -2662,6 +2669,7 @@ void TypesSection::read (Module* module, uint8*& cursor)
     printf ("read section 1\n");
 }
 
+static
 void
 DecodeInstructions (Module* module, std::vector<InstructionDecoded>& instructions, uint8*& cursor)
 {
