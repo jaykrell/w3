@@ -1,7 +1,7 @@
 // 2-clause BSD license unless that does not suffice
 // else MIT like mono. Need to research the difference.
 
-// Implementation language is C++. At least C++11.
+// Implementation language is C ?or? C++. At least C++11?
 // The following features of C++ are desirable:
 //   RAII (destructors, C++98)
 //   enum class (C++11)
@@ -21,6 +21,11 @@
 
 // Goals: clarity, simplicity, portability, size, interpreter, compile to C++, and maybe
 // later some JIT
+
+// Fix for circa Visual C++ 2.0 Win32 SDK. // C:\msdev\MSVC20\INCLUDE\objbase.h(8934) : error C2065: '_fmemcmp' : undeclared identifier
+#if defined (_WIN32) && !defined (WIN32)
+#define WIN32 1
+#endif
 
 #if _MSC_VER && _MSC_VER <= 1500
 //#error This version of Visual C++ is too old. Known bad versions include 5.0 and 2008. Known good includes 1900/2017.
@@ -55,7 +60,6 @@ double round (double);
 #endif
 
 #if _MSC_VER <= 1100
-#include "yvals.h"
 #pragma warning (disable:4018) // unsigned/signed
 #pragma warning (disable:4146) // negated unsigned is unsigned
 #pragma warning (disable:4238) // <utility> nonstandard extension used : class rvalue used as lvalue
@@ -83,21 +87,23 @@ double round (double);
 #if _MSC_VER > 1100 //TODO which version?
 #pragma warning (push)
 #endif
-#pragma warning (disable:4626) // assignment implicitly deleted
 #pragma warning (disable:4571) // catch(...)
+#pragma warning (disable:4626) // assignment implicitly deleted
 #pragma warning (disable:4625) // copy constructor implicitly deleted
 #pragma warning (disable:4668) // #if not_defined as #if 0
 #pragma warning (disable:4774) // printf used without constant format
+#pragma warning (disable:4820) // ucrt\malloc.h(45): warning C4820: '_heapinfo': '4' bytes padding added after data member '_heapinfo::_useflag'
 #pragma warning (disable:5026) // move constructor implicitly deleted
 #pragma warning (disable:5027) // move assignment implicitly deleted
 #pragma warning (disable:5039) // exception handling and function pointers
 #endif
-
 #if __GNUC__ || __clang__
 #pragma GCC diagnostic ignored "-Wunused-const-variable"
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
-
+#if _MSC_VER
+#include <intrin.h>
+#endif
 #define _ISOC99_SOURCE
 #include <math.h>
 #include <stack>
@@ -187,7 +193,7 @@ typedef unsigned long long uint64;
 
 #endif
 
-namespace w3
+namespace w3 // TODO Visual C++ 2.0 lacks namespaces
 {
 
 template <typename T>
@@ -201,6 +207,11 @@ T Max(const T& a, const T& b)
 {
     return (a >= b) ? a : b;
 }
+
+#if _MSC_VER
+#pragma warning (push)
+#pragma warning (disable:4996) // _vsnprintf dangerous
+#endif
 
 // Portable to old (and new) Visual C++ runtime.
 uint
@@ -245,6 +256,10 @@ StringFormatVa (const char* format, va_list va)
 #endif
     return &s [0];
 }
+
+#if _MSC_VER
+#pragma warning (pop)
+#endif
 
 std::string
 StringFormat (const char* format, ...)
@@ -3250,7 +3265,7 @@ public:
     void Popcnt_i32 ()
     {
         uint& a = u32 ();
-#if 0 // _MSC_VER > 1500 // TODO
+#if _MSC_VER
         a = __popcnt (a);
 #else
         a = count_set_bits (a);
@@ -3260,7 +3275,7 @@ public:
     void Popcnt_i64 ()
     {
         uint64& a = u64 ();
-#if _MSC_VER > 1500 // TODO
+#if _MSC_VER
         a = __popcnt64 (a);
 #else
         a = count_set_bits (a);
@@ -3647,6 +3662,8 @@ public:
         z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
     }
 
+    // Various lossless and lossy conversions.
+
     void Wrap_i64_i32 ()
     {
         set_i32 ((int)(i64 () & 0xFFFFFFFF));
@@ -3679,7 +3696,7 @@ public:
 
     void Extend_i32_u_i64 ()
     {
-        set_i64 ((uint64)u32 ());
+        set_u64 ((uint64)u32 ());
     }
 
     void Trunc_f32_s_i64 ()
@@ -3751,6 +3768,8 @@ public:
     {
         set_f64 ((double)f32 ());
     }
+
+    // reinterpret
 
     void Reinterpret_f32_i32 ()
     {
