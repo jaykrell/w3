@@ -1561,7 +1561,7 @@ FRELOP (0x66, Ge, 64) \
 \
  IUNOP (0x67, Clz,     32) \
  IUNOP (0x68, Ctz,     32) \
- IUNOP (0x69, count_set_bits,  32) \
+ IUNOP (0x69, Popcnt,  32) \
 IBINOP (0x6A, Add,     32) \
 IBINOP (0x6B, Sub,     32) \
 IBINOP (0x6C, Mul,     32) \
@@ -1580,7 +1580,7 @@ IBINOP (0x78, Rotr,    32) \
 \
  IUNOP (0x79, Clz,     64) \
  IUNOP (0x7A, Ctz,     64) \
- IUNOP (0x7B, count_set_bits,  64) \
+ IUNOP (0x7B, Popcnt,  64) \
 IBINOP (0x7C, Add,     64) \
 IBINOP (0x7D, Sub,     64) \
 IBINOP (0x7E, Mul,     64) \
@@ -3388,8 +3388,6 @@ count_leading_zeros (T a)
     return n;
 }
 
-#if 0 // TODO
-
 INTERP (Popcnt_i32)
 {
     uint& a = u32 ();
@@ -3409,8 +3407,6 @@ INTERP (Popcnt_i64)
     a = count_set_bits (a);
 #endif
 }
-
-#endif
 
 INTERP (Ctz_i32)
 {
