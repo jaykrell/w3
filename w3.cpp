@@ -1627,33 +1627,33 @@ FBINOP (0xA4, Min,      64) \
 FBINOP (0xA5, Max,      64) \
 FBINOP (0xA6, Copysign, 64) \
 \
-CVTOP (0xA7,  Wrap, i64,  , i32)  \
-CVTOP (0xA8, Trunc, f32, s, i32)  \
-CVTOP (0xA9, Trunc, f32, u, i32)  \
-CVTOP (0xAA, Trunc, f64, s, i32)  \
-CVTOP (0xAB, Trunc, f64, u, i32)  \
-CVTOP (0xAC, Extend, i32, s, i64) \
-CVTOP (0xAD, Extend, i32, u, i64) \
-CVTOP (0xAE, Trunc, f32, s, i64)  \
-CVTOP (0xAF, Trunc, f32, u, i64)  \
-CVTOP (0xB0, Trunc, f64, s, i64)  \
-CVTOP (0xB1, Trunc, f64, u, i64)  \
+CVTOP (0xA7,  Wrap, i32, i64,  )  \
+CVTOP (0xA8, Trunc, i32, f32, s)  \
+CVTOP (0xA9, Trunc, i32, f32, u)  \
+CVTOP (0xAA, Trunc, i32, f64, s)  \
+CVTOP (0xAB, Trunc, i32, f64, u)  \
+CVTOP (0xAC, Extend, i64, i32, s) \
+CVTOP (0xAD, Extend, i64, i32, u) \
+CVTOP (0xAE, Trunc, i64, f32, s)  \
+CVTOP (0xAF, Trunc, i64, f32, u)  \
+CVTOP (0xB0, Trunc, i64, f64, s)  \
+CVTOP (0xB1, Trunc, i64, f64, u)  \
 \
-CVTOP (0xB2, Convert, i32, u, f32) \
-CVTOP (0xB3, Convert, i32, s, f32) \
-CVTOP (0xB4, Convert, i64, u, f32) \
-CVTOP (0xB5, Convert, i64, s, f32) \
-CVTOP (0xB6, Demote,  f64, , f32) \
-CVTOP (0xB7, Convert, i32, s, f64) \
-CVTOP (0xB8, Convert, i32, u, f64) \
-CVTOP (0xB9, Convert, i64, s, f64) \
-CVTOP (0xBA, Convert, i64, u, f64) \
-CVTOP (0xBB, Promote, f32, , f64) \
+CVTOP (0xB2, Convert, f32, i32, u) \
+CVTOP (0xB3, Convert, f32, i32, s) \
+CVTOP (0xB4, Convert, f32, i64, u) \
+CVTOP (0xB5, Convert, f32, i64, s) \
+CVTOP (0xB6, Demote,  f32, f64, ) \
+CVTOP (0xB7, Convert, f64, i32, s) \
+CVTOP (0xB8, Convert, f64, i32, u) \
+CVTOP (0xB9, Convert, f64, i64, s) \
+CVTOP (0xBA, Convert, f64, i64, u) \
+CVTOP (0xBB, Promote, f64, f32, ) \
 \
-CVTOP (0xBC, Reinterpret, f32, , i32) \
-CVTOP (0xBD, Reinterpret, f64, , i64) \
-CVTOP (0xBE, Reinterpret, i32, , f32) \
-CVTOP (0xBF, Reinterpret, i64, , f64) \
+CVTOP (0xBC, Reinterpret, i32, f32, ) \
+CVTOP (0xBD, Reinterpret, i64, f64, ) \
+CVTOP (0xBE, Reinterpret, f32, i32, ) \
+CVTOP (0xBF, Reinterpret, f64, i64, ) \
 \
 RESERVED (C0) \
 RESERVED (C1) \
@@ -1733,12 +1733,12 @@ RESERVED (FF) \
 #define IRELOP(b0, name, size, sign)  INSTRUCTION (b0, 1, 0, name ## _i ## size ## sign, Imm_none, 2, 1, Type_i ## size, Type_i ## size, Type_none, Type_bool)
 
 // convert; TODO make ordering more sensible?
-#define CVTOP(b0, name, from, sign, to) INSTRUCTION (b0, 1, 0, to ## _ ## name ## _ ## from ## sign, Imm_none, 1, 1, Type_ ## from, Type_none, Type_none, Type_ ## to)
+#define CVTOP(b0, name, to, from, sign) INSTRUCTION (b0, 1, 0, to ## _ ## name ## _ ## from ## sign, Imm_none, 1, 1, Type_ ## from, Type_none, Type_none, Type_ ## to)
 
 #define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none)
 
 #undef CONST
-#define CONST(b0, type) INSTRUCTION (b0, 1, 0, Const_ ## type, Imm_ ## type, 0, 1, Type_none, Type_none, Type_none, Type_ ## type)
+#define CONST(b0, type) INSTRUCTION (b0, 1, 0, type ## _Const, Imm_ ## type, 0, 1, Type_none, Type_none, Type_none, Type_ ## type)
 
 #define LOAD(b0, to, from) INSTRUCTION (b0, 1, 0, to ## _Load ## from, Imm_memory, 0, 1, Type_none, Type_none, Type_none, Type_ ## to)
 #define STORE(b0, from, to) INSTRUCTION (b0, 1, 0, from ## _Store ## to, Imm_memory, 1, 0, Type_ ## from, Type_none, Type_none, Type_none)
@@ -1763,185 +1763,6 @@ const char instructionNames [ ] =
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) #name "\0"
 INSTRUCTIONS
 ;
-
-#undef INTERP
-#define INTERP(x) void interp_ ## x ()
-
-INTERP (Unreach)
-{
-    assert(!"Unreach");
-}
-
-INTERP (Nop)
-{
-    assert(!"Nop");
-}
-
-INTERP (Block)
-{
-    assert(!"Block");
-}
-
-INTERP (Loop)
-{
-    assert(!"Loop");
-}
-
-INTERP (If)
-{
-    assert(!"Unreach");
-}
-
-INTERP (Else)
-{
-    assert(!"Unreach");
-}
-
-INTERP (BlockEnd)
-{
-    assert(!"Unreach");
-}
-
-INTERP (Br)
-{
-    assert(!"Unreach");
-}
-
-INTERP (BrIf)
-{
-    assert(!"Unreach");
-}
-
-INTERP (BrTable)
-{
-    assert(!"Unreach");
-}
-
-INTERP (Ret)
-{
-    assert(!"Ret");
-}
-
-INTERP (Call)
-{
-    assert(!"Call");
-}
-
-INTERP (Calli)
-{
-    assert(!"Calli");
-}
-
-INTERP (Drop)
-{
-    assert(!"Drop");
-}
-
-INTERP (Select)
-{
-    assert(!"Select");
-}
-
-INTERP (Local_get)
-{
-    assert(!"Local_get");
-}
-
-INTERP (Local_set)
-{
-    assert(!"Local_set");
-}
-
-INTERP (Local_tee)
-{
-    assert(!"Local_tee");
-}
-
-INTERP (Global_get)
-{
-    assert(!"Global_get");
-}
-
-INTERP (Global_set)
-{
-    assert(!"Global_set");
-}
-
-INTERP (MemSize)
-{
-    assert(!"MemSize");
-}
-
-INTERP (MemGrow)
-{
-    assert(!"MemGrow");
-}
-
-// TODO templatize
-INTERP (Convert)
-{
-    assert(!"Convert");
-}
-
-INTERP (Reserved)
-{
-    assert(!"Reserved");
-}
-
-// TODO templatize
-INTERP (Load)
-{
-    assert(!"Load");
-}
-
-// TODO templatize
-INTERP (Store)
-{
-    assert(!"Store");
-}
-
-// TODO templatize
-INTERP (Const)
-{
-    assert(!"Const");
-}
-
-INTERP (ITestOp)
-{
-    assert(!"ITestOp");
-}
-
-INTERP (IRelOp)
-{
-    assert(!"IRelOp");
-}
-
-
-INTERP (FRelOp)
-{
-    assert(!"FRelOp");
-}
-
-INTERP (IUnOp)
-{
-    assert(!"IUnOp");
-}
-
-INTERP (IBinOp)
-{
-    assert(!"IBinOp");
-}
-
-INTERP (FUnOp)
-{
-    assert(!"FUnOp");
-}
-
-INTERP (FBinOp)
-{
-    assert(!"FBinOp");
-}
-
 #define BITS_FOR_UINT_HELPER(a, x) (a) >= (1u << x) ? (x) + 1 :
 #define BITS_FOR_UINT(a)                                                                                \
   (BITS_FOR_UINT_HELPER (a, 31) BITS_FOR_UINT_HELPER (a, 30)                                                          \
@@ -3004,9 +2825,13 @@ public:
 
     void Reserved (DecodedInstruction*);
 
+#undef RESERVED
+#define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none) { Reserved (instr); }
+
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name (DecodedInstruction* instr);
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) ; void name (DecodedInstruction* instr)
 INSTRUCTIONS
+    ;
 };
 
 //unreach
@@ -3041,6 +2866,26 @@ void* Interp::LoadStore (DecodedInstruction* instr, size_t size)
 
 #undef INTERP
 #define INTERP(x) void Interp::x (DecodedInstruction* instr)
+
+INTERP (i32_Const)
+{
+    push_i32 (instr->i32);
+}
+
+INTERP (i64_Const)
+{
+    push_i64 (instr->i64);
+}
+
+INTERP (f32_Const)
+{
+    push_f32 (instr->f32);
+}
+
+INTERP (f64_Const)
+{
+    push_f64 (instr->f64);
+}
 
 INTERP (i32_Load)
 {
@@ -3170,6 +3015,11 @@ INTERP (Nop)
 {
 }
 
+INTERP (Drop)
+{
+    pop ();
+}
+
 void Interp:: Reserved (DecodedInstruction* instr)
 {
     static const char reserved [] = "reserved\n";
@@ -3206,6 +3056,16 @@ INTERP (Eq_i64)
     push_bool (pop_i64 () == pop_i64 ());
 }
 
+INTERP (Eq_f32)
+{
+    push_bool (pop_f32 () == pop_f32 ());
+}
+
+INTERP (Eq_f64)
+{
+    push_bool (pop_f64 () == pop_f64 ());
+}
+
 INTERP (Ne_i32)
 {
     push_bool (pop_i32 () != pop_i32 ());
@@ -3214,6 +3074,16 @@ INTERP (Ne_i32)
 INTERP (Ne_i64)
 {
     push_bool (pop_i64 () != pop_i64 ());
+}
+
+INTERP (Ne_f32)
+{
+    push_bool (pop_f32 () != pop_f32 ());
+}
+
+INTERP (Ne_f64)
+{
+    push_bool (pop_f64 () != pop_f64 ());
 }
 
 // Lt
@@ -3258,6 +3128,50 @@ INTERP (Lt_f64)
     double b = pop_f64 ();
     double a = pop_f64 ();
     push_bool (a < b);
+}
+
+// Gt
+
+INTERP (Gt_i32s)
+{
+    int b = pop_i32 ();
+    int a = pop_i32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_i32u)
+{
+    uint b = pop_u32 ();
+    uint a = pop_u32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_i64s)
+{
+    int64 b = pop_i64 ();
+    int64 a = pop_i64 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_i64u)
+{
+    uint64 b = pop_u32 ();
+    uint64 a = pop_u32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_f32)
+{
+    float b = pop_f32 ();
+    float a = pop_f32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_f64)
+{
+    double b = pop_f64 ();
+    double a = pop_f64 ();
+    push_bool (a > b);
 }
 
 // Le
@@ -3490,6 +3404,30 @@ INTERP (Rem_u_i32)
 {
     const uint a = pop_u32 ();
     u32 () %= a;
+}
+
+INTERP (Div_s_i64)
+{
+    const int64 a = pop_i64 ();
+    i64 () /= a;
+}
+
+INTERP (Div_u_i64)
+{
+    const uint64 a = pop_u64 ();
+    u64 () /= a;
+}
+
+INTERP (Rem_s_i64)
+{
+    const int64 a = pop_i64 ();
+    i64 () %= a;
+}
+
+INTERP (Rem_u_i64)
+{
+    const uint64 a = pop_u64 ();
+    u64 () %= a;
 }
 
 INTERP (And_i32)
