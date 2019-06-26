@@ -76,12 +76,13 @@ double round (double);
 #pragma warning (disable:4296) // always false
 #pragma warning (disable:4480) // enum base type was non-standard
 #pragma warning (disable:4616) // unknown warning disabled
-#pragma warning (disable:4619) // invalid pragma warning disable
 //#pragma warning (disable:4706) // assignment within conditional
 #endif
 #pragma warning (disable:4100) // unused parameter
 #pragma warning (disable:4505) // unused static function
 #pragma warning (disable:4514) // unused function
+#pragma warning (disable:4619) // invalid pragma warning disable
+#pragma warning (disable:4668) // #if not_defined is #if 0
 #pragma warning (disable:4710) // function not inlined
 #pragma warning (disable:4820) // padding
 #if _MSC_VER > 1100 //TODO which version?
@@ -3305,7 +3306,7 @@ count_leading_zeros (T a)
 INTERP (Popcnt_i32)
 {
     uint& a = u32 ();
-#if _MSC_VER
+#if _M_AMD64 || _M_IX86
     a = __popcnt (a);
 #else
     a = count_set_bits (a);
@@ -3315,7 +3316,7 @@ INTERP (Popcnt_i32)
 INTERP (Popcnt_i64)
 {
     uint64& a = u64 ();
-#if _MSC_VER && _WIN64
+#if _M_AMD64
     a = __popcnt64 (a);
 #else
     a = count_set_bits (a);

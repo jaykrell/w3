@@ -1,6 +1,7 @@
-AMD64=1 
+ARM=1 
+AMD64=0 
 386=0 
-mscver=1916 
+mscver=1900 
 Wall=/Wall 
 CONFIG_H=1 
 HAS_TYPED_ENUM=1 

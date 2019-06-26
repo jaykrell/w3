@@ -22,21 +22,32 @@ cl /nologo %Wall% /c config.cpp
 if errorlevel 1 set Wall=
 echo Wall=%Wall%
 
+del config.mk 2>nul
+
 cl 2>&1 | findstr /e /i x64 >nul: && goto :x64
 cl 2>&1 | findstr /e /i amd64 >nul: && goto :amd64
 cl 2>&1 | findstr /e /i x86 >nul: && goto :x86
+cl 2>&1 | findstr /e /i arm >nul: && goto :arm
 echo ERROR: Failed to configure.
 goto :eof
 
 :x86
 :amd64
-echo AMD64=0 >config.mk
+echo ARM=0 >>config.mk
+echo AMD64=0 >>config.mk
 echo 386=1 >>config.mk
+goto :end
+
+:arm
+echo ARM=1 >>config.mk
+echo AMD64=0 >>config.mk
+echo 386=0 >>config.mk
 goto :end
 
 :x64
 :amd64
-echo AMD64=1 >config.mk
+echo ARM=0 >>config.mk
+echo AMD64=1 >>config.mk
 echo 386=0 >>config.mk
 goto :end
 

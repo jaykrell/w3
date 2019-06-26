@@ -55,17 +55,24 @@ ifdef MAKEDIR:
 #!message AMD64=$(AMD64)
 #!message 386=$(386)
 
-!if !defined(AMD64) && !defined(386)
+!if !defined (AMD64) && !defined (386) && !defined (ARM)
 AMD64=1
 386=0
+ARM=0
 !endif
 
 !if $(AMD64)
 win=winamd64.exe
 386=0
+ARM=0
 !elseif $(386)
 win=winx86.exe
 AMD64=0
+ARM=0
+!elseif $(ARM)
+win=winarm.exe
+AMD64=0
+386=0
 !endif
 
 !ifndef win
@@ -90,7 +97,7 @@ debug: $(win)
 !endif
 
 clean:
-	$(RM_F) $(win) w3.obj *.ilk
+	$(RM_F) $(win) w3.obj *.ilk win32 win32.exe win64 win64.exe win win.exe winarm.exe winx86.exe winamd64.exe
 
 # TODO clang cross
 #
@@ -136,7 +143,7 @@ debug: mac
 	lldb -- ./$(NativeTarget) /s/mono/mcs/class/lib/build-macos/mscorlib.dll
 
 clean:
-	$(RM_F) mac win32 win32.exe win64 win64.exe win win.exe cyg cyg.exe *.ilk lin
+	$(RM_F) mac win32 win32.exe win64 win64.exe win win.exe cyg cyg.exe *.ilk lin win.exe winarm.exe winx86.exe winamd64.exe
 
 mac: w3.cpp
 	g++ -std=c++14 -g w3.cpp -o $@ -Bsymbolic -bind_at_load
