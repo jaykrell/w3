@@ -1837,7 +1837,7 @@ struct InstructionEncoding
     Type stack_in1  ; // type of stack [1] upon input, if pop >= 2
     Type stack_in2  ; // type of stack [2] upon input, if pop == 3
     Type stack_out0 ; // type of stack [1] upon input, if push == 1
-    void (*interp) (Module*); // Module* probably wrong
+    void (*interp) (Module*); // Module* wrong
 };
 
 struct DecodedInstruction
@@ -1990,22 +1990,60 @@ struct Import
     };
 };
 
-// work in progress
-struct ModuleInstance
+struct FuncAddr // TODO
 {
-    std::vector<uint8> memory;
-    Module* module;
 };
 
+struct TableAddr // TODO
+{
+};
+
+struct MemAddr // TODO
+{
+};
+
+struct GlobalAddr // TODO
+{
+};
+
+struct ExternalValue // external to a module, an export instance
+{
+    union
+    {
+        FuncAddr* func;
+        TableAddr* table;
+        MemAddr* mem;
+        GlobalAddr* global;
+    };
+};
+
+struct ExportInstance // work in progress
+{
+    String name;
+    ExternalValue external_value;
+};
+
+struct ModuleInstance // work in progress
+{
+    Module* module;
+    std::vector<uint8> memory;
+    std::vector<FuncAddr*> funcs;
+    std::vector<TableAddr*> tables;
+    //std::vector<NenAddr*> mem; // mem [0] => memory for now
+    std::vector<GlobalAddr*> globals;
+    std::vector<ExportInstance> exports;
+};
+
+struct FunctionType;
 struct Function;
 struct Code;
 
-// work in progress
-struct FunctionInstance
+struct FunctionInstance // work in progress
 {
-    Function* function;
-    Code* code;
     ModuleInstance* module_instance;
+    FunctionType* function_type;
+    void* host_code; // TODO
+    Code* code; // TODO
 };
 
 struct Function // section3
@@ -2803,6 +2841,8 @@ public:
 
     Stack& stack;
 
+    void Invoke (uint function_index);
+
     void interp (Module* module, Export* emain)
     {
         Assert (module && emain && emain->is_main && emain->tag == ExportTag_Function);
@@ -2843,8 +2883,6 @@ INSTRUCTIONS
 //if
 //loop
 //else
-//call
-//calli
 //drop
 //select
 //local get set tree
@@ -2867,6 +2905,21 @@ void* Interp::LoadStore (DecodedInstruction* instr, size_t size)
 
 #undef INTERP
 #define INTERP(x) void Interp::x (DecodedInstruction* instr)
+
+void Interp::Invoke (uint function_index)
+{
+    // TODO validate non-calli earlier
+    Module* const module = frame->module->module;
+    assert (function_index < module->functions.size ());
+    const uint function_type = module->functions [function_index].function_type;
+
+    // TODO
+}
+
+INTERP (Call)
+{
+    Invoke (instr->u32);
+}
 
 INTERP (i32_Const)
 {
