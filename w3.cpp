@@ -2300,7 +2300,7 @@ struct Module
 };
 
 static
-void
+InstructionEnum
 DecodeInstructions (Module* module, std::vector<DecodedInstruction>& instructions, uint8*& cursor);
 
 void DataSection::read_data (Module* module, uint8*& cursor)
@@ -2491,17 +2491,18 @@ void TypesSection::read (Module* module, uint8*& cursor)
 }
 
 static
-void
+InstructionEnum
 DecodeInstructions (Module* module, std::vector<DecodedInstruction>& instructions, uint8*& cursor)
 {
+    uint b0;
     while (1)
     {
         InstructionEncoding e;
         DecodedInstruction i;
-        switch (uint b0 = module->read_byte (cursor))
+        switch (b0 = module->read_byte (cursor)) // TODO multi-byte instructions
         {
         case BlockEnd:
-            return;
+            return BlockEnd;
         default:
             e = instructionEncode [b0];
             if (e.fixed_size == 0)
@@ -2514,8 +2515,9 @@ DecodeInstructions (Module* module, std::vector<DecodedInstruction>& instruction
             switch (e.immediate)
             {
             case Imm_sequence:
-                DecodeInstructions (module, i.sequence, cursor);
-                // Next instruction should be end or else.
+                InstructionEnum next;
+                next = DecodeInstructions (module, i.sequence, cursor);
+                assert (next == BlockEnd || (i.name == If && next == Else));
                 break;
             case Imm_memory:
                 i.align = module->read_varuint32 (cursor);
@@ -2553,6 +2555,7 @@ DecodeInstructions (Module* module, std::vector<DecodedInstruction>& instruction
             instructions.push_back (i);
         }
     }
+    return (InstructionEnum)b0;
 }
 
 const
