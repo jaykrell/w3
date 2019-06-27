@@ -659,6 +659,14 @@ SignExtend (uint64 value, uint bits)
     return value | sign;
 }
 
+static
+uint
+int_magnitude (int i)
+{
+    // Avoid negating the most negative number.
+    return 1 + (uint)-(i + 1);
+}
+
 struct int_split_sign_magnitude_t
 {
     int_split_sign_magnitude_t (int64 a)
@@ -2048,10 +2056,10 @@ struct FunctionInstance // work in progress
 
 struct Function // section3
 {
-    Function() : function_type (0) { }
+    Function() : function_type_index (0) { }
 
     // Functions are split between two sections: types in section3, locals/body in section10
-    uint function_type;
+    uint function_type_index;
 };
 
 struct Global
@@ -2116,8 +2124,6 @@ struct FunctionType
 
 struct TypesSection : Section<1>
 {
-    std::vector<FunctionType> functionTypes;
-
     virtual void read (Module* module, uint8*& cursor);
 };
 
@@ -2127,6 +2133,7 @@ struct ImportsSection : Section<2>
 
     virtual void read (Module* module, uint8*& cursor)
     {
+        printf ("reading section 2\n");
         read_imports (module, cursor);
     }
 
@@ -2152,6 +2159,7 @@ struct MemorySection : Section<5>
 {
     virtual void read (Module* module, uint8*& cursor)
     {
+        printf ("reading section 5\n");
         ThrowString ("Memory::read not yet implemented");
         // Hello world does not have this section.
     }
@@ -2163,6 +2171,7 @@ struct GlobalsSection : Section<6>
 
     virtual void read (Module* module, uint8*& cursor)
     {
+        printf ("reading section 6\n");
         read_globals (module, cursor);
     }
 };
@@ -2173,6 +2182,7 @@ struct ExportsSection : Section<7>
 
     virtual void read (Module* module, uint8*& cursor)
     {
+        printf ("reading section 7\n");
         read_exports (module, cursor);
     }
 };
@@ -2191,6 +2201,7 @@ struct ElementsSection : Section<9>
 
     virtual void read (Module* module, uint8*& cursor)
     {
+        printf ("reading section 9\n");
         read_elements (module, cursor);
     }
 };
@@ -2201,6 +2212,7 @@ struct CodeSection : Section<10>
 
     virtual void read (Module* module, uint8*& cursor)
     {
+        printf ("reading section 10\n");
         read_code (module, cursor);
     }
 };
@@ -2252,6 +2264,7 @@ struct Module
     CodeSection code_section;
     DataSection data_section;
 
+    std::vector<FunctionType> function_types;
     std::vector<Function> functions; // section3 and section10
     std::vector<TableType> tables; // section3
     std::vector<Global> globals; // section6
@@ -2311,8 +2324,10 @@ void DataSection::read_data (Module* module, uint8*& cursor)
 
 void CodeSection::read_code (Module* module, uint8*& cursor)
 {
+    printf ("reading CodeSection\n");
     uint8 const * const end = module->end;
     const uint size = module->read_varuint32 (cursor);
+    printf ("reading CodeSection size:%X\n", size);
     if (cursor + size > module->end)
         ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%u", cursor, end, size, __LINE__));
     module->code.resize (size);
@@ -2324,7 +2339,7 @@ void CodeSection::read_code (Module* module, uint8*& cursor)
             ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%u", cursor, end, a.size, __LINE__));
         a.cursor = cursor;
         cursor += a.size;
-        printf ("code [%X]: %p/%X\n", i++, a.cursor, a.size);
+        printf ("code [%X]: %p/%X\n", i, a.cursor, a.size);
     }
 }
 
@@ -2344,7 +2359,7 @@ void ElementsSection::read_elements (Module* module, uint8*& cursor)
         {
             uint& b = a.functions [j];
             b = module->read_varuint32 (cursor);
-            printf ("elem.function [i:%u/%u]:%u\n", j++, size2, b);
+            printf ("elem.function [%u/%u]:%u\n", j, size2, b);
         }
     }
     printf ("read elements9 size:%X\n", size1);
@@ -2405,7 +2420,7 @@ void FunctionsSection::read_functions (Module* module, uint8*& cursor)
     for (uint i = 0; i < size; ++i)
     {
         Function& a = module->functions [i];
-        a.function_type = module->read_varuint32 (cursor);
+        a.function_type_index = module->read_varuint32 (cursor);
     }
     printf ("read section 3\n");
 }
@@ -2458,17 +2473,18 @@ void FunctionType::read_function_type (Module* module, uint8*& cursor)
     module->read_vector_ValueType (results, cursor);
 }
 
+// TODO move this to Module
 void TypesSection::read (Module* module, uint8*& cursor)
 {
     printf ("reading section 1\n");
     const uint size = module->read_varuint32 (cursor);
-    functionTypes.resize (size);
+    module->function_types.resize (size);
     for (uint i = 0; i < size; ++i)
     {
         const uint marker = module->read_byte (cursor);
         if (marker != 0x60)
             ThrowString ("malformed2 in Types::read");
-        functionTypes [i].read_function_type (module, cursor);
+        module->function_types [i].read_function_type (module, cursor);
     }
     printf ("read section 1\n");
 }
@@ -2737,6 +2753,7 @@ void Module::read_section (uint8*& cursor)
         ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context (move to module or section)
 
     payload_size = read_varuint32 (cursor);
+    printf ("%s payload_size:%X\n", __func__, payload_size);
     payload = cursor;
     name_size = 0;
     const char* name = 0;
@@ -2767,7 +2784,7 @@ void Module::read_section (uint8*& cursor)
     section->payload = payload;
     section->read (this, payload);
     if (payload != cursor)
-        ThrowString (StringFormat ("failed to read section %d\n", id));
+        ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, cursor));
 }
 
 void Module::read_module (const char* file_name)
@@ -2804,6 +2821,10 @@ void Module::read_module (const char* file_name)
     assert (cursor == end);
 }
 
+// TODO once we have Validate, Interp, Jit, CppGen,
+// we will invert this structure and have a class per instruction with those 4 virtual functions.
+// Or we will token-paste those names on to the instruction names,
+// in order to avoid virtual function call cost. Let's get Interp working first.
 struct IInterp
 {
     virtual ~IInterp ()
@@ -2821,6 +2842,13 @@ struct IInterp
 #endif
 INSTRUCTIONS
 };
+
+static
+void
+Overflow ()
+{
+    assert (!"Overflow");
+}
 
 struct Interp : Stack, IInterp
 {
@@ -2892,13 +2920,30 @@ INSTRUCTIONS
 //brif
 //brtable
 //ret
-//const
 
 void* Interp::LoadStore (DecodedInstruction* instr, size_t size)
 {
-    // TODO spec says effective_address is 33 bits.
-    // TODO overflow esp. on 32bit
-    const size_t effective_address = pop_i32 () + instr->offset;
+    // TODO Not clear from spec and paper what to do here, despite
+    // focused discussion on it.
+    // Why is the operand signed??
+    size_t effective_address;
+    const ptrdiff_t i = pop_i32 ();
+    const size_t offset = instr->offset;
+    if (i >= 0)
+    {
+        effective_address = offset + (uint)i;
+        if (effective_address < offset)
+            Overflow ();
+    }
+    else
+    {
+        const size_t u = int_magnitude ((int)i);
+        if (u > offset)
+            Overflow ();
+        effective_address = offset - u;
+    }
+    if (effective_address > UINT_MAX - size)
+        Overflow ();
     assert (effective_address + size < frame->module->memory.size());
     return &frame->module->memory [effective_address];
 }
@@ -2906,19 +2951,39 @@ void* Interp::LoadStore (DecodedInstruction* instr, size_t size)
 #undef INTERP
 #define INTERP(x) void Interp::x (DecodedInstruction* instr)
 
-void Interp::Invoke (uint function_index)
-{
-    // TODO validate non-calli earlier
-    Module* const module = frame->module->module;
-    assert (function_index < module->functions.size ());
-    const uint function_type = module->functions [function_index].function_type;
-
-    // TODO
-}
-
 INTERP (Call)
 {
-    Invoke (instr->u32);
+}
+
+INTERP (Calli)
+{
+    // TODO signed or unsigned
+    // call is unsigned
+    const int sfunction_index = pop_i32 ();
+    assert (sfunction_index >= 0);
+    const uint function_index = (uint)sfunction_index;
+
+    const uint type_index_expected = instr->u32;
+
+    // This seems like it could be validated earlier.
+    Module* const module = frame->module->module;
+    assert (function_index < module->functions.size ());
+
+    Function* function = &module->functions [function_index];
+
+    const uint type_index_actual = function->function_type_index;
+
+    assert (type_index_expected < module->function_types.size ());
+    assert (type_index_actual < module->function_types.size ());
+
+  //  bool type_match = true;
+
+    //if (type_index_actual != type_index_expected;
+    {
+//        type_match = false;
+    }
+
+    //Invoke ((uint)i, true);
 }
 
 INTERP (i32_Const)
@@ -3144,43 +3209,43 @@ INTERP (Ne_f64)
 
 INTERP (Lt_i32s)
 {
-    int b = pop_i32 ();
-    int a = pop_i32 ();
+    const int b = pop_i32 ();
+    const int a = pop_i32 ();
     push_bool (a < b);
 }
 
 INTERP (Lt_i32u)
 {
-    uint b = pop_u32 ();
-    uint a = pop_u32 ();
+    const uint b = pop_u32 ();
+    const uint a = pop_u32 ();
     push_bool (a < b);
 }
 
 INTERP (Lt_i64s)
 {
-    int64 b = pop_i64 ();
-    int64 a = pop_i64 ();
+    const int64 b = pop_i64 ();
+    const int64 a = pop_i64 ();
     push_bool (a < b);
 }
 
 INTERP (Lt_i64u)
 {
-    uint64 b = pop_u32 ();
-    uint64 a = pop_u32 ();
+    const uint64 b = pop_u32 ();
+    const uint64 a = pop_u32 ();
     push_bool (a < b);
 }
 
 INTERP (Lt_f32)
 {
-    float b = pop_f32 ();
-    float a = pop_f32 ();
+    const float b = pop_f32 ();
+    const float a = pop_f32 ();
     push_bool (a < b);
 }
 
 INTERP (Lt_f64)
 {
-    double b = pop_f64 ();
-    double a = pop_f64 ();
+    const double b = pop_f64 ();
+    const double a = pop_f64 ();
     push_bool (a < b);
 }
 
@@ -3188,43 +3253,43 @@ INTERP (Lt_f64)
 
 INTERP (Gt_i32s)
 {
-    int b = pop_i32 ();
-    int a = pop_i32 ();
+    const int b = pop_i32 ();
+    const int a = pop_i32 ();
     push_bool (a > b);
 }
 
 INTERP (Gt_i32u)
 {
-    uint b = pop_u32 ();
-    uint a = pop_u32 ();
+    const uint b = pop_u32 ();
+    const uint a = pop_u32 ();
     push_bool (a > b);
 }
 
 INTERP (Gt_i64s)
 {
-    int64 b = pop_i64 ();
-    int64 a = pop_i64 ();
+    const int64 b = pop_i64 ();
+    const int64 a = pop_i64 ();
     push_bool (a > b);
 }
 
 INTERP (Gt_i64u)
 {
-    uint64 b = pop_u32 ();
-    uint64 a = pop_u32 ();
+    const uint64 b = pop_u32 ();
+    const uint64 a = pop_u32 ();
     push_bool (a > b);
 }
 
 INTERP (Gt_f32)
 {
-    float b = pop_f32 ();
-    float a = pop_f32 ();
+    const float b = pop_f32 ();
+    const float a = pop_f32 ();
     push_bool (a > b);
 }
 
 INTERP (Gt_f64)
 {
-    double b = pop_f64 ();
-    double a = pop_f64 ();
+    const double b = pop_f64 ();
+    const double a = pop_f64 ();
     push_bool (a > b);
 }
 
