@@ -2506,7 +2506,12 @@ DecodeInstructions (Module* module, std::vector<DecodedInstruction>& instruction
         default:
             e = instructionEncode [b0];
             if (e.fixed_size == 0)
+            {
+#if _WIN32
+                if (IsDebuggerPresent ()) DebugBreak();
+#endif
                 ThrowString ("reserved");
+            }
             i.name = e.name;
             if (e.fixed_size == 2) // TODO
                 if (module->read_byte (cursor))
@@ -3146,6 +3151,9 @@ INTERP (Drop)
 
 void Interp:: Reserved (DecodedInstruction* instr)
 {
+#if _WIN32
+    if (IsDebuggerPresent ()) DebugBreak();
+#endif
     static const char reserved [] = "reserved\n";
 #if _WIN32
     if (IsDebuggerPresent())
