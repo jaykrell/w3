@@ -1871,6 +1871,7 @@ struct DecodedInstruction
         };
         // etc.
     };
+    std::vector<DecodedInstruction> sequence;
     std::vector<uint> vecLabel;
     InstructionEnum name;
 };
@@ -2513,7 +2514,8 @@ DecodeInstructions (Module* module, std::vector<DecodedInstruction>& instruction
             switch (e.immediate)
             {
             case Imm_sequence:
-                ThrowString ("Imm_sequence not implemented");
+                DecodeInstructions (module, i.sequence, cursor);
+                // Next instruction should be end or else.
                 break;
             case Imm_memory:
                 i.align = module->read_varuint32 (cursor);
