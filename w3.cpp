@@ -3437,7 +3437,7 @@ count_leading_zeros (T a)
 INTERP (Popcnt_i32)
 {
     uint& a = u32 ();
-#if _M_AMD64 || _M_IX86
+#if _MSC_VER && (_M_AMD64 || _M_IX86)
     a = __popcnt (a);
 #else
     a = count_set_bits (a);
@@ -3447,7 +3447,7 @@ INTERP (Popcnt_i32)
 INTERP (Popcnt_i64)
 {
     uint64& a = u64 ();
-#if _M_AMD64
+#if _MSC_VER && _M_AMD64
     a = __popcnt64 (a);
 #else
     a = count_set_bits (a);
