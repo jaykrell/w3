@@ -1871,8 +1871,8 @@ struct DecodedInstruction
         };
         // etc.
     };
-    std::vector<DecodedInstruction> sequence;
-    std::vector<uint> vecLabel;
+    std::vector <DecodedInstruction> sequence;
+    std::vector <uint> vecLabel;
     InstructionEnum name;
 };
 
@@ -2057,7 +2057,7 @@ struct FunctionInstance // work in progress
 
 struct Function // section3
 {
-    Function() : function_type_index (0) { }
+    Function () : function_type_index (0) { }
 
     // Functions are split between two sections: types in section3, locals/body in section10
     uint function_type_index;
@@ -2066,15 +2066,15 @@ struct Function // section3
 struct Global
 {
     GlobalType global_type;
-    std::vector<DecodedInstruction> init;
+    std::vector <DecodedInstruction> init;
 };
 
 struct Element
 {
     uint table;
-    std::vector<DecodedInstruction> offset_instructions;
+    std::vector <DecodedInstruction> offset_instructions;
     uint offset;
-    std::vector<uint> functions;
+    std::vector <uint> functions;
 };
 
 struct Export
@@ -2098,7 +2098,7 @@ struct Data // section11
     Data () : memory (0), bytes (0) { }
 
     uint memory;
-    std::vector<DecodedInstruction> expr;
+    std::vector <DecodedInstruction> expr;
     void* bytes;
 };
 
@@ -2106,8 +2106,8 @@ struct Code // section3 and section10
 {
     uint size;
     uint8* cursor;
-    std::vector<uint8> locals; // TODO
-    std::vector<DecodedInstruction> decoded_instructions; // section10
+    std::vector <uint8> locals; // TODO
+    std::vector <DecodedInstruction> decoded_instructions; // section10
 };
 
 // Initial representation of X and XSection are the same.
@@ -2121,6 +2121,12 @@ struct FunctionType
     std::vector<ValueType> results;
 
     void read_function_type (Module* module, uint8*& cursor);
+
+    bool operator == (const FunctionType& other) const
+    {
+        return parameters == other.parameters &&
+            results == other.results;
+    }
 };
 
 struct TypesSection : Section<1>
@@ -2301,7 +2307,7 @@ struct Module
 
 static
 InstructionEnum
-DecodeInstructions (Module* module, std::vector<DecodedInstruction>& instructions, uint8*& cursor);
+DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8*& cursor);
 
 void DataSection::read_data (Module* module, uint8*& cursor)
 {
@@ -2492,7 +2498,7 @@ void TypesSection::read (Module* module, uint8*& cursor)
 
 static
 InstructionEnum
-DecodeInstructions (Module* module, std::vector<DecodedInstruction>& instructions, uint8*& cursor)
+DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8*& cursor)
 {
     uint b0;
     while (1)
@@ -2879,7 +2885,7 @@ public:
 
     Stack& stack;
 
-    void Invoke (uint function_index);
+    void Invoke (Function&);
 
     void interp (Module* module, Export* emain)
     {
@@ -2897,8 +2903,17 @@ public:
             cmain.cursor = 0;
         }
         size_t size = cmain.decoded_instructions.size ();
+	if (!size)
+		return;
+	DecodedInstruction* instr = &cmain.decoded_instructions [0];
         for (size_t i = 0; i < size; ++i)
         {
+		switch (instr->name)
+		{
+#undef INSTRUCTION
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) case w3::name: this->name (instr); break;
+    INSTRUCTIONS
+		}
         }
     }
 
@@ -2954,7 +2969,7 @@ void* Interp::LoadStore (DecodedInstruction* instr, size_t size)
     }
     if (effective_address > UINT_MAX - size)
         Overflow ();
-    assert (effective_address + size < frame->module->memory.size());
+    assert (effective_address + size < frame->module->memory.size ());
     return &frame->module->memory [effective_address];
 }
 
@@ -2962,6 +2977,10 @@ void* Interp::LoadStore (DecodedInstruction* instr, size_t size)
 #define INTERP(x) void Interp::x (DecodedInstruction* instr)
 
 INTERP (Call)
+{
+}
+
+void Interp::Invoke (Function& function)
 {
 }
 
@@ -2973,27 +2992,27 @@ INTERP (Calli)
     assert (sfunction_index >= 0);
     const uint function_index = (uint)sfunction_index;
 
-    const uint type_index_expected = instr->u32;
+    const uint type_index1 = instr->u32;
 
     // This seems like it could be validated earlier.
-    Module* const module = frame->module->module;
-    assert (function_index < module->functions.size ());
+    Module& module = *frame->module->module;
+    assert (function_index < module.functions.size ());
 
-    Function* function = &module->functions [function_index];
+    Function& function = module.functions [function_index];
 
-    const uint type_index_actual = function->function_type_index;
+    const uint type_index2 = function.function_type_index;
 
-    assert (type_index_expected < module->function_types.size ());
-    assert (type_index_actual < module->function_types.size ());
+    assert (type_index1 < module.function_types.size ());
+    assert (type_index2 < module.function_types.size ());
 
-  //  bool type_match = true;
+    const FunctionType& type1 = module.function_types [type_index1];
+    const FunctionType& type2 = module.function_types [type_index2];
 
-    //if (type_index_actual != type_index_expected;
-    {
-//        type_match = false;
-    }
+    assert (type_index2 == type_index1 || type1 == type2);
 
-    //Invoke ((uint)i, true);
+    assert (type1.results.size () <= 1); // future
+
+    Invoke (function);
 }
 
 INTERP (i32_Const)
