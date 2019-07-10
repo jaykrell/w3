@@ -2081,6 +2081,14 @@ struct Export
 {
     Export () : tag ((ExportTag)-1), is_main (false) { }
 
+    Export (const Export& e)
+    {
+        printf ("copy export %X %X %X\n", tag, is_main, table);
+        memcpy (this, &e, sizeof (e));
+    }
+
+    void operator = (const Export& e);
+
     ExportTag tag;
     String name;
     bool is_main;
@@ -2106,7 +2114,7 @@ struct Code // section3 and section10
 {
     uint size;
     uint8* cursor;
-    std::vector <uint8> locals; // TODO
+    std::vector <ValueType> locals;
     std::vector <DecodedInstruction> decoded_instructions; // section10
 };
 
@@ -2117,8 +2125,8 @@ struct Code // section3 and section10
 struct FunctionType
 {
     // CONSIDER pointer into mmf
-    std::vector<ValueType> parameters;
-    std::vector<ValueType> results;
+    std::vector <ValueType> parameters;
+    std::vector <ValueType> results;
 
     void read_function_type (Module* module, uint8*& cursor);
 
@@ -2236,7 +2244,11 @@ struct DataSection : Section<11>
 
 struct Module
 {
-    Module () : base (0), file_size (0), end (0), main (0)
+    Module () : base (0), file_size (0), end (0), main (0),
+        max_import_function (-1),
+        max_import_table (-1),
+        max_import_memory (-1),
+        max_import_global (-1)
     {
         sections [0] = NULL;
         sections [1] = &types_section;
@@ -2282,6 +2294,11 @@ struct Module
 
     Export* main;
 
+    int max_import_function;
+    int max_import_table;
+    int max_import_memory;
+    int max_import_global;
+
     String read_string (uint8*& cursor);
 
     uint read_i32 (uint8*& cursor);
@@ -2323,7 +2340,7 @@ void DataSection::read_data (Module* module, uint8*& cursor)
         if (cursor + size2 > module->end)
             ThrowString ("data out of bounds");
         a.bytes = cursor;
-        printf ("data [%u]:{%X}\n", i, cursor [0]);
+        printf ("data [%X]:{%X}\n", i, cursor [0]);
         cursor += size2;
     }
     printf ("read data11 size:%X\n", size1);
@@ -2336,17 +2353,21 @@ void CodeSection::read_code (Module* module, uint8*& cursor)
     const uint size = module->read_varuint32 (cursor);
     printf ("reading CodeSection size:%X\n", size);
     if (cursor + size > module->end)
-        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%u", cursor, end, size, __LINE__));
+        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%X", cursor, end, size, __LINE__));
     module->code.resize (size);
     for (uint i = 0; i < size; ++i)
     {
         Code& a = module->code [i];
         a.size = module->read_varuint32 (cursor);
         if (cursor + a.size > module->end)
-            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%u", cursor, end, a.size, __LINE__));
+            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%X", cursor, end, a.size, __LINE__));
         a.cursor = cursor;
-        cursor += a.size;
         printf ("code [%X]: %p/%X\n", i, a.cursor, a.size);
+        if (a.size)
+        {
+            //printf (InstructionName (cursor [0]));
+            cursor += a.size;
+        }
     }
 }
 
@@ -2366,7 +2387,7 @@ void ElementsSection::read_elements (Module* module, uint8*& cursor)
         {
             uint& b = a.functions [j];
             b = module->read_varuint32 (cursor);
-            printf ("elem.function [%u/%u]:%u\n", j, size2, b);
+            printf ("elem.function [%X/%X]:%X\n", j, size2, b);
         }
     }
     printf ("read elements9 size:%X\n", size1);
@@ -2384,7 +2405,7 @@ void ExportsSection::read_exports (Module* module, uint8*& cursor)
         a.tag = (ExportTag)module->read_byte (cursor);
         a.function = module->read_varuint32 (cursor);
         a.is_main = a.name.builtin == BuiltinString_main;
-        printf ("read_export %s tag:%X index:%X\n", a.name.c_str (), a.tag, a.function);
+        printf ("read_export %X:%X %s tag:%X index:%X is_main:%X\n", i, size, a.name.c_str (), a.tag, a.function, a.is_main);
 
         if (a.is_main)
         {
@@ -2404,7 +2425,7 @@ void GlobalsSection::read_globals (Module* module, uint8*& cursor)
     {
         Global& a = module->globals [i];
         a.global_type = module->read_globaltype (cursor);
-        printf ("read_globals value_type:%X  mutable:%X init:%p\n", a.global_type.value_type, a.global_type.is_mutable, cursor);
+        printf ("read_globals %X:%X value_type:%X  mutable:%X init:%p\n", i, size, a.global_type.value_type, a.global_type.is_mutable, cursor);
         DecodeInstructions (module, a.init, cursor);
         // Init points to code -- Instructions until end of block 0x0B Instruction.
     }
@@ -2426,6 +2447,7 @@ void FunctionsSection::read_functions (Module* module, uint8*& cursor)
     module->functions.resize (size);
     for (uint i = 0; i < size; ++i)
     {
+        printf ("read_function %X:%X\n", i, size);
         Function& a = module->functions [i];
         a.function_type_index = module->read_varuint32 (cursor);
     }
@@ -2449,21 +2471,29 @@ void ImportsSection::read_imports (Module* module, uint8*& cursor)
             // TODO more specific import type and vtable?
         case ImportTag_Function:
             r.function = module->read_varuint32 (cursor);
+            module->max_import_function = std::max ((int)module->max_import_function, (int)i);
             break;
         case ImportTag_Table:
             r.table = module->read_tabletype (cursor);
+            module->max_import_table = std::max ((int)module->max_import_table, (int)i);
             break;
         case ImportTag_Memory:
             r.memory = module->read_memorytype (cursor);
+            module->max_import_memory = std::max ((int)module->max_import_memory, (int)i);
             break;
         case ImportTag_Global:
             r.global = module->read_globaltype (cursor);
+            module->max_import_global = std::max ((int)module->max_import_global, (int)i);
             break;
         default:
             ThrowString ("invalid ImportTag");
         }
     }
-    printf ("read section 2\n");
+    printf ("read section 2 max_import_function:%X max_import_table:%X max_import_memory:%X max_import_global:%X\n",
+        module->max_import_function,
+        module->max_import_table,
+        module->max_import_memory,
+        module->max_import_global);
 }
 
 void Module::read_vector_ValueType (std::vector<ValueType>& result, uint8*& cursor)
@@ -2526,6 +2556,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
             switch (e.immediate)
             {
             case Imm_sequence:
+                __debugbreak ();
                 InstructionEnum next;
                 next = DecodeInstructions (module, i.sequence, cursor);
                 assert (next == BlockEnd || (i.name == If && next == Else));
@@ -2562,11 +2593,27 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
                 module->read_vector_varuint32 (i.vecLabel, cursor);
                 break;
             }
-            printf ("2 %s %X %d\n", InstructionName (i.name), i.i32, i.i32);
+            printf ("2 %s 0x%X %d\n", InstructionName (i.name), i.i32, i.i32);
             instructions.push_back (i);
         }
     }
     return (InstructionEnum)b0;
+}
+
+static
+void
+DecodeFunction (Module* module, Code& code, uint8*& cursor)
+{
+    uint local_type_count = module->read_varuint32 (cursor);
+    printf ("local_type_count:%X\n", local_type_count);
+    for (uint i = 0; i < local_type_count; ++i)
+    {
+        uint j = module->read_varuint32 (cursor);
+        ValueType value_type = module->read_valuetype (cursor);
+        printf ("local_type_count %X-of-%X count:%X type:%X\n", i, local_type_count, j, value_type);
+        code.locals.resize (code.locals.size () + j, value_type);
+    }
+    DecodeInstructions (module, code.decoded_instructions, cursor);
 }
 
 const
@@ -2655,6 +2702,7 @@ String Module::read_string (uint8*& cursor)
     a.size = size;
 
     // TODO string recognizer?
+    printf ("read_string %X:%.*s\n", size, size, cursor);
     if (size == 5 && !memcmp (cursor, "_main", 5))
     {
         a.builtin = BuiltinString_main;
@@ -2849,13 +2897,7 @@ struct IInterp
 
     virtual void Reserved (DecodedInstruction* instr) = 0;
 #undef INSTRUCTION
-#if 0
-    // TODO
-    // Pure virtual here helps enforce we have everything.
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) virtual void name (DecodedInstruction* instr) = 0;
-#else
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name (DecodedInstruction* instr) { abort (); }
-#endif
 INSTRUCTIONS
 };
 
@@ -2899,7 +2941,7 @@ public:
         uint8* cursor = cmain.cursor;
         if (cursor)
         {
-            DecodeInstructions (module, cmain.decoded_instructions, cursor);
+            DecodeFunction (module, cmain, cursor);
             cmain.cursor = 0;
         }
         size_t size = cmain.decoded_instructions.size ();
@@ -2982,6 +3024,92 @@ INTERP (Call)
 
 void Interp::Invoke (Function& function)
 {
+	assert (!"Invoke"); // not yet implemented
+}
+
+INTERP (Block)
+{
+	assert (!"Block"); // not yet implemented
+}
+
+INTERP (Loop)
+{
+	assert (!"Loop"); // not yet implemented
+}
+
+INTERP (MemGrow)
+{
+	assert (!"MemGrow"); // not yet implemented
+}
+
+INTERP (MemSize)
+{
+	assert (!"MemSize"); // not yet implemented
+}
+
+INTERP (Global_set)
+{
+	assert (!"Global_set"); // not yet implemented
+}
+
+INTERP (Global_get)
+{
+	assert (!"Global_get"); // not yet implemented
+}
+
+INTERP (Local_set)
+{
+	assert (!"Local_set"); // not yet implemented
+}
+
+INTERP (Local_tee)
+{
+	assert (!"Local_set"); // not yet implemented
+}
+
+INTERP (Local_get)
+{
+	assert (!"Local_get"); // not yet implemented
+}
+
+INTERP (If)
+{
+	assert (!"If"); // not yet implemented
+}
+
+INTERP (Else)
+{
+	assert (!"Else"); // not yet implemented
+}
+
+INTERP (BlockEnd)
+{
+	assert (!"BlockEnd"); // not yet implemented
+}
+
+INTERP (BrIf)
+{
+	assert (!"BrIf"); // not yet implemented
+}
+
+INTERP (BrTable)
+{
+	assert (!"BrTable"); // not yet implemented
+}
+
+INTERP (Ret)
+{
+	assert (!"Ret"); // not yet implemented
+}
+
+INTERP (Br)
+{
+	assert (!"Br"); // not yet implemented
+}
+
+INTERP (Select)
+{
+	assert (!"Select"); // not yet implemented
 }
 
 INTERP (Calli)
@@ -3013,6 +3141,11 @@ INTERP (Calli)
     assert (type1.results.size () <= 1); // future
 
     Invoke (function);
+}
+
+INTERP (Unreach)
+{
+	assert (!"unreach");
 }
 
 INTERP (i32_Const)
@@ -4013,8 +4146,8 @@ using namespace w3; // TODO C or C++?
 int
 main (int argc, char** argv)
 {
-    printf ("%s\n", InstructionName (1));
-    printf ("%s\n", InstructionName (0x44));
+    printf ("3 %s\n", InstructionName (1));
+    printf ("4 %s\n", InstructionName (0x44));
 #if 0 // test code TODO move it elsewhere? Or under a switch.
     char buf [99] = { 0 };
     uint len;
