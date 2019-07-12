@@ -54,11 +54,11 @@ goto :end
 :end
 ::  echo cplusplus=%cplusplus% >>config.mk
 del config.h 2>nul
-echo mscver=%mscver% >>config.mk
-echo Wall=%Wall% >>config.mk
+echo mscver=%mscver%>>config.mk
+echo Wall=%Wall%>>config.mk
 echo CONFIG_H=1 >>config.mk
 echo HAS_TYPED_ENUM=%HAS_TYPED_ENUM% >>config.mk
-echo #define HAS_TYPED_ENUM %HAS_TYPED_ENUM% >>config.h
+echo #define HAS_TYPED_ENUM %HAS_TYPED_ENUM%>>config.h
 
 type config.mk
 type config.h
