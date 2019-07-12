@@ -1323,10 +1323,10 @@ struct Stack : std::stack<StackValue>
 
     Value& set (ValueType tag)
     {
-	    Assert (size () >= 1);
+        Assert (size () >= 1);
         StackValue& t = top ();
         TaggedValue& v = t.value;
-	    Assert (t.type == StackTag_Value);
+        Assert (t.type == StackTag_Value);
         v.tag = tag;
         return v.value;
     }
@@ -3036,52 +3036,52 @@ INTERP (Local_set)
 
 INTERP (Local_tee)
 {
-	Assert (!"Local_set"); // not yet implemented
+    Assert (!"Local_set"); // not yet implemented
 }
 
 INTERP (Local_get)
 {
-	Assert (!"Local_get"); // not yet implemented
+    Assert (!"Local_get"); // not yet implemented
 }
 
 INTERP (If)
 {
-	Assert (!"If"); // not yet implemented
+    Assert (!"If"); // not yet implemented
 }
 
 INTERP (Else)
 {
-	Assert (!"Else"); // not yet implemented
+    Assert (!"Else"); // not yet implemented
 }
 
 INTERP (BlockEnd)
 {
-	Assert (!"BlockEnd"); // not yet implemented
+    Assert (!"BlockEnd"); // not yet implemented
 }
 
 INTERP (BrIf)
 {
-	Assert (!"BrIf"); // not yet implemented
+    Assert (!"BrIf"); // not yet implemented
 }
 
 INTERP (BrTable)
 {
-	Assert (!"BrTable"); // not yet implemented
+    Assert (!"BrTable"); // not yet implemented
 }
 
 INTERP (Ret)
 {
-	Assert (!"Ret"); // not yet implemented
+    Assert (!"Ret"); // not yet implemented
 }
 
 INTERP (Br)
 {
-	Assert (!"Br"); // not yet implemented
+    Assert (!"Br"); // not yet implemented
 }
 
 INTERP (Select)
 {
-	Assert (!"Select"); // not yet implemented
+    Assert (!"Select"); // not yet implemented
 }
 
 INTERP (Calli)
@@ -3124,7 +3124,7 @@ ModuleInstance::ModuleInstance (Module* mod)
 
 INTERP (Unreach)
 {
-	Assert (!"unreach");
+    Assert (!"unreach");
 }
 
 INTERP (i32_Const)
