@@ -79,6 +79,7 @@ double round (double);
 //#pragma warning (disable:4706) // assignment within conditional
 #endif
 #pragma warning (disable:4100) // unused parameter
+#pragma warning (disable:4371) // layout change from previous compiler version
 #pragma warning (disable:4505) // unused static function
 #pragma warning (disable:4514) // unused function
 #pragma warning (disable:4619) // invalid pragma warning disable
@@ -97,6 +98,7 @@ double round (double);
 #pragma warning (disable:5026) // move constructor implicitly deleted
 #pragma warning (disable:5027) // move assignment implicitly deleted
 #pragma warning (disable:5039) // exception handling and function pointers
+#pragma warning (disable:5045) // compiler will insert Spectre mitigation
 #endif
 #if __GNUC__ || __clang__
 #pragma GCC diagnostic ignored "-Wunused-const-variable"
@@ -1030,7 +1032,7 @@ typedef enum ResultType : uint8
     ResultType_empty = 0x40
 } ResultType;
 
-typedef enum TableElementType
+typedef enum TableElementType : uint
 {
     TableElementType_funcRef = 0x70,
 } TableElementType;
@@ -1052,7 +1054,7 @@ const uint FunctionTypeTag = 0x60;
 
 struct TableType
 {
-    TableElementType element_type;
+    TableElementType elementType;
     Limits limits;
 };
 
@@ -1887,6 +1889,7 @@ static_assert (sizeof (instructionEncode) / sizeof (instructionEncode [0]) == 25
 typedef enum BuiltinString {
     BuiltinString_none = 0,
     BuiltinString_main,
+    BuiltinString_start,
 } BuiltinString;
 
 struct String
@@ -1940,6 +1943,7 @@ struct SectionBase
 struct SectionTraits
 {
     const char* name;
+    void (Module::*read)(uint8*& cursor);
 };
 
 template <uint N>
@@ -2079,11 +2083,12 @@ struct Element
 
 struct Export
 {
-    Export () : tag ((ExportTag)-1), is_main (false) { }
+    Export () :
+        tag ((ExportTag)-1), is_start (false), is_main (false) { }
 
     Export (const Export& e)
     {
-        printf ("copy export %X %X %X\n", tag, is_main, table);
+        printf ("copy export %X %X %X %X\n", tag, is_main, is_start, table);
         memcpy (this, &e, sizeof (e));
     }
 
@@ -2091,6 +2096,7 @@ struct Export
 
     ExportTag tag;
     String name;
+    bool is_start;
     bool is_main;
     union
     {
@@ -2128,8 +2134,6 @@ struct FunctionType
     std::vector <ValueType> parameters;
     std::vector <ValueType> results;
 
-    void read_function_type (Module* module, uint8*& cursor);
-
     bool operator == (const FunctionType& other) const
     {
         return parameters == other.parameters &&
@@ -2137,161 +2141,35 @@ struct FunctionType
     }
 };
 
-struct TypesSection : Section<1>
-{
-    virtual void read (Module* module, uint8*& cursor);
-};
-
-struct ImportsSection : Section<2>
-{
-    std::vector<Import> data;
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        printf ("reading section 2\n");
-        read_imports (module, cursor);
-    }
-
-    void read_imports (Module* module, uint8*& cursor);
-};
-
-struct FunctionsSection : Section<3>
-{
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        read_functions (module, cursor);
-    }
-
-    void read_functions (Module* module, uint8*& cursor);
-};
-
-struct TablesSection : Section<4>
-{
-    virtual void read (Module* module, uint8*& cursor);
-};
-
-struct MemorySection : Section<5>
-{
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        printf ("reading section 5\n");
-        ThrowString ("Memory::read not yet implemented");
-        // Hello world does not have this section.
-    }
-};
-
-struct GlobalsSection : Section<6>
-{
-    void read_globals (Module* module, uint8*& cursor);
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        printf ("reading section 6\n");
-        read_globals (module, cursor);
-    }
-};
-
-struct ExportsSection : Section<7>
-{
-    void read_exports (Module* module, uint8*& cursor);
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        printf ("reading section 7\n");
-        read_exports (module, cursor);
-    }
-};
-
-struct StartSection : Section<8>
-{
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        ThrowString ("Start::read not yet implemented");
-    }
-};
-
-struct ElementsSection : Section<9>
-{
-    void read_elements (Module* module, uint8*& cursor);
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        printf ("reading section 9\n");
-        read_elements (module, cursor);
-    }
-};
-
-struct CodeSection : Section<10>
-{
-    void read_code (Module* module, uint8*& cursor);
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        printf ("reading section 10\n");
-        read_code (module, cursor);
-    }
-};
-
-struct DataSection : Section<11>
-{
-    void read_data (Module* module, uint8*& cursor);
-
-    virtual void read (Module* module, uint8*& cursor)
-    {
-        read_data (module, cursor);
-    }
-};
-
 struct Module
 {
-    Module () : base (0), file_size (0), end (0), main (0),
+    Module () : base (0), file_size (0), end (0), start (0), main (0),
         max_import_function (-1),
         max_import_table (-1),
         max_import_memory (-1),
         max_import_global (-1)
     {
-        sections [0] = NULL;
-        sections [1] = &types_section;
-        sections [2] = &imports_section;
-        sections [3] = &functions_section;
-        sections [4] = &tables_section;
-        sections [5] = &memory_section;
-        sections [6] = &globals_section;
-        sections [7] = &exports_section;
-        sections [8] = &start_section;
-        sections [9] = &elements_section;
-        sections [10] = &code_section;
-        sections [11] = &data_section;
     }
 
     MemoryMappedFile mmf;
     uint8* base;
     uint64 file_size;
     uint8* end;
-    SectionBase* sections [12];
+    SectionBase sections [12];
     //std::vector<std::shared_ptr<SectionBase>> custom_sections; // FIXME
 
-    TypesSection types_section;
-    ImportsSection imports_section;
-    FunctionsSection functions_section;
-    TablesSection tables_section;
-    MemorySection memory_section;
-    GlobalsSection globals_section;
-    ExportsSection exports_section;
-    StartSection start_section;
-    ElementsSection elements_section;
-    CodeSection code_section;
-    DataSection data_section;
+    std::vector <FunctionType> function_types; // section1 function signatures
+    std::vector <Import> imports; // section2
+    std::vector <Function> functions; // section3 and section10 function declarations
+    std::vector <TableType> tables; // section4 indirect tables
+    std::vector <uint8> memory; // section5 memory configuration
+    std::vector <Global> globals; // section6
+    std::vector <Export> exports; // section7
+    std::vector <Element> elements; // section9 table initialization
+    std::vector <Code> code; // section10
+    std::vector <Data> data; // section11 memory initialization
 
-    std::vector<FunctionType> function_types;
-    std::vector<Function> functions; // section3 and section10
-    std::vector<TableType> tables; // section3
-    std::vector<Global> globals; // section6
-    std::vector<Export> exports; // section7
-    std::vector<Element> elements; // section9
-    std::vector<Code> code; // section10
-    std::vector<Data> data; // section11
-
+    Export* start;
     Export* main;
 
     int max_import_function;
@@ -2309,6 +2187,7 @@ struct Module
     uint read_byte (uint8*& cursor);
     uint read_varuint7 (uint8*& cursor);
     uint read_varuint32 (uint8*& cursor);
+
     void read_vector_varuint32 (std::vector<uint>&, uint8*& cursor);
     Limits read_limits (uint8*& cursor);
     MemoryType read_memorytype (uint8*& cursor);
@@ -2319,25 +2198,41 @@ struct Module
     bool read_mutable (uint8*& cursor);
     void read_section (uint8*& cursor);
     void read_module (const char* file_name);
-    void read_vector_ValueType (std::vector<ValueType>& result, uint8*& cursor);
+    void read_vector_ValueType (std::vector <ValueType>& result, uint8*& cursor);
+    void read_function_type (FunctionType& functionType, uint8*& cursor);
+
+    void read_types (uint8*& cursor);
+    void read_imports (uint8*& cursor);
+    void read_functions (uint8*& cursor);
+    void read_tables (uint8*& cursor);
+    void read_memory (uint8*& cursor);
+    void read_globals (uint8*& cursor);
+    void read_exports (uint8*& cursor);
+    void read_start (uint8*& cursor)
+    {
+        ThrowString ("Start::read not yet implemented");
+    }
+    void read_elements (uint8*& cursor);
+    void read_code (uint8*& cursor);
+    void read_data (uint8*& cursor);
 };
 
 static
 InstructionEnum
 DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8*& cursor);
 
-void DataSection::read_data (Module* module, uint8*& cursor)
+void Module::read_data (uint8*& cursor)
 {
-    const uint size1 = module->read_varuint32 (cursor);
+    const uint size1 = read_varuint32 (cursor);
     printf ("reading data11 size:%X\n", size1);
-    module->data.resize (size1);
+    data.resize (size1);
     for (uint i = 0; i < size1; ++i)
     {
-        Data& a = module->data [i];
-        a.memory = module->read_varuint32 (cursor);
-        DecodeInstructions (module, a.expr, cursor);
-        const uint size2 = module->read_varuint32 (cursor);
-        if (cursor + size2 > module->end)
+        Data& a = data [i];
+        a.memory = read_varuint32 (cursor);
+        DecodeInstructions (this, a.expr, cursor);
+        const uint size2 = read_varuint32 (cursor);
+        if (cursor + size2 > end)
             ThrowString ("data out of bounds");
         a.bytes = cursor;
         printf ("data [%X]:{%X}\n", i, cursor [0]);
@@ -2346,20 +2241,19 @@ void DataSection::read_data (Module* module, uint8*& cursor)
     printf ("read data11 size:%X\n", size1);
 }
 
-void CodeSection::read_code (Module* module, uint8*& cursor)
+void Module::read_code (uint8*& cursor)
 {
-    printf ("reading CodeSection\n");
-    uint8 const * const end = module->end;
-    const uint size = module->read_varuint32 (cursor);
+    printf ("reading CodeSection10\n");
+    const uint size = read_varuint32 (cursor);
     printf ("reading CodeSection size:%X\n", size);
-    if (cursor + size > module->end)
+    if (cursor + size > end)
         ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%X", cursor, end, size, __LINE__));
-    module->code.resize (size);
+    code.resize (size);
     for (uint i = 0; i < size; ++i)
     {
-        Code& a = module->code [i];
-        a.size = module->read_varuint32 (cursor);
-        if (cursor + a.size > module->end)
+        Code& a = code [i];
+        a.size = read_varuint32 (cursor);
+        if (cursor + a.size > end)
             ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%X", cursor, end, a.size, __LINE__));
         a.cursor = cursor;
         printf ("code [%X]: %p/%X\n", i, a.cursor, a.size);
@@ -2371,129 +2265,129 @@ void CodeSection::read_code (Module* module, uint8*& cursor)
     }
 }
 
-void ElementsSection::read_elements (Module* module, uint8*& cursor)
+void Module::read_elements (uint8*& cursor)
 {
-    const uint size1 = module->read_varuint32 (cursor);
-    printf ("reading elements9 size1:%X\n", size1);
-    module->elements.resize (size1);
+    const uint size1 = read_varuint32 (cursor);
+    printf ("reading section9 elements size1:%X\n", size1);
+    elements.resize (size1);
     for (uint i = 0; i < size1; ++i)
     {
-        Element& a = module->elements [i];
-        a.table = module->read_varuint32 (cursor);
-        DecodeInstructions (module, a.offset_instructions, cursor);
-        const uint size2 = module->read_varuint32 (cursor);
+        Element& a = elements [i];
+        a.table = read_varuint32 (cursor);
+        DecodeInstructions (this, a.offset_instructions, cursor);
+        const uint size2 = read_varuint32 (cursor);
         a.functions.resize (size2);
         for (uint j = 0; j < size2; ++j)
         {
             uint& b = a.functions [j];
-            b = module->read_varuint32 (cursor);
+            b = read_varuint32 (cursor);
             printf ("elem.function [%X/%X]:%X\n", j, size2, b);
         }
     }
     printf ("read elements9 size:%X\n", size1);
 }
 
-void ExportsSection::read_exports (Module* module, uint8*& cursor)
+void Module::read_exports (uint8*& cursor)
 {
-    const uint size = module->read_varuint32 (cursor);
+    printf ("reading section 7\n");
+    const uint size = read_varuint32 (cursor);
     printf ("reading exports7 count:%X\n", size);
-    module->exports.resize (size);
+    exports.resize (size);
     for (uint i = 0; i < size; ++i)
     {
-        Export& a = module->exports [i];
-        a.name = module->read_string (cursor);
-        a.tag = (ExportTag)module->read_byte (cursor);
-        a.function = module->read_varuint32 (cursor);
+        Export& a = exports [i];
+        a.name = read_string (cursor);
+        a.tag = (ExportTag)read_byte (cursor);
+        a.function = read_varuint32 (cursor);
         a.is_main = a.name.builtin == BuiltinString_main;
-        printf ("read_export %X:%X %s tag:%X index:%X is_main:%X\n", i, size, a.name.c_str (), a.tag, a.function, a.is_main);
+        a.is_start = a.name.builtin == BuiltinString_start;
+        printf ("read_export %X:%X %s tag:%X index:%X is_main:%X is_start:%X\n", i, size, a.name.c_str (), a.tag, a.function, a.is_main, a.is_start);
 
-        if (a.is_main)
+        if (a.is_start)
         {
-            assert (!module->main);
-            module->main = &a;
+            assert (!start);
+            start = &a;
+        }
+        else if (a.is_main)
+        {
+            assert (!main);
+            main = &a;
         }
     }
     printf ("read exports7 size:%X\n", size);
 }
 
-void GlobalsSection::read_globals (Module* module, uint8*& cursor)
+void Module::read_globals (uint8*& cursor)
 {
-    const uint size = module->read_varuint32 (cursor);
+    //printf ("reading section 6\n");
+    const uint size = read_varuint32 (cursor);
     printf ("reading globals6 size:%X\n", size);
-    module->globals.resize (size);
+    globals.resize (size);
     for (uint i = 0; i < size; ++i)
     {
-        Global& a = module->globals [i];
-        a.global_type = module->read_globaltype (cursor);
+        Global& a = globals [i];
+        a.global_type = read_globaltype (cursor);
         printf ("read_globals %X:%X value_type:%X  mutable:%X init:%p\n", i, size, a.global_type.value_type, a.global_type.is_mutable, cursor);
-        DecodeInstructions (module, a.init, cursor);
+        DecodeInstructions (this, a.init, cursor);
         // Init points to code -- Instructions until end of block 0x0B Instruction.
     }
     printf ("read globals6 size:%X\n", size);
 }
 
-void TablesSection::read (Module* module, uint8*& cursor)
-{
-    const uint size = module->read_varuint32 (cursor);
-    printf ("reading tables size:%X\n", size);
-    ThrowString ("Tables::read not yet implemented");
-    // Hello world does not have this section.
-}
-
-void FunctionsSection::read_functions (Module* module, uint8*& cursor)
+void Module::read_functions (uint8*& cursor)
 {
     printf ("reading section 3\n");
-    const uint size = module->read_varuint32 (cursor);
-    module->functions.resize (size);
+    const uint size = read_varuint32 (cursor);
+    functions.resize (size);
     for (uint i = 0; i < size; ++i)
     {
         printf ("read_function %X:%X\n", i, size);
-        Function& a = module->functions [i];
-        a.function_type_index = module->read_varuint32 (cursor);
+        Function& a = functions [i];
+        a.function_type_index = read_varuint32 (cursor);
     }
     printf ("read section 3\n");
 }
 
-void ImportsSection::read_imports (Module* module, uint8*& cursor)
+void Module::read_imports (uint8*& cursor)
 {
     printf ("reading section 2\n");
-    const size_t size = module->read_varuint32 (cursor);
-    data.resize (size);
+    const size_t size = read_varuint32 (cursor);
+    imports.resize (size);
     for (uint i = 0; i < size; ++i)
     {
-        Import& r = data [i];
-        r.module = module->read_string (cursor);
-        r.name = module->read_string (cursor);
-        ImportTag tag = r.tag = (ImportTag)module->read_byte (cursor);
+        Import& r = imports [i];
+        r.module = read_string (cursor);
+        r.name = read_string (cursor);
+        ImportTag tag = r.tag = (ImportTag)read_byte (cursor);
         printf ("import %s.%s %X\n", r.module.c_str (), r.name.c_str (), (uint)tag);
         switch (tag)
         {
             // TODO more specific import type and vtable?
         case ImportTag_Function:
-            r.function = module->read_varuint32 (cursor);
-            module->max_import_function = std::max ((int)module->max_import_function, (int)i);
+            r.function = read_varuint32 (cursor);
+            max_import_function = std::max ((int)max_import_function, (int)i);
             break;
         case ImportTag_Table:
-            r.table = module->read_tabletype (cursor);
-            module->max_import_table = std::max ((int)module->max_import_table, (int)i);
+            r.table = read_tabletype (cursor);
+            max_import_table = std::max ((int)max_import_table, (int)i);
             break;
         case ImportTag_Memory:
-            r.memory = module->read_memorytype (cursor);
-            module->max_import_memory = std::max ((int)module->max_import_memory, (int)i);
+            r.memory = read_memorytype (cursor);
+            max_import_memory = std::max ((int)max_import_memory, (int)i);
             break;
         case ImportTag_Global:
-            r.global = module->read_globaltype (cursor);
-            module->max_import_global = std::max ((int)module->max_import_global, (int)i);
+            r.global = read_globaltype (cursor);
+            max_import_global = std::max ((int)max_import_global, (int)i);
             break;
         default:
             ThrowString ("invalid ImportTag");
         }
     }
     printf ("read section 2 max_import_function:%X max_import_table:%X max_import_memory:%X max_import_global:%X\n",
-        module->max_import_function,
-        module->max_import_table,
-        module->max_import_memory,
-        module->max_import_global);
+        max_import_function,
+        max_import_table,
+        max_import_memory,
+        max_import_global);
 }
 
 void Module::read_vector_ValueType (std::vector<ValueType>& result, uint8*& cursor)
@@ -2504,24 +2398,23 @@ void Module::read_vector_ValueType (std::vector<ValueType>& result, uint8*& curs
         result [i] = read_valuetype (cursor);
 }
 
-void FunctionType::read_function_type (Module* module, uint8*& cursor)
+void Module::read_function_type (FunctionType& functionType, uint8*& cursor)
 {
-    module->read_vector_ValueType (parameters, cursor);
-    module->read_vector_ValueType (results, cursor);
+    read_vector_ValueType (functionType.parameters, cursor);
+    read_vector_ValueType (functionType.results, cursor);
 }
 
-// TODO move this to Module
-void TypesSection::read (Module* module, uint8*& cursor)
+void Module::read_types (uint8*& cursor)
 {
     printf ("reading section 1\n");
-    const uint size = module->read_varuint32 (cursor);
-    module->function_types.resize (size);
+    const uint size = read_varuint32 (cursor);
+    function_types.resize (size);
     for (uint i = 0; i < size; ++i)
     {
-        const uint marker = module->read_byte (cursor);
+        const uint marker = read_byte (cursor);
         if (marker != 0x60)
             ThrowString ("malformed2 in Types::read");
-        module->function_types [i].read_function_type (module, cursor);
+        read_function_type (function_types [i], cursor);
     }
     printf ("read section 1\n");
 }
@@ -2621,20 +2514,20 @@ SectionTraits section_traits [ ] =
 {
     { 0 },
 #define SECTIONS        \
-    SECTION (TypesSection)     \
-    SECTION (ImportsSection)   \
-    SECTION (FunctionsSection) \
-    SECTION (TablesSection)    \
-    SECTION (MemorySection)    \
-    SECTION (GlobalsSection)   \
-    SECTION (ExportsSection)   \
-    SECTION (StartSection)     \
-    SECTION (ElementsSection) \
-    SECTION (CodeSection) \
-    SECTION (DataSection) \
+    SECTION (TypesSection, read_types)     \
+    SECTION (ImportsSection, read_imports)   \
+    SECTION (FunctionsSection, read_functions) \
+    SECTION (TablesSection, read_tables)    \
+    SECTION (MemorySection, read_memory)    \
+    SECTION (GlobalsSection, read_globals)   \
+    SECTION (ExportsSection, read_exports)   \
+    SECTION (StartSection, read_start)     \
+    SECTION (ElementsSection, read_elements) \
+    SECTION (CodeSection, read_code) \
+    SECTION (DataSection, read_data) \
 
 #undef SECTION
-#define SECTION(x) {#x},
+#define SECTION(x, read) {#x, &Module::read},
 SECTIONS
 
 };
@@ -2703,7 +2596,11 @@ String Module::read_string (uint8*& cursor)
 
     // TODO string recognizer?
     printf ("read_string %X:%.*s\n", size, size, cursor);
-    if (size == 5 && !memcmp (cursor, "_main", 5))
+    if (size == 7 && !memcmp (cursor, "$_start", 7))
+    {
+        a.builtin = BuiltinString_start;
+    }
+    else if (size == 5 && !memcmp (cursor, "_main", 5))
     {
         a.builtin = BuiltinString_main;
     }
@@ -2791,18 +2688,38 @@ GlobalType Module::read_globaltype (uint8*& cursor)
 
 TableElementType Module::read_elementtype (uint8*& cursor)
 {
-    TableElementType element_type = (TableElementType)read_byte (cursor);
-    if (element_type != TableElementType_funcRef)
+    TableElementType elementType = (TableElementType)read_byte (cursor);
+    if (elementType != TableElementType_funcRef)
         ThrowString ("invalid elementType");
-    return element_type;
+    return elementType;
 }
 
 TableType Module::read_tabletype (uint8*& cursor)
 {
     TableType tableType = { };
-    tableType.element_type = read_elementtype (cursor);
+    tableType.elementType = read_elementtype (cursor);
     tableType.limits = read_limits (cursor);
+    printf ("read_tabletype:type:%X min:%X hasMax:%X max:%X\n", tableType.elementType, tableType.limits.min, tableType.limits.hasMax, tableType.limits.max);
     return tableType;
+}
+
+void Module::read_memory (uint8*& cursor)
+{
+    printf ("reading section 5\n");
+    auto limits = read_limits (cursor);
+    // Hello world does not have this section.
+}
+
+void Module::read_tables (uint8*& cursor)
+{
+    uint size = read_varuint32 (cursor);
+    printf ("reading tables size:%X\n", size);
+    AssertFormat (size == 1, ("%X", size));
+    tables.resize (size);
+    for (uint i = 0; i < size; ++i)
+    {
+        tables [0] = read_tabletype (cursor);
+    }
 }
 
 void Module::read_section (uint8*& cursor)
@@ -2840,13 +2757,13 @@ void Module::read_section (uint8*& cursor)
         return;
     }
 
-    SectionBase* section = sections [id];
-    section->id = id;
-    section->name.data = (char*)name;
-    section->name.size = name_size;
-    section->payload_size = payload_size;
-    section->payload = payload;
-    section->read (this, payload);
+    SectionBase& section = sections [id];
+    section.id = id;
+    section.name.data = (char*)name;
+    section.name.size = name_size;
+    section.payload_size = payload_size;
+    section.payload = payload;
+    (this->*section_traits [id].read) (payload);
     if (payload != cursor)
         ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, cursor));
 }
@@ -2878,9 +2795,7 @@ void Module::read_module (const char* file_name)
 
     uint8* cursor = base + 8;
     while (cursor < end)
-    {
         read_section (cursor);
-    }
 
     assert (cursor == end);
 }
@@ -2931,6 +2846,7 @@ public:
 
     void interp (Module* module, Export* emain)
     {
+#if 0
         Assert (module && emain && emain->is_main && emain->tag == ExportTag_Function);
         Assert (emain->function < module->functions.size ());
         Assert (emain->function < module->code.size ());
@@ -2938,6 +2854,9 @@ public:
 
 //      Function& fmain = module->functions [emain->function];
         Code& cmain = module->code [emain->function];
+#else
+        Code& cmain = module->code [1]; // TODO $_start in .name custom section
+#endif
         uint8* cursor = cmain.cursor;
         if (cursor)
         {
@@ -4218,7 +4137,14 @@ main (int argc, char** argv)
         // FIXME verbosity
         Module module;
         module.read_module (argv [1]);
-        if (module.main)
+
+        // TODO read .name custom section
+
+        Interp().interp (&module, 0);
+
+        if (module.start)
+            Interp().interp (&module, module.start);
+        else if (module.main)
             Interp().interp (&module, module.main);
     }
 #if 1
