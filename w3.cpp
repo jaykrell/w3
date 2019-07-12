@@ -1094,7 +1094,7 @@ struct Stack;
 struct StackValue;
 struct ModuleInstance;
 struct Module;
-struct SectionBase;
+struct Section;
 
 // The stack shall use _alloca in a non-recursive interpreter loop.
 // This requires some care and macros. Macros that reference locals.
@@ -1947,7 +1947,7 @@ struct String
     }
 };
 
-struct SectionBase
+struct Section
 {
     uint id;
     String name;
@@ -1959,11 +1959,6 @@ struct SectionTraits
 {
     const char* name;
     void (Module::*read)(uint8*& cursor);
-};
-
-template <uint N>
-struct Section  : SectionBase
-{
 };
 
 typedef enum ImportTag { // aka desc
@@ -2172,8 +2167,8 @@ struct Module
     uint8* base;
     uint64 file_size;
     uint8* end;
-    SectionBase sections [12];
-    //std::vector<std::shared_ptr<SectionBase>> custom_sections; // FIXME
+    Section sections [12];
+    //std::vector<std::shared_ptr<Section>> custom_sections; // FIXME
 
     std::vector <FunctionType> function_types; // section1 function signatures
     std::vector <Import> imports; // section2
@@ -2795,7 +2790,7 @@ void Module::read_section (uint8*& cursor)
         return;
     }
 
-    SectionBase& section = sections [id];
+    Section& section = sections [id];
     section.id = id;
     section.name.data = (char*)name;
     section.name.size = name_size;
