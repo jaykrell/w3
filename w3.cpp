@@ -2866,7 +2866,7 @@ TableType Module::read_tabletype (uint8*& cursor)
 
 void Module::read_memory (uint8*& cursor)
 {
-    Limits limits = read_limits (cursor);
+    const Limits limits = read_limits (cursor);
     printf ("reading section5 min:%X hasMax:%X max:%X\n", limits.min, limits.hasMax, limits.max);
     Assert (limits.min == 0);
     if (limits.hasMax)
@@ -2875,7 +2875,7 @@ void Module::read_memory (uint8*& cursor)
 
 void Module::read_tables (uint8*& cursor)
 {
-    uint size = read_varuint32 (cursor);
+    const uint size = read_varuint32 (cursor);
     printf ("reading tables size:%X\n", size);
     AssertFormat (size == 1, ("%X", size));
     tables.resize (size);
@@ -2887,19 +2887,15 @@ void Module::read_tables (uint8*& cursor)
 
 void Module::read_section (uint8*& cursor)
 {
-    uint payload_size = 0;
-    uint8* payload = 0;
-    uint name_size = 0;
-
+    uint8* payload = cursor;
     const uint id = read_varuint7 (cursor);
 
     if (id > 11)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context (move to module or section)
+        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p base:%p end:%p", __LINE__, id, payload, base, end)); // UNDONE context
 
-    payload_size = read_varuint32 (cursor);
+    const uint payload_size = read_varuint32 (cursor);
     printf ("%s payload_size:%X\n", __func__, payload_size);
-    payload = cursor;
-    name_size = 0;
+    uint name_size = 0;
     const char* name = 0;
     if (id == 0)
     {
@@ -2909,7 +2905,7 @@ void Module::read_section (uint8*& cursor)
             ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     }
     if (payload + payload_size > end)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context (move to module or section)
+        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context
 
     cursor = payload + payload_size;
 
