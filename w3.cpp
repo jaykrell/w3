@@ -3110,9 +3110,7 @@ void Interp::Invoke (Function& function)
     // TODO calling embedding
     // setup frame
     Frame frame_value; // TODO within StackValue by value instead of by pointer? Changed due to circular typing.
-    f.frame = &frame_value;
     frame_value.code = &code;
-    f.type = StackTag_Frame;
     frame_value.next = this->frame;
     frame_value.module = this->module; // TODO cross module calls
     frame_value.module_instance = this->module_instance; // TODO cross module calls
