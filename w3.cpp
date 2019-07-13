@@ -1185,6 +1185,12 @@ do {                                        \
 
 #endif
 
+typedef struct FunctionType FunctionType;
+typedef struct Function Function;
+typedef struct Code Code;
+typedef struct Frame Frame; // work in progress
+typedef struct DecodedInstruction DecodedInstruction;
+
 typedef enum StackTag
 {
     StackTag_Value = 1, // i32, i64, f32, f64
@@ -1194,15 +1200,9 @@ typedef enum StackTag
 
 typedef struct LabelValue
 {
-    size_t arity;
-    size_t continuation;
+    int arity;
+    int continuation;
 } LabelValue;
-
-typedef struct FunctionType FunctionType;
-typedef struct Function Function;
-typedef struct Code Code;
-typedef struct Frame Frame; // work in progress
-typedef struct DecodedInstruction DecodedInstruction;
 
 // work in progress
 typedef struct StackValue
@@ -1231,6 +1231,9 @@ struct StackBase : private StackBaseBase
     using base::iterator;
     using base::end;
     using base::back;
+    using base::size;
+    using base::front;
+    using base::resize;
 
     void push (const StackValue& a)
     {
@@ -1275,6 +1278,9 @@ struct Stack : private StackBase
     using base::iterator;
     using base::end;
     using base::back;
+    using base::size;
+    using base::front;
+    using base::resize;
 
     void reserve (size_t n)
     {
@@ -1964,7 +1970,7 @@ struct InstructionEncoding
 
 struct DecodedInstruction
 {
-    DecodedInstruction () : continuation ((size_t)-1)
+    DecodedInstruction () : continuation (-1)
     {
         name = (InstructionEnum)-1;
         align = offset = (uint)-1;
@@ -1986,8 +1992,8 @@ struct DecodedInstruction
         };
         struct // block
         {
-            size_t arity;
-            size_t continuation;
+            int arity;
+            int continuation;
         };
         // etc.
     };
@@ -2575,14 +2581,14 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
         {
         case Imm_sequence:
             i.blockType = module->read_blocktype (cursor);
-            i.arity = (i.blockType == ResultType_empty) ? 0u : 1u; // FUTURE
+            i.arity = (i.blockType == ResultType_empty) ? 0 : 1; // FUTURE
             index = instructions.size ();
             instructions.push_back (i);
             InstructionEnum next;
             next = DecodeInstructions (module, instructions, cursor);
             Assert (next == BlockEnd || (i.name == If && next == Else));
             // TODO if vs. else?
-            instructions [index].continuation = instructions.size () - 1;
+            instructions [index].continuation = (int)instructions.size () - 1;
             break;
         case Imm_memory:
             i.align = module->read_varuint32 (cursor);
@@ -3119,6 +3125,7 @@ void Interp::Invoke (Function& function)
     frame_value.module = this->module; // TODO cross module calls
     frame_value.module_instance = this->module_instance; // TODO cross module calls
     frame_value.function_index = function.function_index;
+    frame_value.code = &module->code [function.function_index];
     const size_t local_count = code.locals.size ();
     const size_t function_type_index = function.function_type_index;
     Assert (function_type_index < module->function_types.size ());
@@ -3128,7 +3135,10 @@ void Interp::Invoke (Function& function)
 
     this->frame = &frame_value;
 
-    for (size_t j = 0; j != n_params; ++j)
+    size_t i;
+    size_t j;
+
+    for (j = 0; j != n_params; ++j)
     {
         printf ("2 entering function with param [%X] type %X\n", (uint)j, (end () - (ssize_t)n_params + (ssize_t)j)->value.tag);
     }
@@ -3159,7 +3169,7 @@ void Interp::Invoke (Function& function)
     // Push locals on stack.
     // TODO params also
     // TODO reserve (size () + local_count);
-    for (size_t i = 0; i < local_count; ++i)
+    for (i = 0; i < local_count; ++i)
     {
         StackValue value = {StackTag_Value, { code.locals [i] } };
         push_value (value);
@@ -3167,9 +3177,9 @@ void Interp::Invoke (Function& function)
     // Provide for indexing locals.
     frame_value.locals = stack.end () - (ssize_t)local_count - (ssize_t)n_params;
 
-    for (size_t j = 0; j != local_count + n_params; ++j)
+    for (j = 0; j != local_count + n_params; ++j)
     {
-        printf ("2 entering function with local [%X] type %X\n", (uint)j, frame_value.locals [j].value.tag);
+        printf ("2 entering function with local [%X] type %X\n", (uint)j, frame_value.locals [(ssize_t)j].value.tag);
     }
 
     // TODO provide for separate depth -- i.e. here is now 0; locals/params cannot be popped
@@ -3278,7 +3288,8 @@ INTERP (BlockEnd)
 
 INTERP (BrIf)
 {
-    Assert (!"BrIf"); // not yet implemented
+    if (pop_i32 ())
+        Br ();
 }
 
 INTERP (BrTable)
@@ -3293,7 +3304,48 @@ INTERP (Ret)
 
 INTERP (Br)
 {
-    Assert (!"Br"); // not yet implemented
+    __debugbreak ();
+
+    // This is confusing.
+
+    // Walk down the stack.
+    // Label + 1 times.
+    // Skipping values.
+    // Checking for labels.
+    // When arriave at the label + 1'the label, find the arity.
+    // There must be at least arity values before the first label.
+
+    int label = instr->i32;
+    Assert (label >= 0);
+
+    Assert ((int)size () >= label + 1);
+
+    ssize_t target = -1;
+    StackValue* p = &front ();
+    int values = 0;
+    int j = (int)size () - 1;
+
+    for (int i = 0; i < label + 1; ++i)
+    {
+        while (j >= 0 && p [j].type == StackTag_Value)
+        {
+            values += (i == 0);
+            --j;
+        }
+        Assert (j >= 0 && p [j].type == StackTag_Label);
+    }
+    Assert (j >= 0 && p [j].type == StackTag_Label && values >= p [j].label.arity);
+
+    const int arity = p [j].label.arity;
+
+    instr = &frame->code->decoded_instructions [p [j].label.continuation];
+
+    // Now pop the labels and the extra values leaving the top values.
+    if (arity > 0)
+        memcpy (&p [j], p + size () - arity, arity * sizeof (StackValue));
+
+    // bulk pop down to j
+    resize (j + arity);
 }
 
 INTERP (Select)
