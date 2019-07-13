@@ -235,6 +235,15 @@ T Max(const T& a, const T& b)
     return (a >= b) ? a : b;
 }
 
+#if _WIN64
+#define FORMAT_SIZE "I64"
+#else
+#define FORMAT_SIZE "l"
+#endif
+#if _MSC_VER
+#pragma warning (disable:4777) // printf maybe wrong for other platforms
+#endif
+
 #if _MSC_VER
 #pragma warning (push)
 #pragma warning (disable:4996) // _vsnprintf dangerous
@@ -338,7 +347,7 @@ throw_GetLastError (const char* a = "")
 void
 AssertFailedFormat (const char* condition, const std::string& extra)
 {
-    //fputs (("AssertFailedFormat:" + std::string (condition) + ":" + w3::StringFormatVa (format, args) + "\n").c_str (), stderr);
+    fputs (("AssertFailed:" + std::string (condition) + ":" + extra + "\n").c_str (), stderr);
     //Assert (0);
     //abort ();
 #if _WIN32 // TODO
@@ -1188,17 +1197,11 @@ typedef struct LabelValue
     uint value; // presumably an index into decoded_instructions within implied Code.
 } LabelValue;
 
-// work in progress
-typedef struct Frame
-{
-    // FUTURE spec return_arity
-    uint function_index; // replace with pointer?
-    ModuleInstance* module_instance;
-    Module* module;
-    // TODO locals/params
-    // This should just be stack pointer, to another stack,
-    // along with type information (module->module->locals_types[])
-} Frame;
+
+typedef struct FunctionType FunctionType;
+typedef struct Function Function;
+typedef struct Code Code;
+typedef struct Frame Frame; // work in progress
 
 // work in progress
 typedef struct StackValue
@@ -1208,16 +1211,74 @@ typedef struct StackValue
     {
         TaggedValue value;
         LabelValue label;
-        Frame frame;
+        Frame* frame; // TODO by value?
     };
 } StackValue;
 
-// work in progress
-struct Stack : std::stack<StackValue>
+// TODO consider a vector instead, but it affects frame.locals staying valid across push/pop
+typedef std::deque <StackValue> StackBaseBase;
+
+struct StackBase : private StackBaseBase
 {
+    typedef StackBaseBase base;
+    using base::iterator;
+    using base::end;
+
+    void push (const StackValue& a)
+    {
+        push_back (a);
+    }
+
+    void pop ()
+    {
+        pop_back ();
+    }
+
+    StackValue& top ()
+    {
+        return back ();
+    }
+};
+
+struct Frame
+{
+    // FUTURE spec return_arity
+    size_t function_index; // replace with pointer?
+    ModuleInstance* module_instance;
+    Module* module;
+    Frame* next;
+    StackBase::iterator locals;
+    Code* code;
+    size_t local_count; // includes params
+    // TODO locals/params
+    // This should just be stack pointer, to another stack,
+    // along with type information (module->module->locals_types[])
+};
+
+// work in progress
+struct Stack : private StackBase
+{
+    Stack () : value_depth (0)
+    {
+    }
+
+    typedef StackBase base;
+    using base::top;
+    using base::iterator;
+    using base::end;
+
+    void reserve (size_t n)
+    {
+        // TODO
+    }
+
+    int value_depth; // excluding labels and frames
+
+    // TODO labels and frames on stack
+
     ValueType& tag (ValueType tag)
     {
-        Assert (size () >= 1);
+        Assert (value_depth >= 1);
         Assert (top ().type == StackTag_Value);
         Assert (top ().value.tag == tag);
         return top ().value.tag;
@@ -1225,29 +1286,37 @@ struct Stack : std::stack<StackValue>
 
     ValueType& tag ()
     {
-        Assert (size () >= 1);
+        Assert (value_depth >= 1);
         Assert (top ().type == StackTag_Value);
         return top ().value.tag;
     }
 
     Value& value ()
     {
-        Assert (size () >= 1);
+        Assert (value_depth >= 1);
         Assert (top ().type == StackTag_Value);
         return top ().value.value;
     }
 
     Value& value (ValueType tag)
     {
-        Assert (size () >= 1);
+        Assert (value_depth >= 1);
         Assert (top ().type == StackTag_Value);
         Assert (top ().value.tag == tag);
         return top ().value.value;
     }
 
-    void push (StackValue value)
+    void pop_value ()
     {
-        std::stack<StackValue>::push (value);
+        Assert (value_depth >= 1);
+        pop ();
+        --value_depth;
+    }
+
+    void push_value (StackValue value)
+    {
+        push (value);
+        value_depth += 1;
     }
 
     // type specific pushers
@@ -1256,14 +1325,14 @@ struct Stack : std::stack<StackValue>
     {
         StackValue value = {StackTag_Value, { ValueType_i32 } };
         value.value.value.i32 = i;
-        push (value);
+        push_value (value);
     }
 
     void push_i64 (int64 i)
     {
         StackValue value = {StackTag_Value, { ValueType_i64 } };
         value.value.value.i64 = i;
-        push (value);
+        push_value (value);
     }
 
     void push_u32 (uint i)
@@ -1280,14 +1349,14 @@ struct Stack : std::stack<StackValue>
     {
         StackValue value = {StackTag_Value, { ValueType_f32 } };
         value.value.value.f32 = i;
-        push (value);
+        push_value (value);
     }
 
     void push_f64 (double i)
     {
         StackValue value = {StackTag_Value, { ValueType_f64 } };
         value.value.value.f64 = i;
-        push (value);
+        push_value (value);
     }
 
     void push_bool (bool b)
@@ -1331,7 +1400,7 @@ struct Stack : std::stack<StackValue>
 
     Value& set (ValueType tag)
     {
-        Assert (size () >= 1);
+        Assert (value_depth >= 1);
         StackValue& t = top ();
         TaggedValue& v = t.value;
         Assert (t.type == StackTag_Value);
@@ -1381,42 +1450,42 @@ struct Stack : std::stack<StackValue>
     int pop_i32 ()
     {
         int a = i32 ();
-        pop ();
+        pop_value ();
         return a;
     }
 
     uint pop_u32 ()
     {
         uint a = u32 ();
-        pop ();
+        pop_value ();
         return a;
     }
 
     int64 pop_i64 ()
     {
         int64 a = i64 ();
-        pop ();
+        pop_value ();
         return a;
     }
 
     uint64 pop_u64 ()
     {
         uint64 a = u64 ();
-        pop ();
+        pop_value ();
         return a;
     }
 
     float pop_f32 ()
     {
         float a = f32 ();
-        pop ();
+        pop_value ();
         return a;
     }
 
     double pop_f64 ()
     {
         double a = f64 ();
-        pop ();
+        pop_value ();
         return a;
     }
 };
@@ -1959,7 +2028,7 @@ struct Section
 {
     uint id;
     String name;
-    uint payload_size;
+    size_t payload_size;
     uint8* payload;
 };
 
@@ -2067,10 +2136,6 @@ struct ModuleInstance // work in progress
     std::vector <ExportInstance> exports;
 };
 
-struct FunctionType;
-struct Function;
-struct Code;
-
 struct FunctionInstance // work in progress
 {
     ModuleInstance* module_instance;
@@ -2081,10 +2146,12 @@ struct FunctionInstance // work in progress
 
 struct Function // section3
 {
-    Function () : function_type_index (0) { }
+    Function () : function_type_index (0), function_index (0), import (false) { }
 
     // Functions are split between two sections: types in section3, locals/body in section10
     uint function_type_index;
+    size_t function_index; // TODO needed?
+    bool import; // TODO needed?
 };
 
 struct Global
@@ -2138,10 +2205,15 @@ struct Data // section11
 
 struct Code // section3 and section10
 {
-    uint size;
+    Code () : size (0), cursor (0), import (false)
+    {
+    }
+
+    size_t size;
     uint8* cursor;
     std::vector <ValueType> locals;
     std::vector <DecodedInstruction> decoded_instructions; // section10
+    bool import;
 };
 
 // Initial representation of X and XSection are the same.
@@ -2164,10 +2236,10 @@ struct FunctionType
 struct Module
 {
     Module () : base (0), file_size (0), end (0), start (0), main (0),
-        max_import_function (-1),
-        max_import_table (-1),
-        max_import_memory (-1),
-        max_import_global (-1)
+        import_function_count (0),
+        import_table_count (0),
+        import_memory_count (0),
+        import_global_count (0)
     {
     }
 
@@ -2192,10 +2264,10 @@ struct Module
     Export* start;
     Export* main;
 
-    int max_import_function;
-    int max_import_table;
-    int max_import_memory;
-    int max_import_global;
+    size_t import_function_count;
+    size_t import_table_count;
+    size_t import_memory_count;
+    size_t import_global_count;
 
     String read_string (uint8*& cursor);
 
@@ -2265,19 +2337,22 @@ void Module::read_data (uint8*& cursor)
 void Module::read_code (uint8*& cursor)
 {
     printf ("reading CodeSection10\n");
-    const uint size = read_varuint32 (cursor);
-    printf ("reading CodeSection size:%X\n", size);
+    const size_t size = read_varuint32 (cursor);
+    printf ("reading CodeSection size:%" FORMAT_SIZE "X\n", size);
     if (cursor + size > end)
-        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%X", cursor, end, size, __LINE__));
-    code.resize (size);
-    for (uint i = 0; i < size; ++i)
+        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", cursor, end, size, __LINE__));
+    const size_t old = code.size ();
+    Assert (old == import_function_count);
+    code.resize (old + size);
+    for (size_t i = 0; i < size; ++i)
     {
-        Code& a = code [i];
+        Code& a = code [old + i];
+        a.import = false;
         a.size = read_varuint32 (cursor);
         if (cursor + a.size > end)
-            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%X", cursor, end, a.size, __LINE__));
+            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", cursor, end, a.size, __LINE__));
         a.cursor = cursor;
-        printf ("code [%X]: %p/%X\n", i, a.cursor, a.size);
+        printf ("code [%" FORMAT_SIZE "X]: %p/%" FORMAT_SIZE "X\n", i, a.cursor, a.size);
         if (a.size)
         {
             //printf (InstructionName (cursor [0]));
@@ -2358,13 +2433,17 @@ void Module::read_globals (uint8*& cursor)
 void Module::read_functions (uint8*& cursor)
 {
     printf ("reading section 3\n");
-    const uint size = read_varuint32 (cursor);
-    functions.resize (size);
-    for (uint i = 0; i < size; ++i)
+    const size_t old = functions.size ();
+    Assert (old == import_function_count);
+    const size_t size = read_varuint32 (cursor);
+    functions.resize (old + size);
+    for (size_t i = 0; i < size; ++i)
     {
-        printf ("read_function %X:%X\n", i, size);
-        Function& a = functions [i];
+        printf ("read_function %" FORMAT_SIZE "X:%" FORMAT_SIZE "X\n", i, size);
+        Function& a = functions [old + i];
         a.function_type_index = read_varuint32 (cursor);
+        a.function_index = i + old; // TODO probably not needed
+        a.import = false; // TODO probably not needed
     }
     printf ("read section 3\n");
 }
@@ -2374,6 +2453,7 @@ void Module::read_imports (uint8*& cursor)
     printf ("reading section 2\n");
     const size_t size = read_varuint32 (cursor);
     imports.resize (size);
+    // TODO two passes to limit realloc?
     for (uint i = 0; i < size; ++i)
     {
         Import& r = imports [i];
@@ -2385,30 +2465,40 @@ void Module::read_imports (uint8*& cursor)
         {
             // TODO more specific import type and vtable?
         case ImportTag_Function:
-            r.function = read_varuint32 (cursor);
-            max_import_function = std::max ((int)max_import_function, (int)i);
+            r.function = read_varuint32 (cursor); // TODO probably not needed
+            ++import_function_count;
+            // TODO for each import type
+            functions.resize (functions.size () + 1);
+            functions.back ().function_index = functions.size () - 1; // TODO remove this field
+            functions.back ().function_type_index = r.function;
+            functions.back ().import = true; // TODO needed?
             break;
         case ImportTag_Table:
             r.table = read_tabletype (cursor);
-            max_import_table = std::max ((int)max_import_table, (int)i);
+            ++import_table_count;
             break;
         case ImportTag_Memory:
             r.memory = read_memorytype (cursor);
-            max_import_memory = std::max ((int)max_import_memory, (int)i);
+            ++import_memory_count;
             break;
         case ImportTag_Global:
             r.global = read_globaltype (cursor);
-            max_import_global = std::max ((int)max_import_global, (int)i);
+            ++import_global_count;
             break;
         default:
             ThrowString ("invalid ImportTag");
         }
     }
-    printf ("read section 2 max_import_function:%X max_import_table:%X max_import_memory:%X max_import_global:%X\n",
-        max_import_function,
-        max_import_table,
-        max_import_memory,
-        max_import_global);
+    printf ("read section 2 import_function_count:%" FORMAT_SIZE "X import_table_count:%" FORMAT_SIZE "X import_memory_count:%" FORMAT_SIZE "X import_global_count:%" FORMAT_SIZE "X\n",
+        import_function_count,
+        import_table_count,
+        import_memory_count,
+        import_global_count);
+
+    // TODO fill in more about imports?
+    Code imported_code;
+    imported_code.import = true;
+    code.resize (import_function_count, imported_code);
 }
 
 void Module::read_vector_ValueType (std::vector<ValueType>& result, uint8*& cursor)
@@ -2428,9 +2518,9 @@ void Module::read_function_type (FunctionType& functionType, uint8*& cursor)
 void Module::read_types (uint8*& cursor)
 {
     printf ("reading section 1\n");
-    const uint size = read_varuint32 (cursor);
+    const size_t size = read_varuint32 (cursor);
     function_types.resize (size);
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
     {
         const uint marker = read_byte (cursor);
         if (marker != 0x60)
@@ -2466,7 +2556,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
             if (e.fixed_size == 2) // TODO
                 if (module->read_byte (cursor))
                     ThrowString ("second byte not 0");
-            printf ("1 %s\n", InstructionName (i.name));
+            printf ("decode1 %s\n", InstructionName (i.name));
             switch (e.immediate)
             {
             case Imm_sequence:
@@ -2509,7 +2599,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
                 module->read_vector_varuint32 (i.vecLabel, cursor);
                 break;
             }
-            printf ("2 %s 0x%X %d\n", InstructionName (i.name), i.i32, i.i32);
+            printf ("decode2 %s 0x%X %d\n", InstructionName (i.name), i.i32, i.i32);
             instructions.push_back (i);
         }
     }
@@ -2897,37 +2987,15 @@ public:
 
 //      Function& fmain = mod->functions [emain->function];
         Code& cmain = mod->code [emain->function];
-#else
-        Code& cmain = mod->code [1]; // TODO $_start in .name custom section
 #endif
-        uint8* cursor = cmain.cursor;
-        if (cursor)
-        {
-            DecodeFunction (mod, cmain, cursor);
-            cmain.cursor = 0;
-        }
-        size_t size = cmain.decoded_instructions.size ();
-        if (!size)
-            return;
-        // setup initial frame
-        Frame f { };
+        // Simulate call to initial function.
+        // instantiate module
         ModuleInstance instance (mod);
         this->module_instance = &instance;
         this->module = mod;
-        f.module_instance = &instance;
-        f.module = mod;
-        frame = &f;
-        DecodedInstruction* instr = &cmain.decoded_instructions [0];
-        DecodedInstruction* end = instr + size;
-        for (; instr < end; ++instr)
-        {
-            switch (instr->name)
-            {
-#undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) case w3::name: this->name (instr); break;
-    INSTRUCTIONS
-            }
-        }
+        Function function { };
+        function.function_index = mod->import_function_count + 1; // TODO $_start in .name custom section
+        Invoke (function);
     }
 
     void Reserved (DecodedInstruction*);
@@ -2991,12 +3059,81 @@ void* Interp::LoadStore (DecodedInstruction* instr, size_t size)
 
 INTERP (Call)
 {
-	Assert (!"Call"); // not yet implemented
+    const size_t function_index = instr->u32;
+    Assert (function_index < module->functions.size ());
+    Function& function = module->functions [function_index];
+    function.function_index = function_index; // TODO remove this
+    Invoke (module->functions [function_index]);
 }
 
 void Interp::Invoke (Function& function)
 {
-	Assert (!"Invoke"); // not yet implemented
+    __debugbreak ();
+    // Decode function upon first call.
+    // TODO thread safety
+    // TODO merge with calli (invoke)
+
+    Code& code = module->code [function.function_index];
+    uint8* cursor = code.cursor;
+    if (cursor)
+    {
+        DecodeFunction (module, code, cursor);
+        code.cursor = 0;
+    }
+    size_t size = code.decoded_instructions.size ();
+    Assert (size);
+
+    // TODO cross-module calls
+    // TODO calling embedding
+    // setup frame
+    StackValue f { };
+    Frame frame_value; // TODO within StackValue by value instead of by pointer? Changed due to circular typing.
+    f.frame = &frame_value;
+    frame_value.code = &code;
+    f.type = StackTag_Frame;
+    frame_value.next = this->frame;
+    frame_value.module = this->module; // TODO cross module calls
+    frame_value.module_instance = this->module_instance; // TODO cross module calls
+    frame_value.function_index = function.function_index;
+    const size_t local_count = code.locals.size ();
+    frame_value.local_count = local_count;
+
+    this->frame = &frame_value;
+
+    // CONSIDER put the interp loop elsewhere
+    // Invoke would adjust member data and return to it
+
+    uint function_type_index = function.function_type_index;
+
+    Assert (function_type_index < module->function_types.size ());
+    FunctionType& function_type = module->function_types [function_type_index];
+
+    // Push locals on stack.
+    // TODO params also
+    // TODO reserve (size () + local_count);
+    for (size_t i = 0; i < local_count; ++i)
+    {
+        StackValue value = {StackTag_Value, { code.locals [i] } };
+        push_value (value);
+    }
+    // Provide for indexing locals.
+    frame_value.locals = stack.end () - (ptrdiff_t)local_count;
+
+    // TODO provide for separate depth -- i.e. here is now 0; locals/params cannot be popped
+
+    DecodedInstruction* instr = &code.decoded_instructions [0];
+    DecodedInstruction* end = instr + size;
+    for (; instr < end; ++instr)
+    {
+        switch (instr->name)
+        {
+#undef INSTRUCTION
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) case w3::name: printf("interp%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); this->name (instr); break;
+INSTRUCTIONS
+        }
+    }
+    // TODO handle ret
+    __debugbreak ();
 }
 
 INTERP (Block)
@@ -3021,30 +3158,38 @@ INTERP (MemSize)
 
 INTERP (Global_set)
 {
-	Assert (!"Global_set"); // not yet implemented
+    uint index = instr->u32;
+    Assert (index < module->globals.size ());
+    AssertFormat (tag () == module->globals [index].global_type.value_type, ("%X %X", tag (), module->globals [index].global_type.value_type));
+    module_instance->globals [index].value.value = value ();
+    pop_value ();
 }
 
 INTERP (Global_get)
 {
-    Module* mod = module;
-    ModuleInstance* mi = module_instance;
     uint index = instr->u32;
-    Assert (index < mod->globals.size ());
+    Assert (index < module->globals.size ());
     StackValue value {};
     value.type = StackTag_Value;
-    value.value.tag = mod->globals [index].global_type.value_type; // TODO initialize the instance with types?
-    value.value.value = mi->globals [index].value.value;
-    push (value);
+    value.value.tag = module->globals [index].global_type.value_type; // TODO initialize the instance with types?
+    value.value.value = module_instance->globals [index].value.value;
+    push_value (value);
 }
 
 INTERP (Local_set)
 {
-	Assert (!"Local_set"); // not yet implemented
+    Local_tee (instr);
+    pop_value ();
 }
 
 INTERP (Local_tee)
 {
-    Assert (!"Local_set"); // not yet implemented
+    // TODO params
+    Assert (instr->u32 < frame->local_count);
+    //Assert (value_depth >= 1);
+    AssertFormat (tag () == frame->code->locals [instr->u32], ("%X %X", tag (), frame->code->locals [instr->u32]));
+    AssertFormat (tag () == frame->locals [instr->u32].value.tag, ("%X %X", tag (), frame->locals [instr->u32].value.tag));
+    frame->locals [instr->u32].value.value = value ();
 }
 
 INTERP (Local_get)
@@ -3098,23 +3243,22 @@ INTERP (Calli)
     // call is unsigned
     const int sfunction_index = pop_i32 ();
     Assert (sfunction_index >= 0);
-    const uint function_index = (uint)sfunction_index;
+    const size_t function_index = (uint)sfunction_index;
 
     const uint type_index1 = instr->u32;
 
     // This seems like it could be validated earlier.
-    Module& mod = *module;
-    Assert (function_index < mod.functions.size ());
+    Assert (function_index < module->functions.size ());
 
-    Function& function = mod.functions [function_index];
+    Function& function = module->functions [function_index];
 
     const uint type_index2 = function.function_type_index;
 
-    Assert (type_index1 < mod.function_types.size ());
-    Assert (type_index2 < mod.function_types.size ());
+    Assert (type_index1 < module->function_types.size ());
+    Assert (type_index2 < module->function_types.size ());
 
-    const FunctionType& type1 = mod.function_types [type_index1];
-    const FunctionType& type2 = mod.function_types [type_index2];
+    const FunctionType& type1 = module->function_types [type_index1];
+    const FunctionType& type2 = module->function_types [type_index2];
 
     Assert (type_index2 == type_index1 || type1 == type2);
 
@@ -3285,7 +3429,7 @@ INTERP (Nop)
 
 INTERP (Drop)
 {
-    pop ();
+    pop_value ();
 }
 
 void Interp:: Reserved (DecodedInstruction* instr)
@@ -4208,7 +4352,6 @@ main (int argc, char** argv)
 
         // TODO read .name custom section
 
-        __debugbreak ();
         Interp().interp (&module, 0);
 
         if (module.start)
