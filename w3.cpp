@@ -3320,7 +3320,6 @@ INTERP (Br)
 
     Assert ((int)size () >= label + 1);
 
-    ssize_t target = -1;
     StackValue* p = &front ();
     int values = 0;
     int j = (int)size () - 1;
@@ -3338,14 +3337,14 @@ INTERP (Br)
 
     const int arity = p [j].label.arity;
 
-    instr = &frame->code->decoded_instructions [p [j].label.continuation];
+    instr = &frame->code->decoded_instructions [(size_t)p [j].label.continuation];
 
     // Now pop the labels and the extra values leaving the top values.
     if (arity > 0)
         memcpy (&p [j], p + size () - arity, arity * sizeof (StackValue));
 
     // bulk pop down to j
-    resize (j + arity);
+    resize ((size_t)j + arity);
 }
 
 INTERP (Select)
