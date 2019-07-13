@@ -208,6 +208,9 @@ typedef unsigned long long uint64;
 namespace w3 // TODO Visual C++ 2.0 lacks namespaces
 {
 
+const size_t PageSize = (1UL << 16);
+const size_t PageShift = 16;
+
 #if 0
 static
 void
@@ -2576,7 +2579,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
         if (e.fixed_size == 2) // TODO
             if (module->read_byte (cursor))
                 ThrowString ("second byte not 0");
-        printf ("decode1 %s\n", InstructionName (i.name));
+        printf ("decode> %s\n", InstructionName (i.name));
         switch (e.immediate)
         {
         case Imm_sequence:
@@ -2626,7 +2629,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
             module->read_vector_varuint32 (i.vecLabel, cursor);
             break;
         }
-        printf ("decode2 %s 0x%X %d\n", InstructionName (i.name), i.i32, i.i32);
+        printf ("decode< %s 0x%X %d\n", InstructionName (i.name), i.i32, i.i32);
         if (e.immediate != Imm_sequence)
             instructions.push_back (i);
     }
@@ -2863,9 +2866,11 @@ TableType Module::read_tabletype (uint8*& cursor)
 
 void Module::read_memory (uint8*& cursor)
 {
-    printf ("reading section 5\n");
-    auto limits = read_limits (cursor);
-    // Hello world does not have this section.
+    Limits limits = read_limits (cursor);
+    printf ("reading section5 min:%X hasMax:%X max:%X\n", limits.min, limits.hasMax, limits.max);
+    Assert (limits.min == 0);
+    if (limits.hasMax)
+        memory.resize (limits.max << PageShift, 0);
 }
 
 void Module::read_tables (uint8*& cursor)
