@@ -3109,7 +3109,6 @@ void Interp::Invoke (Function& function)
     // TODO cross-module calls
     // TODO calling embedding
     // setup frame
-    StackValue f { };
     Frame frame_value; // TODO within StackValue by value instead of by pointer? Changed due to circular typing.
     f.frame = &frame_value;
     frame_value.code = &code;
