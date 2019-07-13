@@ -1,21 +1,22 @@
 // 2-clause BSD license unless that does not suffice
-// else MIT like mono. Need to research the difference.
-
+// else MIT. Need to research licenses and maybe develop a business plan.
+//
 // Implementation language is C ?or? C++. At least C++11?
 // The following features of C++ are desirable:
 //   RAII (destructors, C++98)
 //   enum class (C++11)
 //   std::size (C++17)
 //   std::string::data (direct sprintf into std::string) (C++17)
-//   non-static member initialization (C++11)
+//   non-static member initialization (C++11) (no longer in use)
 //   thread safe static initializers, maybe (C++11)
-//   char16_t (C++11, but could use C++98 unsigned short)
-//   explicit operator bool (C++11 but easy to emulate in C++98)
+//   char16_t (C++11, but could use C++98 unsigned short) (more of a concern for .NET, not WebAssembly, and minor there)
+//   explicit operator bool (C++11 but easy to emulate in C++98) (emulated)
 //   variadic template (C++11, really needed?)
 //   variadic macros (really needed?)
-//   std::vector
-//   std::string
-//   Probably more of STL.
+//   std::vector (write our own?)
+//   std::string (write our own?)
+//   std::stack (write our own?)
+//   Probably more of STL.(write our own?)
 //
 // C++ library dependencies are likely to be removed, but we'll see.
 
@@ -50,7 +51,6 @@
 #endif
 
 #if _MSC_VER
-
 
 #if _MSC_VER <= 1500 // TODO which version?
 float truncf (float);
@@ -146,6 +146,7 @@ __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #endif
 
 #if _MSC_VER && _MSC_VER <= 1500
+// TODO find out what other pre-C99 platforms have these?
 typedef signed __int8 int8;
 typedef signed __int16 int16;
 typedef __int64 int64;
@@ -153,37 +154,40 @@ typedef unsigned __int8 uint8;
 typedef unsigned __int16 uint16;
 typedef unsigned __int64 uint64;
 typedef unsigned __int32 uint;
-#else
 
-// C99 / C++?
-//typedef int8_t int8;
-//typedef int16_t int16;
-//typedef int64_t int64;
-//typedef uint8_t uint8;
-//typedef uint16_t uint16;
-//typedef uint64_t uint64;
-//typedef uint32_t uint;
+#else
 
 #if UCHAR_MAX == 0x0FFUL
 typedef   signed char        int8;
 typedef unsigned char       uint8;
 #else
-#error unable to find 8bit integer
+typedef  int8_t  int8;
+typedef uint8_t uint8;
+//#error unable to find 8bit integer
 #endif
 #if USHRT_MAX == 0x0FFFFUL
 typedef          short      int16;
 typedef unsigned short     uint16;
 #else
-#error unable to find 16bit integer
+typedef  int16_t  int16;
+typedef uint16_t uint16;
+//#error unable to find 16bit integer
 #endif
+
+#if UINT_MAX != 0x0FFFFFFFFUL
+#error Change int to int32 where needed (or everywhere to be safe)
+#endif
+
 #if UINT_MAX == 0x0FFFFFFFFUL
 typedef          int        int32;
 typedef unsigned int       uint32;
 typedef unsigned int       uint;
 #elif ULONG_MAX == 0x0FFFFFFFFUL
 typedef          long       int32;
-typedef unsigned long      UINT32;
+typedef unsigned long      uint32;
 #else
+typedef  int32_t  int32; // TODO we just use int
+typedef uint32_t uint;
 #error unable to find 32bit integer
 #endif
 #if _MSC_VER || __DECC || __DECCXX || defined (__int64)
@@ -193,6 +197,10 @@ typedef unsigned __int64   uint64;
 typedef          long long  int64;
 typedef unsigned long long uint64;
 #endif
+// todo
+// C99 / C++?
+//typedef int64_t int64;
+//typedef uint64_t uint64;
 
 #endif
 
