@@ -3039,21 +3039,13 @@ INSTRUCTIONS
     ;
 };
 
-//unreach
 //memsize
 //memgrow
-//call
-//calli
 //if
 //loop
 //else
 //drop
 //select
-//local get set tree
-//gloal get set
-//block
-//br
-//brif
 //brtable
 //ret
 
