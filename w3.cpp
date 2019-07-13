@@ -116,6 +116,7 @@ double round (double);
 #include <memory.h>
 #include <stdarg.h>
 #include <stddef.h>
+typedef ptrdiff_t ssize_t;
 #include <stdio.h>
 #include <stdlib.h>
 #include <string>
@@ -1193,15 +1194,15 @@ typedef enum StackTag
 
 typedef struct LabelValue
 {
-    // FUTURE spec arity
-    uint value; // presumably an index into decoded_instructions within implied Code.
+    size_t arity;
+    size_t continuation;
 } LabelValue;
-
 
 typedef struct FunctionType FunctionType;
 typedef struct Function Function;
 typedef struct Code Code;
 typedef struct Frame Frame; // work in progress
+typedef struct DecodedInstruction DecodedInstruction;
 
 // work in progress
 typedef struct StackValue
@@ -1211,7 +1212,13 @@ typedef struct StackValue
     {
         TaggedValue value;
         LabelValue label;
-        Frame* frame; // TODO by value?
+        struct
+        {
+            Frame* frame; // TODO by value? Probably not. This was changed
+            // to resolve circular types, and for the initial frame that seemed
+            // wrong, but now that call/ret being implemented, seems right
+            DecodedInstruction* instr;
+        };
     };
 } StackValue;
 
@@ -1223,6 +1230,7 @@ struct StackBase : private StackBaseBase
     typedef StackBaseBase base;
     using base::iterator;
     using base::end;
+    using base::back;
 
     void push (const StackValue& a)
     {
@@ -1246,7 +1254,7 @@ struct Frame
     size_t function_index; // replace with pointer?
     ModuleInstance* module_instance;
     Module* module;
-    Frame* next;
+    Frame* next; // TODO remove this; it is on stack
     StackBase::iterator locals;
     Code* code;
     size_t local_count; // includes params
@@ -1266,6 +1274,7 @@ struct Stack : private StackBase
     using base::top;
     using base::iterator;
     using base::end;
+    using base::back;
 
     void reserve (size_t n)
     {
@@ -1279,31 +1288,35 @@ struct Stack : private StackBase
     ValueType& tag (ValueType tag)
     {
         Assert (value_depth >= 1);
-        Assert (top ().type == StackTag_Value);
-        Assert (top ().value.tag == tag);
-        return top ().value.tag;
+        auto& t = top ();
+        AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
+        AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
+        return t.value.tag;
     }
 
     ValueType& tag ()
     {
         Assert (value_depth >= 1);
-        Assert (top ().type == StackTag_Value);
-        return top ().value.tag;
+        auto& t = top ();
+        AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
+        return t.value.tag;
     }
 
     Value& value ()
     {
         Assert (value_depth >= 1);
-        Assert (top ().type == StackTag_Value);
-        return top ().value.value;
+        auto& t = top ();
+        AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
+        return t.value.value;
     }
 
     Value& value (ValueType tag)
     {
         Assert (value_depth >= 1);
-        Assert (top ().type == StackTag_Value);
-        Assert (top ().value.tag == tag);
-        return top ().value.value;
+        auto& t = top ();
+        AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
+        AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
+        return t.value.value;
     }
 
     void pop_value ()
@@ -1323,14 +1336,14 @@ struct Stack : private StackBase
 
     void push_i32 (int i)
     {
-        StackValue value = {StackTag_Value, { ValueType_i32 } };
+        StackValue value = {StackTag_Value, {{ ValueType_i32 }}};
         value.value.value.i32 = i;
         push_value (value);
     }
 
     void push_i64 (int64 i)
     {
-        StackValue value = {StackTag_Value, { ValueType_i64 } };
+        StackValue value = {StackTag_Value, {{ ValueType_i64 }}};
         value.value.value.i64 = i;
         push_value (value);
     }
@@ -1347,14 +1360,14 @@ struct Stack : private StackBase
 
     void push_f32 (float i)
     {
-        StackValue value = {StackTag_Value, { ValueType_f32 } };
+        StackValue value = {StackTag_Value, {{ ValueType_f32 }}};
         value.value.value.f32 = i;
         push_value (value);
     }
 
     void push_f64 (double i)
     {
-        StackValue value = {StackTag_Value, { ValueType_f64 } };
+        StackValue value = {StackTag_Value, {{ ValueType_f64 }}};
         value.value.value.f64 = i;
         push_value (value);
     }
@@ -1951,7 +1964,7 @@ struct InstructionEncoding
 
 struct DecodedInstruction
 {
-    DecodedInstruction ()
+    DecodedInstruction () : continuation ((size_t)-1)
     {
         name = (InstructionEnum)-1;
         align = offset = (uint)-1;
@@ -1971,9 +1984,13 @@ struct DecodedInstruction
             uint align;
             uint offset;
         };
+        struct // block
+        {
+            size_t arity;
+            size_t continuation;
+        };
         // etc.
     };
-    std::vector <DecodedInstruction> sequence;
     std::vector <uint> vecLabel;
     InstructionEnum name;
     BlockType blockType;
@@ -2146,10 +2163,10 @@ struct FunctionInstance // work in progress
 
 struct Function // section3
 {
-    Function () : function_type_index (0), function_index (0), import (false) { }
+    Function () : function_type_index ((size_t)-1), function_index ((size_t)-1), import (false) { }
 
     // Functions are split between two sections: types in section3, locals/body in section10
-    uint function_type_index;
+    size_t function_type_index;
     size_t function_index; // TODO needed?
     bool import; // TODO needed?
 };
@@ -2534,74 +2551,78 @@ static
 InstructionEnum
 DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8*& cursor)
 {
-    uint b0;
-    while (1)
+    uint b0 = (uint)Block;
+    size_t index;
+    while (b0 != (uint)BlockEnd)
     {
         InstructionEncoding e;
         DecodedInstruction i;
-        switch (b0 = module->read_byte (cursor)) // TODO multi-byte instructions
+        b0 = module->read_byte (cursor); // TODO multi-byte instructions
+        e = instructionEncode [b0];
+        if (e.fixed_size == 0)
         {
-        case BlockEnd:
-            return BlockEnd;
-        default:
-            e = instructionEncode [b0];
-            if (e.fixed_size == 0)
-            {
 #if _WIN32
-                if (IsDebuggerPresent ()) DebugBreak();
+            if (IsDebuggerPresent ()) DebugBreak();
 #endif
-                ThrowString ("reserved");
-            }
-            i.name = e.name;
-            if (e.fixed_size == 2) // TODO
-                if (module->read_byte (cursor))
-                    ThrowString ("second byte not 0");
-            printf ("decode1 %s\n", InstructionName (i.name));
-            switch (e.immediate)
-            {
-            case Imm_sequence:
-                i.blockType = module->read_blocktype (cursor);
-                InstructionEnum next;
-                next = DecodeInstructions (module, i.sequence, cursor);
-                Assert (next == BlockEnd || (i.name == If && next == Else));
-                break;
-            case Imm_memory:
-                i.align = module->read_varuint32 (cursor);
-                i.offset = module->read_varuint32 (cursor);
-                break;
-            case Imm_none:
-                break;
-            case Imm_global:
-                i.u32 = module->read_varuint32 (cursor);
-                break;
-            case Imm_function:
-            case Imm_local:
-            case Imm_label:
-            case Imm_type:
-                i.u32 = module->read_varuint32 (cursor);
-                break;
-            default:
-                ThrowString ("unknown immediate");
-                break;
-            case Imm_i32: // Spec is confusing here, signed or unsigned.
-                i.u32 = module->read_i32 (cursor);
-                break;
-            case Imm_i64: // Spec is confusing here, signed or unsigned.
-                i.u64 = module->read_i64 (cursor);
-                break;
-            case Imm_f32:
-                i.f32 = module->read_f32 (cursor);
-                break;
-            case Imm_f64:
-                i.f64 = module->read_f64 (cursor);
-                break;
-            case Imm_vecLabel:
-                module->read_vector_varuint32 (i.vecLabel, cursor);
-                break;
-            }
-            printf ("decode2 %s 0x%X %d\n", InstructionName (i.name), i.i32, i.i32);
-            instructions.push_back (i);
+            ThrowString ("reserved");
         }
+        i.name = e.name;
+        if (e.fixed_size == 2) // TODO
+            if (module->read_byte (cursor))
+                ThrowString ("second byte not 0");
+        printf ("decode1 %s\n", InstructionName (i.name));
+        switch (e.immediate)
+        {
+        case Imm_sequence:
+            i.blockType = module->read_blocktype (cursor);
+            i.arity = (i.blockType == ResultType_empty) ? 0u : 1u; // FUTURE
+            index = instructions.size ();
+            instructions.push_back (i);
+            InstructionEnum next;
+            next = DecodeInstructions (module, instructions, cursor);
+            Assert (next == BlockEnd || (i.name == If && next == Else));
+            // TODO if vs. else?
+            instructions [index].continuation = instructions.size () - 1;
+            break;
+        case Imm_memory:
+            i.align = module->read_varuint32 (cursor);
+            i.offset = module->read_varuint32 (cursor);
+            break;
+        case Imm_none:
+            break;
+        case Imm_global:
+            i.u32 = module->read_varuint32 (cursor);
+            break;
+        case Imm_label:
+            i.u32 = module->read_varuint32 (cursor);
+            break;
+        case Imm_function:
+        case Imm_local:
+        case Imm_type:
+            i.u32 = module->read_varuint32 (cursor);
+            break;
+        default:
+            ThrowString ("unknown immediate");
+            break;
+        case Imm_i32: // Spec is confusing here, signed or unsigned.
+            i.u32 = module->read_i32 (cursor);
+            break;
+        case Imm_i64: // Spec is confusing here, signed or unsigned.
+            i.u64 = module->read_i64 (cursor);
+            break;
+        case Imm_f32:
+            i.f32 = module->read_f32 (cursor);
+            break;
+        case Imm_f64:
+            i.f64 = module->read_f64 (cursor);
+            break;
+        case Imm_vecLabel:
+            module->read_vector_varuint32 (i.vecLabel, cursor);
+            break;
+        }
+        printf ("decode2 %s 0x%X %d\n", InstructionName (i.name), i.i32, i.i32);
+        if (e.immediate != Imm_sequence)
+            instructions.push_back (i);
     }
     return (InstructionEnum)b0;
 }
@@ -2937,13 +2958,19 @@ void Module::read_module (const char* file_name)
 // in order to avoid virtual function call cost. Let's get Interp working first.
 struct IInterp
 {
+    DecodedInstruction* instr; // TODO make local variable
+
+    IInterp () : instr (0)
+    {
+    }
+
     virtual ~IInterp ()
     {
     }
 
-    virtual void Reserved (DecodedInstruction* instr) = 0;
+    virtual void Reserved () = 0;
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name (DecodedInstruction* instr) { abort (); }
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name () { abort (); }
 INSTRUCTIONS
 };
 
@@ -2960,12 +2987,11 @@ private:
     Interp(const Interp&);
     void operator =(const Interp&);
 public:
-    Interp() : stack (*this)
+    Interp() : module (0), module_instance (0), frame (0), stack (*this)
     {
-        frame = 0;
     }
 
-    void* LoadStore (DecodedInstruction*, size_t size);
+    void* LoadStore (size_t size);
 
     Module* module;
     ModuleInstance* module_instance;
@@ -2993,18 +3019,16 @@ public:
         ModuleInstance instance (mod);
         this->module_instance = &instance;
         this->module = mod;
-        Function function { };
-        function.function_index = mod->import_function_count + 1; // TODO $_start in .name custom section
-        Invoke (function);
+        Invoke (mod->functions [mod->import_function_count + 1]); // TODO $_start in .name custom section
     }
 
-    void Reserved (DecodedInstruction*);
+    void Reserved ();
 
 #undef RESERVED
-#define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none) { Reserved (instr); }
+#define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none) { Reserved (); }
 
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) ; void name (DecodedInstruction* instr)
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) ; void name ()
 INSTRUCTIONS
     ;
 };
@@ -3027,13 +3051,13 @@ INSTRUCTIONS
 //brtable
 //ret
 
-void* Interp::LoadStore (DecodedInstruction* instr, size_t size)
+void* Interp::LoadStore (size_t size)
 {
     // TODO Not clear from spec and paper what to do here, despite
     // focused discussion on it.
     // Why is the operand signed??
     size_t effective_address;
-    const ptrdiff_t i = pop_i32 ();
+    const int i = pop_i32 ();
     const size_t offset = instr->offset;
     if (i >= 0)
     {
@@ -3055,7 +3079,7 @@ void* Interp::LoadStore (DecodedInstruction* instr, size_t size)
 }
 
 #undef INTERP
-#define INTERP(x) void Interp::x (DecodedInstruction* instr)
+#define INTERP(x) void Interp::x ()
 
 INTERP (Call)
 {
@@ -3096,17 +3120,41 @@ void Interp::Invoke (Function& function)
     frame_value.module_instance = this->module_instance; // TODO cross module calls
     frame_value.function_index = function.function_index;
     const size_t local_count = code.locals.size ();
-    frame_value.local_count = local_count;
+    const size_t function_type_index = function.function_type_index;
+    Assert (function_type_index < module->function_types.size ());
+    FunctionType& function_type = module->function_types [function_type_index];
+    const size_t n_params = function_type.parameters.size ();
+    frame_value.local_count = local_count + n_params;
 
     this->frame = &frame_value;
+
+    for (size_t j = 0; j != n_params; ++j)
+    {
+        printf ("2 entering function with param [%X] type %X\n", (uint)j, (end () - (ssize_t)n_params + (ssize_t)j)->value.tag);
+    }
 
     // CONSIDER put the interp loop elsewhere
     // Invoke would adjust member data and return to it
 
-    uint function_type_index = function.function_type_index;
+    // params are subsumed into new frame
 
-    Assert (function_type_index < module->function_types.size ());
-    FunctionType& function_type = module->function_types [function_type_index];
+    // TODO We really want this to be more efficient.
+    // Either by having split stacks, or by computing
+    // maximum parameter count and putting return before it.
+
+    // For now live with memcpy.
+
+    StackValue ret {}; // fix it shortly
+    push_value (ret);
+
+    if (n_params)
+        memmove (&*(end () - (ssize_t)n_params), &*(end () - (ssize_t)n_params - 1), n_params * sizeof (StackValue));
+
+    // place return frame/address
+
+    (end () - 1 - (ssize_t)n_params)->type = StackTag_Frame;
+    (end () - 1 - (ssize_t)n_params)->frame = frame;
+    (end () - 1 - (ssize_t)n_params)->instr = instr + 1;
 
     // Push locals on stack.
     // TODO params also
@@ -3117,18 +3165,23 @@ void Interp::Invoke (Function& function)
         push_value (value);
     }
     // Provide for indexing locals.
-    frame_value.locals = stack.end () - (ptrdiff_t)local_count;
+    frame_value.locals = stack.end () - (ssize_t)local_count - (ssize_t)n_params;
+
+    for (size_t j = 0; j != local_count + n_params; ++j)
+    {
+        printf ("2 entering function with local [%X] type %X\n", (uint)j, frame_value.locals [j].value.tag);
+    }
 
     // TODO provide for separate depth -- i.e. here is now 0; locals/params cannot be popped
 
-    DecodedInstruction* instr = &code.decoded_instructions [0];
+    instr = &code.decoded_instructions [0];
     DecodedInstruction* end = instr + size;
     for (; instr < end; ++instr)
     {
         switch (instr->name)
         {
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) case w3::name: printf("interp%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); this->name (instr); break;
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) case w3::name: printf("interp%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); this->name (); break;
 INSTRUCTIONS
         }
     }
@@ -3138,7 +3191,11 @@ INSTRUCTIONS
 
 INTERP (Block)
 {
-	Assert (!"Block"); // not yet implemented
+    StackValue stack_value;
+    stack_value.type = StackTag_Label;
+    stack_value.label.arity = instr->arity;
+    stack_value.label.continuation = instr->continuation;
+    push_value (stack_value);
 }
 
 INTERP (Loop)
@@ -3158,43 +3215,50 @@ INTERP (MemSize)
 
 INTERP (Global_set)
 {
-    uint index = instr->u32;
-    Assert (index < module->globals.size ());
-    AssertFormat (tag () == module->globals [index].global_type.value_type, ("%X %X", tag (), module->globals [index].global_type.value_type));
-    module_instance->globals [index].value.value = value ();
+    const uint i = instr->u32;
+    AssertFormat (i < module->globals.size (), ("%X %X", i, module->globals.size ()));
+    // TODO assert mutable
+    AssertFormat (tag () == module->globals [i].global_type.value_type, ("%X %X", tag (), module->globals [i].global_type.value_type));
+    module_instance->globals [i].value.value = value ();
     pop_value ();
 }
 
 INTERP (Global_get)
 {
-    uint index = instr->u32;
-    Assert (index < module->globals.size ());
+    const uint i = instr->u32;
+    AssertFormat (i < module->globals.size (), ("%X %X", i, module->globals.size ()));
     StackValue value {};
     value.type = StackTag_Value;
-    value.value.tag = module->globals [index].global_type.value_type; // TODO initialize the instance with types?
-    value.value.value = module_instance->globals [index].value.value;
+    value.value.tag = module->globals [i].global_type.value_type; // TODO initialize the instance with types?
+    value.value.value = module_instance->globals [i].value.value;
     push_value (value);
 }
 
 INTERP (Local_set)
 {
-    Local_tee (instr);
+    Local_tee ();
     pop_value ();
 }
 
 INTERP (Local_tee)
 {
     // TODO params
-    Assert (instr->u32 < frame->local_count);
+    const uint i = instr->u32;
+    AssertFormat (i < frame->local_count, ("%X %X", i, frame->local_count));
     //Assert (value_depth >= 1);
-    AssertFormat (tag () == frame->code->locals [instr->u32], ("%X %X", tag (), frame->code->locals [instr->u32]));
-    AssertFormat (tag () == frame->locals [instr->u32].value.tag, ("%X %X", tag (), frame->locals [instr->u32].value.tag));
-    frame->locals [instr->u32].value.value = value ();
+    AssertFormat (tag () == frame->code->locals [i], ("%X %X", tag (), frame->code->locals [i]));
+    AssertFormat (tag () == frame->locals [i].value.tag, ("%X %X", tag (), frame->locals [i].value.tag));
+    frame->locals [i].value.value = value ();
 }
 
 INTERP (Local_get)
 {
-    Assert (!"Local_get"); // not yet implemented
+    const uint i = instr->u32;
+    AssertFormat (i < frame->local_count, ("%X %X", i, frame->local_count));
+    StackValue value {};
+    value.type = StackTag_Value;
+    value.value = frame->locals [i].value;
+    push_value (value);
 }
 
 INTERP (If)
@@ -3252,7 +3316,7 @@ INTERP (Calli)
 
     Function& function = module->functions [function_index];
 
-    const uint type_index2 = function.function_type_index;
+    const size_t type_index2 = function.function_type_index;
 
     Assert (type_index1 < module->function_types.size ());
     Assert (type_index2 < module->function_types.size ());
@@ -3301,126 +3365,126 @@ INTERP (f64_Const)
 
 INTERP (i32_Load)
 {
-    push_i32 (*(int*)LoadStore (instr, 4));
+    push_i32 (*(int*)LoadStore (4));
 }
 
 INTERP (i32_Load8s)
 {
-    push_i32 (*(int8*)LoadStore (instr, 1));
+    push_i32 (*(int8*)LoadStore (1));
 }
 
 INTERP (i32_Load16s)
 {
-    push_i32 (*(int16*)LoadStore (instr, 2));
+    push_i32 (*(int16*)LoadStore (2));
 }
 
 INTERP (i32_Load8u)
 {
-    push_i32 (*(uint8*)LoadStore (instr, 1));
+    push_i32 (*(uint8*)LoadStore (1));
 }
 
 INTERP (i32_Load16u)
 {
-    push_i32 (*(uint16*)LoadStore (instr, 2));
+    push_i32 (*(uint16*)LoadStore (2));
 }
 
 INTERP (i64_Load)
 {
-    push_i64 (*(int64*)LoadStore (instr, 8));
+    push_i64 (*(int64*)LoadStore (8));
 }
 
 INTERP (i64_Load8s)
 {
-    push_i64 (*(int8*)LoadStore (instr, 1));
+    push_i64 (*(int8*)LoadStore (1));
 }
 
 INTERP (i64_Load16s)
 {
-    push_i64 (*(int16*)LoadStore (instr, 2));
+    push_i64 (*(int16*)LoadStore (2));
 }
 
 INTERP (i64_Load8u)
 {
-    push_i64 (*(uint8*)LoadStore (instr, 1));
+    push_i64 (*(uint8*)LoadStore (1));
 }
 
 INTERP (i64_Load16u)
 {
-    push_i64 (*(uint16*)LoadStore (instr, 2));
+    push_i64 (*(uint16*)LoadStore (2));
 }
 
 INTERP (i64_Load32s)
 {
-    push_i64 (*(int*)LoadStore (instr, 4));
+    push_i64 (*(int*)LoadStore (4));
 }
 
 INTERP (i64_Load32u)
 {
-    push_i64 (*(uint*)LoadStore (instr, 4));
+    push_i64 (*(uint*)LoadStore (4));
 }
 
 INTERP (f32_Load)
 {
-    push_f32 (*(float*)LoadStore (instr, 4));
+    push_f32 (*(float*)LoadStore (4));
 }
 
 INTERP (f64_Load)
 {
-    push_f64 (*(double*)LoadStore (instr, 8));
+    push_f64 (*(double*)LoadStore (8));
 }
 
 INTERP (i32_Store)
 {
     const uint a = pop_u32 ();
-    *(uint*)LoadStore (instr, 4) = a;
+    *(uint*)LoadStore (4) = a;
 }
 
 INTERP (i32_Store8)
 {
     const uint a = pop_u32 ();
-    *(uint8*)LoadStore (instr, 1) = (uint8)(a & 0xFF);
+    *(uint8*)LoadStore (1) = (uint8)(a & 0xFF);
 }
 
 INTERP (i32_Store16)
 {
     const uint a = pop_u32 ();
-    *(uint16*)LoadStore (instr, 1) = (uint16)(a & 0xFFFF);
+    *(uint16*)LoadStore (1) = (uint16)(a & 0xFFFF);
 }
 
 INTERP (i64_Store8)
 {
     const uint64 a = pop_u64 ();
-    *(uint8*)LoadStore (instr, 1) = (uint8)(a & 0xFF);
+    *(uint8*)LoadStore (1) = (uint8)(a & 0xFF);
 }
 
 INTERP (i64_Store16)
 {
     const uint64 a = pop_u64 ();
-    *(uint16*)LoadStore (instr, 2) = (uint16)(a & 0xFFFF);
+    *(uint16*)LoadStore (2) = (uint16)(a & 0xFFFF);
 }
 
 INTERP (i64_Store32)
 {
     const uint64 a = pop_u64 ();
-    *(uint*)LoadStore (instr, 4) = (uint)(a & 0xFFFFFFFF);
+    *(uint*)LoadStore (4) = (uint)(a & 0xFFFFFFFF);
 }
 
 INTERP (i64_Store)
 {
     const uint64 a = pop_u64 ();
-    *(uint64*)LoadStore (instr, 8) = a;
+    *(uint64*)LoadStore (8) = a;
 }
 
 INTERP (f32_Store)
 {
     float a = pop_f32 ();
-    *(float*)LoadStore (instr, 4) = a;
+    *(float*)LoadStore (4) = a;
 }
 
 INTERP (f64_Store)
 {
     double a = pop_f64 ();
-    *(double*)LoadStore (instr, 8) = a;
+    *(double*)LoadStore (8) = a;
 }
 
 INTERP (Nop)
@@ -3432,7 +3496,7 @@ INTERP (Drop)
     pop_value ();
 }
 
-void Interp:: Reserved (DecodedInstruction* instr)
+void Interp:: Reserved ()
 {
 #if _WIN32
     if (IsDebuggerPresent ()) DebugBreak();
