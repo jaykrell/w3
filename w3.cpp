@@ -302,6 +302,7 @@ StringFormatVa (const char* format, va_list va)
 #pragma warning (pop)
 #endif
 
+static
 std::string
 StringFormat (const char* format, ...)
 {
@@ -314,6 +315,7 @@ StringFormat (const char* format, ...)
 
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
 
+static
 void
 ThrowString (const std::string& a)
 {
@@ -322,12 +324,14 @@ ThrowString (const std::string& a)
     //abort ();
 }
 
+static
 void
 ThrowInt (int i, const char* a = "")
 {
     ThrowString (StringFormat ("error 0x%08X %s", i, a));
 }
 
+static
 void
 ThrowErrno (const char* a = "")
 {
@@ -335,12 +339,15 @@ ThrowErrno (const char* a = "")
 }
 
 #if _WIN32
+static
 void
 throw_Win32Error (int err, const char* a = "")
 {
     ThrowInt (err, a);
 
 }
+
+static
 void
 throw_GetLastError (const char* a = "")
 {
@@ -349,6 +356,7 @@ throw_GetLastError (const char* a = "")
 }
 #endif
 
+static
 void
 AssertFailedFormat (const char* condition, const std::string& extra)
 {
@@ -451,24 +459,28 @@ typedef uintLEn<16> uintLE16;
 typedef uintLEn<32> uintLE;
 typedef uintLEn<64> uintLE64;
 
+static
 uint
 Unpack (uintLE16& a)
 {
     return (uint)a;
 }
 
+static
 uint
 Unpack (uintLE16* a)
 {
     return (uint)*a;
 }
 
+static
 uint
 Unpack (uintLE& a)
 {
     return (uint)a;
 }
 
+static
 uint
 Unpack (uintLE* a)
 {
@@ -2753,9 +2765,9 @@ String Module::read_string (uint8** cursor)
 
 void Module::read_vector_varuint32 (std::vector<uint>& result, uint8** cursor)
 {
-    const uint size = read_varuint32 (cursor);
+    const size_t size = read_varuint32 (cursor);
     result.resize (size);
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
         result [i] = read_varuint32 (cursor);
 }
 
@@ -2879,9 +2891,7 @@ void Module::read_tables (uint8** cursor)
     AssertFormat (size == 1, ("%X", size));
     tables.resize (size);
     for (uint i = 0; i < size; ++i)
-    {
         tables [0] = read_tabletype (cursor);
-    }
 }
 
 void Module::read_section (uint8** cursor)
@@ -2892,8 +2902,8 @@ void Module::read_section (uint8** cursor)
     if (id > 11)
         ThrowString (StringFormat ("malformed line:%d id:%X payload:%p base:%p end:%p", __LINE__, id, payload, base, end)); // UNDONE context
 
-    const uint payload_size = read_varuint32 (cursor);
-    printf ("%s payload_size:%X\n", __func__, payload_size);
+    const size_t payload_size = read_varuint32 (cursor);
+    printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, payload_size);
     payload = *cursor;
     uint name_size = 0;
     char* name = 0;
@@ -2905,7 +2915,7 @@ void Module::read_section (uint8** cursor)
             ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     }
     if (payload + payload_size > end)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context
+        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%" FORMAT_SIZE "X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context
 
     *cursor = payload + payload_size;
 
@@ -2983,7 +2993,7 @@ INSTRUCTIONS
 
 static
 void
-Overflow ()
+Overflow (void)
 {
     Assert (!"Overflow");
 }
