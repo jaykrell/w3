@@ -254,16 +254,16 @@ T Max(const T& a, const T& b)
 #endif
 
 // Portable to old (and new) Visual C++ runtime.
-uint
+size_t
 string_vformat_length (const char* format, va_list va)
 {
 #if _MSC_VER
     // newer runtime: _vscprintf (format, va);
     // else loop until it fits, getting -1 while it does not.
-    uint n = 0;
+    size_t n = 0;
     for (;;)
     {
-        uint inc = n ? n : 64;
+        size_t inc = n ? n : 64;
         if (_vsnprintf ((char*)_alloca (inc), n += inc, format, va) != -1)
             return n + 2;
     }
@@ -704,11 +704,11 @@ SignExtend (uint64 value, uint bits)
 }
 
 static
-uint
-int_magnitude (int i)
+size_t
+int_magnitude (ssize_t i)
 {
     // Avoid negating the most negative number.
-    return 1 + (uint)-(i + 1);
+    return 1 + (size_t)-(i + 1);
 }
 
 struct int_split_sign_magnitude_t
@@ -2107,7 +2107,7 @@ struct Import
     // TODO virtual functions to model union
     union
     {
-        uint function;
+        size_t function;
         MemoryType memory;
         GlobalType global;
         TableType table;
@@ -2186,9 +2186,9 @@ struct Global
 
 struct Element
 {
-    uint table;
+    size_t table;
     std::vector <DecodedInstruction> offset_instructions;
-    uint offset;
+    size_t offset;
     std::vector <uint> functions;
 };
 
@@ -2199,7 +2199,7 @@ struct Export
 
     Export (const Export& e)
     {
-        printf ("copy export %X %X %X %X\n", tag, is_main, is_start, table);
+        printf ("copy export %X %X %X %" FORMAT_SIZE "X\n", tag, is_main, is_start, table);
         memcpy (this, &e, sizeof (e));
     }
 
@@ -2211,10 +2211,10 @@ struct Export
     bool is_main;
     union
     {
-        uint function;
-        uint memory;
-        uint table;
-        uint global;
+        size_t function;
+        size_t memory;
+        size_t table;
+        size_t global;
     };
 };
 
@@ -2222,7 +2222,7 @@ struct Data // section11
 {
     Data () : memory (0), bytes (0) { }
 
-    uint memory;
+    size_t memory;
     std::vector <DecodedInstruction> expr;
     void* bytes;
 };
@@ -2340,22 +2340,22 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
 
 void Module::read_data (uint8** cursor)
 {
-    const uint size1 = read_varuint32 (cursor);
-    printf ("reading data11 size:%X\n", size1);
+    const size_t size1 = read_varuint32 (cursor);
+    printf ("reading data11 size:%" FORMAT_SIZE "X\n", size1);
     data.resize (size1);
-    for (uint i = 0; i < size1; ++i)
+    for (size_t i = 0; i < size1; ++i)
     {
         Data& a = data [i];
         a.memory = read_varuint32 (cursor);
         DecodeInstructions (this, a.expr, cursor);
-        const uint size2 = read_varuint32 (cursor);
+        const size_t size2 = read_varuint32 (cursor);
         if (*cursor + size2 > end)
             ThrowString ("data out of bounds");
         a.bytes = *cursor;
-        printf ("data [%X]:{%X}\n", i, (*cursor) [0]);
+        printf ("data [%" FORMAT_SIZE "X]:{%X}\n", i, (*cursor) [0]);
         *cursor += size2;
     }
-    printf ("read data11 size:%X\n", size1);
+    printf ("read data11 size:%" FORMAT_SIZE "X\n", size1);
 }
 
 void Module::read_code (uint8** cursor)
@@ -2387,33 +2387,33 @@ void Module::read_code (uint8** cursor)
 
 void Module::read_elements (uint8** cursor)
 {
-    const uint size1 = read_varuint32 (cursor);
-    printf ("reading section9 elements size1:%X\n", size1);
+    const size_t size1 = read_varuint32 (cursor);
+    printf ("reading section9 elements size1:%" FORMAT_SIZE "X\n", size1);
     elements.resize (size1);
-    for (uint i = 0; i < size1; ++i)
+    for (size_t i = 0; i < size1; ++i)
     {
         Element& a = elements [i];
         a.table = read_varuint32 (cursor);
         DecodeInstructions (this, a.offset_instructions, cursor);
-        const uint size2 = read_varuint32 (cursor);
+        const size_t size2 = read_varuint32 (cursor);
         a.functions.resize (size2);
-        for (uint j = 0; j < size2; ++j)
+        for (size_t j = 0; j < size2; ++j)
         {
             uint& b = a.functions [j];
             b = read_varuint32 (cursor);
-            printf ("elem.function [%X/%X]:%X\n", j, size2, b);
+            printf ("elem.function [%" FORMAT_SIZE "X/%" FORMAT_SIZE "X]:%X\n", j, size2, b);
         }
     }
-    printf ("read elements9 size:%X\n", size1);
+    printf ("read elements9 size:%" FORMAT_SIZE "X\n", size1);
 }
 
 void Module::read_exports (uint8** cursor)
 {
     printf ("reading section 7\n");
-    const uint size = read_varuint32 (cursor);
-    printf ("reading exports7 count:%X\n", size);
+    const size_t size = read_varuint32 (cursor);
+    printf ("reading exports7 count:%" FORMAT_SIZE "X\n", size);
     exports.resize (size);
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
     {
         Export& a = exports [i];
         a.name = read_string (cursor);
@@ -2421,7 +2421,7 @@ void Module::read_exports (uint8** cursor)
         a.function = read_varuint32 (cursor);
         a.is_main = a.name.builtin == BuiltinString_main;
         a.is_start = a.name.builtin == BuiltinString_start;
-        printf ("read_export %X:%X %s tag:%X index:%X is_main:%X is_start:%X\n", i, size, a.name.c_str (), a.tag, a.function, a.is_main, a.is_start);
+        printf ("read_export %" FORMAT_SIZE "X:%" FORMAT_SIZE "X %s tag:%X index:%" FORMAT_SIZE "X is_main:%X is_start:%X\n", i, size, a.name.c_str (), a.tag, a.function, a.is_main, a.is_start);
 
         if (a.is_start)
         {
@@ -2434,24 +2434,24 @@ void Module::read_exports (uint8** cursor)
             main = &a;
         }
     }
-    printf ("read exports7 size:%X\n", size);
+    printf ("read exports7 size:%" FORMAT_SIZE "X\n", size);
 }
 
 void Module::read_globals (uint8** cursor)
 {
     //printf ("reading section 6\n");
-    const uint size = read_varuint32 (cursor);
-    printf ("reading globals6 size:%X\n", size);
+    const size_t size = read_varuint32 (cursor);
+    printf ("reading globals6 size:%" FORMAT_SIZE "X\n", size);
     globals.resize (size);
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
     {
         Global& a = globals [i];
         a.global_type = read_globaltype (cursor);
-        printf ("read_globals %X:%X value_type:%X  mutable:%X init:%p\n", i, size, a.global_type.value_type, a.global_type.is_mutable, *cursor);
+        printf ("read_globals %" FORMAT_SIZE "X:%" FORMAT_SIZE "X value_type:%X  mutable:%X init:%p\n", i, size, a.global_type.value_type, a.global_type.is_mutable, *cursor);
         DecodeInstructions (this, a.init, cursor);
         // Init points to code -- Instructions until end of block 0x0B Instruction.
     }
-    printf ("read globals6 size:%X\n", size);
+    printf ("read globals6 size:%" FORMAT_SIZE "X\n", size);
 }
 
 void Module::read_functions (uint8** cursor)
@@ -2478,7 +2478,7 @@ void Module::read_imports (uint8** cursor)
     const size_t size = read_varuint32 (cursor);
     imports.resize (size);
     // TODO two passes to limit realloc?
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
     {
         Import& r = imports [i];
         r.module = read_string (cursor);
@@ -2638,13 +2638,13 @@ static
 void
 DecodeFunction (Module* module, Code& code, uint8** cursor)
 {
-    uint local_type_count = module->read_varuint32 (cursor);
-    printf ("local_type_count:%X\n", local_type_count);
-    for (uint i = 0; i < local_type_count; ++i)
+    size_t local_type_count = module->read_varuint32 (cursor);
+    printf ("local_type_count:%" FORMAT_SIZE "X\n", local_type_count);
+    for (size_t i = 0; i < local_type_count; ++i)
     {
-        uint j = module->read_varuint32 (cursor);
+        size_t j = module->read_varuint32 (cursor);
         ValueType value_type = module->read_valuetype (cursor);
-        printf ("local_type_count %X-of-%X count:%X type:%X\n", i, local_type_count, j, value_type);
+        printf ("local_type_count %" FORMAT_SIZE "X-of-%" FORMAT_SIZE "X count:%" FORMAT_SIZE "X type:%X\n", i, local_type_count, j, (uint)value_type);
         code.locals.resize (code.locals.size () + j, value_type);
     }
     DecodeInstructions (module, code.decoded_instructions, cursor);
@@ -2727,7 +2727,7 @@ uint Module::read_byte (uint8** cursor)
 // i.e. string_view or such pointing right into the mmap
 String Module::read_string (uint8** cursor)
 {
-    const uint size = read_varuint32 (cursor);
+    const size_t size = read_varuint32 (cursor);
     if (size + *cursor > end)
         ThrowString ("malformed in read_string");
     // TODO UTF8 handling
@@ -2736,7 +2736,8 @@ String Module::read_string (uint8** cursor)
     a.size = size;
 
     // TODO string recognizer?
-    printf ("read_string %X:%.*s\n", size, size, *cursor);
+    if (size <= INT_MAX)
+        printf ("read_string %" FORMAT_SIZE "X:%.*s\n", size, (int)size, *cursor);
     if (size == 7 && !memcmp (*cursor, "$_start", 7))
     {
         a.builtin = BuiltinString_start;
@@ -2751,9 +2752,9 @@ String Module::read_string (uint8** cursor)
 
 void Module::read_vector_varuint32 (std::vector<uint>& result, uint8** cursor)
 {
-    const uint size = read_varuint32 (cursor);
+    const size_t size = read_varuint32 (cursor);
     result.resize (size);
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
         result [i] = read_varuint32 (cursor);
 }
 
@@ -2808,7 +2809,7 @@ ValueType Module::read_valuetype (uint8** cursor)
     switch (value_type)
     {
     default:
-        ThrowString (StringFormat ("invalid ValueType:%X", value_type));
+        ThrowString (StringFormat ("invalid ValueType:%X", (uint)value_type));
         break;
     case ValueType_i32:
     case ValueType_i64:
@@ -2825,7 +2826,7 @@ BlockType Module::read_blocktype(uint8** cursor)
     switch (block_type)
     {
     default:
-        ThrowString (StringFormat ("invalid BlockType:%X", block_type));
+        ThrowString (StringFormat ("invalid BlockType:%X", (uint)block_type));
         break;
     case ValueType_i32:
     case ValueType_i64:
@@ -2858,14 +2859,15 @@ TableType Module::read_tabletype (uint8** cursor)
     TableType tableType = { };
     tableType.elementType = read_elementtype (cursor);
     tableType.limits = read_limits (cursor);
-    printf ("read_tabletype:type:%X min:%X hasMax:%X max:%X\n", tableType.elementType, tableType.limits.min, tableType.limits.hasMax, tableType.limits.max);
+    printf ("read_tabletype:type:%X min:%X hasMax:%X max:%X\n",
+        (uint)tableType.elementType, (uint)tableType.limits.min, (uint)tableType.limits.hasMax, (uint)tableType.limits.max);
     return tableType;
 }
 
 void Module::read_memory (uint8** cursor)
 {
     const Limits limits = read_limits (cursor);
-    printf ("reading section5 min:%X hasMax:%X max:%X\n", limits.min, limits.hasMax, limits.max);
+    printf ("reading section5 min:%X hasMax:%X max:%X\n", (uint)limits.min, (uint)limits.hasMax, (uint)limits.max);
     Assert (limits.min == 0);
     if (limits.hasMax)
         memory.resize (limits.max << PageShift, 0);
@@ -2873,11 +2875,11 @@ void Module::read_memory (uint8** cursor)
 
 void Module::read_tables (uint8** cursor)
 {
-    const uint size = read_varuint32 (cursor);
-    printf ("reading tables size:%X\n", size);
-    AssertFormat (size == 1, ("%X", size));
+    const size_t size = read_varuint32 (cursor);
+    printf ("reading tables size:%" FORMAT_SIZE "X\n", size);
+    AssertFormat (size == 1, ("%" FORMAT_SIZE "X", size));
     tables.resize (size);
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
     {
         tables [0] = read_tabletype (cursor);
     }
@@ -2891,10 +2893,10 @@ void Module::read_section (uint8** cursor)
     if (id > 11)
         ThrowString (StringFormat ("malformed line:%d id:%X payload:%p base:%p end:%p", __LINE__, id, payload, base, end)); // UNDONE context
 
-    const uint payload_size = read_varuint32 (cursor);
-    printf ("%s payload_size:%X\n", __func__, payload_size);
+    const size_t payload_size = read_varuint32 (cursor);
+    printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, payload_size);
     payload = *cursor;
-    uint name_size = 0;
+    size_t name_size = 0;
     char* name = 0;
     if (id == 0)
     {
@@ -2904,13 +2906,14 @@ void Module::read_section (uint8** cursor)
             ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     }
     if (payload + payload_size > end)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context
+        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%" FORMAT_SIZE "X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context
 
     *cursor = payload + payload_size;
 
     if (id == 0)
     {
-        printf ("skipping custom section:.%.*s\n", name_size, name);
+        if (name_size < INT_MAX)
+            printf ("skipping custom section:.%.*s\n", (int)name_size, name);
         // UNDONE custom sections
         return;
     }
@@ -3065,7 +3068,7 @@ void* Interp::LoadStore (size_t size)
     }
     else
     {
-        const size_t u = int_magnitude ((int)i);
+        const size_t u = int_magnitude (i);
         if (u > offset)
             Overflow ();
         effective_address = offset - u;
@@ -3129,7 +3132,7 @@ void Interp::Invoke (Function& function)
 
     for (j = 0; j != n_params; ++j)
     {
-        printf ("2 entering function with param [%X] type %X\n", (uint)j, (end () - (ssize_t)n_params + (ssize_t)j)->value.tag);
+        printf ("2 entering function with param [%" FORMAT_SIZE "X] type %X\n", j, (end () - (ssize_t)n_params + (ssize_t)j)->value.tag);
     }
 
     // CONSIDER put the interp loop elsewhere
@@ -3168,7 +3171,7 @@ void Interp::Invoke (Function& function)
 
     for (j = 0; j != local_count + n_params; ++j)
     {
-        printf ("2 entering function with local [%X] type %X\n", (uint)j, frame_value.locals [(ssize_t)j].value.tag);
+        printf ("2 entering function with local [%" FORMAT_SIZE "X] type %X\n", j, frame_value.locals [(ssize_t)j].value.tag);
     }
 
     // TODO provide for separate depth -- i.e. here is now 0; locals/params cannot be popped
@@ -3214,8 +3217,8 @@ INTERP (MemSize)
 
 INTERP (Global_set)
 {
-    const uint i = instr->u32;
-    AssertFormat (i < module->globals.size (), ("%X %X", i, module->globals.size ()));
+    const size_t i = instr->u32;
+    AssertFormat (i < module->globals.size (), ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, module->globals.size ()));
     // TODO assert mutable
     AssertFormat (tag () == module->globals [i].global_type.value_type, ("%X %X", tag (), module->globals [i].global_type.value_type));
     module_instance->globals [i].value.value = value ();
@@ -3224,8 +3227,8 @@ INTERP (Global_set)
 
 INTERP (Global_get)
 {
-    const uint i = instr->u32;
-    AssertFormat (i < module->globals.size (), ("%X %X", i, module->globals.size ()));
+    const size_t i = instr->u32;
+    AssertFormat (i < module->globals.size (), ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, module->globals.size ()));
     StackValue value {};
     value.type = StackTag_Value;
     value.value.tag = module->globals [i].global_type.value_type; // TODO initialize the instance with types?
@@ -3242,21 +3245,21 @@ INTERP (Local_set)
 INTERP (Local_tee)
 {
     // TODO params
-    const uint i = instr->u32;
-    AssertFormat (i < frame->local_count, ("%X %X", i, frame->local_count));
+    const size_t i = instr->u32;
+    AssertFormat (i < frame->local_count, ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, frame->local_count));
     //Assert (value_depth >= 1);
     AssertFormat (tag () == frame->code->locals [i], ("%X %X", tag (), frame->code->locals [i]));
-    AssertFormat (tag () == frame->locals [i].value.tag, ("%X %X", tag (), frame->locals [i].value.tag));
-    frame->locals [i].value.value = value ();
+    AssertFormat (tag () == frame->locals [(ssize_t)i].value.tag, ("%X %X", tag (), frame->locals [(ssize_t)i].value.tag));
+    frame->locals [(ssize_t)i].value.value = value ();
 }
 
 INTERP (Local_get)
 {
-    const uint i = instr->u32;
-    AssertFormat (i < frame->local_count, ("%X %X", i, frame->local_count));
+    const size_t i = instr->u32;
+    AssertFormat (i < frame->local_count, ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, frame->local_count));
     StackValue value {};
     value.type = StackTag_Value;
-    value.value = frame->locals [i].value;
+    value.value = frame->locals [(ssize_t)i].value;
     push_value (value);
 }
 
@@ -3347,9 +3350,9 @@ INTERP (Calli)
     // call is unsigned
     const int sfunction_index = pop_i32 ();
     Assert (sfunction_index >= 0);
-    const size_t function_index = (uint)sfunction_index;
+    const size_t function_index = (size_t)sfunction_index;
 
-    const uint type_index1 = instr->u32;
+    const size_t type_index1 = instr->u32;
 
     // This seems like it could be validated earlier.
     Assert (function_index < module->functions.size ());
