@@ -23,8 +23,12 @@
 // Goals: clarity, simplicity, portability, size, interpreter, compile to C++, and maybe
 // later some JIT
 
+#if _MSC_VER
+#pragma warning (disable:4668) // #if not_defined is #if 0
+#endif
+
 // Fix for circa Visual C++ 2.0 Win32 SDK. // C:\msdev\MSVC20\INCLUDE\objbase.h(8934) : error C2065: '_fmemcmp' : undeclared identifier
-#if defined (_WIN32) && !defined (WIN32)
+#if _WIN32 && !WIN32
 #define WIN32 1
 #endif
 
@@ -576,7 +580,7 @@ struct Fd
 {
     int fd;
 
-#ifndef _WIN32
+#if !_WIN32
     uint64 get_file_size (const char* file_name = "")
     {
 #if __CYGWIN__
@@ -1098,6 +1102,9 @@ typedef enum LimitsTag // specific to tabletype?
 
 struct Limits
 {
+    // TODO size_t? null?
+    Limits () : min (0), max (0), hasMax (false) { }
+
     uint min;
     uint max;
     bool hasMax;
@@ -1107,6 +1114,8 @@ const uint FunctionTypeTag = 0x60;
 
 struct TableType
 {
+    TableType () : elementType ((TableElementType)0) { }
+
     TableElementType elementType;
     Limits limits;
 };
@@ -1248,6 +1257,7 @@ struct StackBase : private StackBaseBase
     using base::size;
     using base::front;
     using base::resize;
+    using base::begin;
 
     void push (const StackValue& a)
     {
@@ -1295,6 +1305,7 @@ struct Stack : private StackBase
     using base::size;
     using base::front;
     using base::resize;
+    using base::begin;
 
     void reserve (size_t n)
     {
@@ -1308,7 +1319,7 @@ struct Stack : private StackBase
     ValueType& tag (ValueType tag)
     {
         Assert (value_depth >= 1);
-        auto& t = top ();
+        StackValue& t = top ();
         AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
         AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
         return t.value.tag;
@@ -1317,7 +1328,7 @@ struct Stack : private StackBase
     ValueType& tag ()
     {
         Assert (value_depth >= 1);
-        auto& t = top ();
+        StackValue& t = top ();
         AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
         return t.value.tag;
     }
@@ -1325,7 +1336,7 @@ struct Stack : private StackBase
     Value& value ()
     {
         Assert (value_depth >= 1);
-        auto& t = top ();
+        StackValue& t = top ();
         AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
         return t.value.value;
     }
@@ -1333,7 +1344,7 @@ struct Stack : private StackBase
     Value& value (ValueType tag)
     {
         Assert (value_depth >= 1);
-        auto& t = top ();
+        StackValue& t = top ();
         AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
         AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
         return t.value.value;
@@ -2118,13 +2129,13 @@ struct Import
     String name;
     ImportTag tag;
     // TODO virtual functions to model union
-    union
-    {
+    //union
+    //{
+        TableType table;
         uint function;
         MemoryType memory;
         GlobalType global;
-        TableType table;
-    };
+    //};
 };
 
 struct FuncAddr // TODO
@@ -2291,7 +2302,6 @@ struct Module
     std::vector <Import> imports; // section2
     std::vector <Function> functions; // section3 and section10 function declarations
     std::vector <TableType> tables; // section4 indirect tables
-    std::vector <uint8> memory; // section5 memory configuration
     std::vector <Global> globals; // section6
     std::vector <Export> exports; // section7
     std::vector <Element> elements; // section9 table initialization
@@ -2878,10 +2888,15 @@ TableType Module::read_tabletype (uint8** cursor)
 
 void Module::read_memory (uint8** cursor)
 {
+#if _WIN32
+    if (IsDebuggerPresent ()) DebugBreak ();
+#endif
     printf ("reading section5\n");
-    memory_limits = read_limits (cursor);
-    Assert (memory_limits.min == 0);
-    printf ("readi section5 min:%X hasMax:%X max:%X\n", memory_limits.min, memory_limits.hasMax, memory_limits.max);
+    uint size = read_varuint32 (cursor);
+    AssertFormat (size <= 1, ("%X", size)); // FUTURE
+    for (uint i = 0; i < size; ++i)
+        memory_limits = read_limits (cursor);
+    printf ("read section5 min:%X hasMax:%X max:%X\n", memory_limits.min, memory_limits.hasMax, memory_limits.max);
 }
 
 void Module::read_tables (uint8** cursor)
@@ -3084,8 +3099,10 @@ void* Interp::LoadStore (size_t size)
     }
     if (effective_address > UINT_MAX - size)
         Overflow ();
-    Assert (effective_address + size < frame->module->memory.size ());
-    return &frame->module->memory [effective_address];
+    AssertFormat (effective_address + size <= frame->module_instance->memory.size (),
+        ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X %" FORMAT_SIZE "X",
+        effective_address, size, frame->module_instance->memory.size ()));
+    return &frame->module_instance->memory [effective_address];
 }
 
 #undef INTERP
@@ -3095,8 +3112,8 @@ INTERP (Call)
 {
     const size_t function_index = instr->u32;
     Assert (function_index < module->functions.size ());
-    Function& function = module->functions [function_index];
-    function.function_index = function_index; // TODO remove this
+    Function* function = &module->functions [function_index];
+    function->function_index = function_index; // TODO remove this
     Invoke (module->functions [function_index]);
 }
 
@@ -3322,7 +3339,7 @@ INTERP (Br)
 
     Assert ((int)size () >= label + 1);
 
-    StackValue* p = &front ();
+    Stack::iterator p = begin ();
     int values = 0;
     int j = (int)size () - 1;
 
@@ -3343,7 +3360,12 @@ INTERP (Br)
 
     // Now pop the labels and the extra values leaving the top values.
     if (arity > 0)
-        memcpy (&p [j], p + size () - arity, arity * sizeof (StackValue));
+    {
+        // deque is not contiguous
+        //memcpy (&p [j], &*(p + (ssize_t)size () - arity), arity * sizeof (StackValue));
+        for (int k = 0; k < arity; ++k)
+            p [j + k] = p [(ssize_t)size () - arity + k];
+    }
 
     // bulk pop down to j
     resize ((size_t)j + arity);
@@ -3351,7 +3373,18 @@ INTERP (Br)
 
 INTERP (Select)
 {
-    Assert (!"Select"); // not yet implemented
+    if (pop_i32 ())
+    {
+        pop_value ();
+        Assert (value_depth >= 1);
+    }
+    else
+    {
+        const StackValue val2 = top ();
+        pop_value ();
+        pop_value ();
+        push_value (val2);
+    }
 }
 
 INTERP (Calli)
@@ -3374,12 +3407,12 @@ INTERP (Calli)
     Assert (type_index1 < module->function_types.size ());
     Assert (type_index2 < module->function_types.size ());
 
-    const FunctionType& type1 = module->function_types [type_index1];
-    const FunctionType& type2 = module->function_types [type_index2];
+    const FunctionType* type1 = &module->function_types [type_index1];
+    const FunctionType* type2 = &module->function_types [type_index2];
 
-    Assert (type_index2 == type_index1 || type1 == type2);
+    Assert (type_index2 == type_index1 || *type1 == *type2);
 
-    Assert (type1.results.size () <= 1); // future
+    Assert (type1->results.size () <= 1); // future
 
     Invoke (function);
 }
@@ -3387,8 +3420,7 @@ INTERP (Calli)
 ModuleInstance::ModuleInstance (Module* mod) : module (mod)
 {
     // size memory
-    if (module->memory_limits.hasMax)
-        memory.resize (module->memory_limits.max << PageShift, 0);
+    memory.resize (module->memory_limits.min << PageShift, 0);
 
     // initialize memory TODO
 
