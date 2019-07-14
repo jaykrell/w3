@@ -24,6 +24,10 @@ echo Wall=%Wall%
 
 del config.mk 2>nul
 
+set Qspectre=
+cl /c /Qspectre config.cpp 1.c 2>&1 | findstr Qspectre >nul
+if errorlevel 1 set Qspectre=/Qspectre
+
 cl 2>&1 | findstr /e /i x64 >nul: && goto :x64
 cl 2>&1 | findstr /e /i amd64 >nul: && goto :amd64
 cl 2>&1 | findstr /e /i x86 >nul: && goto :x86
@@ -55,6 +59,7 @@ goto :end
 ::  echo cplusplus=%cplusplus% >>config.mk
 del config.h 2>nul
 echo mscver=%mscver%>>config.mk
+echo Qspectre=%Qspectre%>>config.mk
 echo Wall=%Wall%>>config.mk
 echo CONFIG_H=1 >>config.mk
 echo HAS_TYPED_ENUM=%HAS_TYPED_ENUM% >>config.mk

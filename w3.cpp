@@ -52,6 +52,8 @@
 
 #if _MSC_VER
 
+#pragma warning (disable:5045) // compiler will insert Spectre mitigation
+
 #if _MSC_VER <= 1500 // TODO which version?
 float truncf (float);
 double trunc (double);
@@ -98,7 +100,6 @@ double round (double);
 #pragma warning (disable:5026) // move constructor implicitly deleted
 #pragma warning (disable:5027) // move assignment implicitly deleted
 #pragma warning (disable:5039) // exception handling and function pointers
-#pragma warning (disable:5045) // compiler will insert Spectre mitigation
 #endif
 #if __GNUC__ || __clang__
 #pragma GCC diagnostic ignored "-Wunused-const-variable"
@@ -254,16 +255,16 @@ T Max(const T& a, const T& b)
 #endif
 
 // Portable to old (and new) Visual C++ runtime.
-uint
+size_t
 string_vformat_length (const char* format, va_list va)
 {
 #if _MSC_VER
     // newer runtime: _vscprintf (format, va);
     // else loop until it fits, getting -1 while it does not.
-    uint n = 0;
+    size_t n = 0;
     for (;;)
     {
-        uint inc = n ? n : 64;
+        size_t inc = n ? n : 64;
         if (_vsnprintf ((char*)_alloca (inc), n += inc, format, va) != -1)
             return n + 2;
     }
@@ -287,7 +288,7 @@ StringFormatVa (const char* format, va_list va)
 #endif
 #endif
 
-    std::vector<char> s ((size_t)string_vformat_length (format, va));
+    std::vector<char> s (string_vformat_length (format, va));
 
 #if _WIN32
     _vsnprintf (&s [0], s.size (), format, va);
@@ -704,11 +705,11 @@ SignExtend (uint64 value, uint bits)
 }
 
 static
-uint
-int_magnitude (int i)
+size_t
+int_magnitude (ssize_t i)
 {
     // Avoid negating the most negative number.
-    return 1 + (uint)-(i + 1);
+    return 1 + (size_t)-(i + 1);
 }
 
 struct int_split_sign_magnitude_t
@@ -2284,6 +2285,7 @@ struct Module
     std::vector <Element> elements; // section9 table initialization
     std::vector <Code> code; // section10
     std::vector <Data> data; // section11 memory initialization
+    Limits memory_limits;
 
     Export* start;
     Export* main;
@@ -2864,11 +2866,10 @@ TableType Module::read_tabletype (uint8** cursor)
 
 void Module::read_memory (uint8** cursor)
 {
-    const Limits limits = read_limits (cursor);
-    printf ("reading section5 min:%X hasMax:%X max:%X\n", limits.min, limits.hasMax, limits.max);
-    Assert (limits.min == 0);
-    if (limits.hasMax)
-        memory.resize (limits.max << PageShift, 0);
+    printf ("reading section5\n");
+    memory_limits = read_limits (cursor);
+    Assert (memory_limits.min == 0);
+    printf ("readi section5 min:%X hasMax:%X max:%X\n", memory_limits.min, memory_limits.hasMax, memory_limits.max);
 }
 
 void Module::read_tables (uint8** cursor)
@@ -3020,11 +3021,12 @@ public:
 //      Function& fmain = mod->functions [emain->function];
         Code& cmain = mod->code [emain->function];
 #endif
-        // Simulate call to initial function.
         // instantiate module
-        ModuleInstance instance (mod);
-        this->module_instance = &instance;
         this->module = mod;
+        ModuleInstance instance (module);
+        this->module_instance = &instance;
+
+        // Simulate call to initial function.
         Invoke (mod->functions [mod->import_function_count + 1]); // TODO $_start in .name custom section
     }
 
@@ -3065,7 +3067,7 @@ void* Interp::LoadStore (size_t size)
     }
     else
     {
-        const size_t u = int_magnitude ((int)i);
+        const size_t u = int_magnitude (i);
         if (u > offset)
             Overflow ();
         effective_address = offset - u;
@@ -3179,8 +3181,9 @@ void Interp::Invoke (Function& function)
     {
         switch (instr->name)
         {
+            // break before instead of after to avoid unreachable code warning
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) case w3::name: printf("interp%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); this->name (); break;
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) break; case w3::name: printf("interp%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); this->name ();
 INSTRUCTIONS
         }
     }
@@ -3371,10 +3374,14 @@ INTERP (Calli)
     Invoke (function);
 }
 
-ModuleInstance::ModuleInstance (Module* mod)
+ModuleInstance::ModuleInstance (Module* mod) : module (mod)
 {
-    module = mod;
-    //memory.resize (mod->memory.size (), 0); // TODO intialize
+    // size memory
+    if (module->memory_limits.hasMax)
+        memory.resize (module->memory_limits.max << PageShift, 0);
+
+    // initialize memory TODO
+
     globals.resize (mod->globals.size (), StackValue ()); // TODO intialize
 }
 
