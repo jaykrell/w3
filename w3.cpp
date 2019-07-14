@@ -951,10 +951,9 @@ read_varuint64 (uint8*& cursor, const uint8* end)
         const uint byte = read_byte (cursor, end);
         result |= (byte & 0x7F) << shift;
         if ((byte & 0x80) == 0)
-            break;
+            return result;
         shift += 7;
     }
-    return result;
 }
 
 static
@@ -968,10 +967,9 @@ read_varuint32 (uint8*& cursor, const uint8* end)
         const uint byte = read_byte (cursor, end);
         result |= (byte & 0x7F) << shift;
         if ((byte & 0x80) == 0)
-            break;
+            return result;
         shift += 7;
     }
-    return result;
 }
 
 static
@@ -2529,9 +2527,9 @@ void Module::read_imports (uint8*& cursor)
 
 void Module::read_vector_ValueType (std::vector<ValueType>& result, uint8*& cursor)
 {
-    const uint size = read_varuint32 (cursor);
+    const size_t size = read_varuint32 (cursor);
     result.resize (size);
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
         result [i] = read_valuetype (cursor);
 }
 
@@ -2895,6 +2893,7 @@ void Module::read_section (uint8*& cursor)
 
     const uint payload_size = read_varuint32 (cursor);
     printf ("%s payload_size:%X\n", __func__, payload_size);
+    payload = cursor;
     uint name_size = 0;
     const char* name = 0;
     if (id == 0)
