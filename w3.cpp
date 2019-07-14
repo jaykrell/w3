@@ -933,16 +933,16 @@ struct stderr_stream : stream
 
 static
 uint
-read_byte (uint8*& cursor, const uint8* end)
+read_byte (uint8** cursor, const uint8* end)
 {
-    if (cursor >= end)
+    if (*cursor >= end)
         ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
-    return *cursor++;
+    return *(*cursor)++;
 }
 
 static
 uint64
-read_varuint64 (uint8*& cursor, const uint8* end)
+read_varuint64 (uint8** cursor, const uint8* end)
 {
     uint64 result = 0;
     uint shift = 0;
@@ -958,7 +958,7 @@ read_varuint64 (uint8*& cursor, const uint8* end)
 
 static
 uint
-read_varuint32 (uint8*& cursor, const uint8* end)
+read_varuint32 (uint8** cursor, const uint8* end)
 {
     uint result = 0;
     uint shift = 0;
@@ -974,7 +974,7 @@ read_varuint32 (uint8*& cursor, const uint8* end)
 
 static
 uint
-read_varuint7 (uint8*& cursor, const uint8* end)
+read_varuint7 (uint8** cursor, const uint8* end)
 {
     const uint result = read_byte (cursor, end);
     if (result & 0x80)
@@ -984,7 +984,7 @@ read_varuint7 (uint8*& cursor, const uint8* end)
 
 static
 int64
-read_varint64 (uint8*& cursor, const uint8* end)
+read_varint64 (uint8** cursor, const uint8* end)
 {
     int64 result = 0;
     uint shift = 0;
@@ -1006,7 +1006,7 @@ read_varint64 (uint8*& cursor, const uint8* end)
 
 static
 int
-read_varint32 (uint8*& cursor, const uint8* end)
+read_varint32 (uint8** cursor, const uint8* end)
 {
     int result = 0;
     uint shift = 0;
@@ -2059,7 +2059,7 @@ struct Section
 struct SectionTraits
 {
     const char* name;
-    void (Module::*read)(uint8*& cursor);
+    void (Module::*read)(uint8** cursor);
 };
 
 typedef enum ImportTag { // aka desc
@@ -2293,52 +2293,52 @@ struct Module
     size_t import_memory_count;
     size_t import_global_count;
 
-    String read_string (uint8*& cursor);
+    String read_string (uint8** cursor);
 
-    uint read_i32 (uint8*& cursor);
-    uint64 read_i64 (uint8*& cursor);
-    float read_f32 (uint8*& cursor);
-    double read_f64 (uint8*& cursor);
+    uint read_i32 (uint8** cursor);
+    uint64 read_i64 (uint8** cursor);
+    float read_f32 (uint8** cursor);
+    double read_f64 (uint8** cursor);
 
-    uint read_byte (uint8*& cursor);
-    uint read_varuint7 (uint8*& cursor);
-    uint read_varuint32 (uint8*& cursor);
+    uint read_byte (uint8** cursor);
+    uint read_varuint7 (uint8** cursor);
+    uint read_varuint32 (uint8** cursor);
 
-    void read_vector_varuint32 (std::vector<uint>&, uint8*& cursor);
-    Limits read_limits (uint8*& cursor);
-    MemoryType read_memorytype (uint8*& cursor);
-    GlobalType read_globaltype (uint8*& cursor);
-    TableType read_tabletype (uint8*& cursor);
-    ValueType read_valuetype (uint8*& cursor);
-    BlockType read_blocktype(uint8*& cursor);
-    TableElementType read_elementtype (uint8*& cursor);
-    bool read_mutable (uint8*& cursor);
-    void read_section (uint8*& cursor);
+    void read_vector_varuint32 (std::vector<uint>&, uint8** cursor);
+    Limits read_limits (uint8** cursor);
+    MemoryType read_memorytype (uint8** cursor);
+    GlobalType read_globaltype (uint8** cursor);
+    TableType read_tabletype (uint8** cursor);
+    ValueType read_valuetype (uint8** cursor);
+    BlockType read_blocktype(uint8** cursor);
+    TableElementType read_elementtype (uint8** cursor);
+    bool read_mutable (uint8** cursor);
+    void read_section (uint8** cursor);
     void read_module (const char* file_name);
-    void read_vector_ValueType (std::vector <ValueType>& result, uint8*& cursor);
-    void read_function_type (FunctionType& functionType, uint8*& cursor);
+    void read_vector_ValueType (std::vector <ValueType>& result, uint8** cursor);
+    void read_function_type (FunctionType& functionType, uint8** cursor);
 
-    void read_types (uint8*& cursor);
-    void read_imports (uint8*& cursor);
-    void read_functions (uint8*& cursor);
-    void read_tables (uint8*& cursor);
-    void read_memory (uint8*& cursor);
-    void read_globals (uint8*& cursor);
-    void read_exports (uint8*& cursor);
-    void read_start (uint8*& cursor)
+    void read_types (uint8** cursor);
+    void read_imports (uint8** cursor);
+    void read_functions (uint8** cursor);
+    void read_tables (uint8** cursor);
+    void read_memory (uint8** cursor);
+    void read_globals (uint8** cursor);
+    void read_exports (uint8** cursor);
+    void read_start (uint8** cursor)
     {
         ThrowString ("Start::read not yet implemented");
     }
-    void read_elements (uint8*& cursor);
-    void read_code (uint8*& cursor);
-    void read_data (uint8*& cursor);
+    void read_elements (uint8** cursor);
+    void read_code (uint8** cursor);
+    void read_data (uint8** cursor);
 };
 
 static
 InstructionEnum
-DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8*& cursor);
+DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8** cursor);
 
-void Module::read_data (uint8*& cursor)
+void Module::read_data (uint8** cursor)
 {
     const uint size1 = read_varuint32 (cursor);
     printf ("reading data11 size:%X\n", size1);
@@ -2349,22 +2349,22 @@ void Module::read_data (uint8*& cursor)
         a.memory = read_varuint32 (cursor);
         DecodeInstructions (this, a.expr, cursor);
         const uint size2 = read_varuint32 (cursor);
-        if (cursor + size2 > end)
+        if (*cursor + size2 > end)
             ThrowString ("data out of bounds");
-        a.bytes = cursor;
-        printf ("data [%X]:{%X}\n", i, cursor [0]);
-        cursor += size2;
+        a.bytes = *cursor;
+        printf ("data [%X]:{%X}\n", i, (*cursor) [0]);
+        *cursor += size2;
     }
     printf ("read data11 size:%X\n", size1);
 }
 
-void Module::read_code (uint8*& cursor)
+void Module::read_code (uint8** cursor)
 {
     printf ("reading CodeSection10\n");
     const size_t size = read_varuint32 (cursor);
     printf ("reading CodeSection size:%" FORMAT_SIZE "X\n", size);
-    if (cursor + size > end)
-        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", cursor, end, size, __LINE__));
+    if (*cursor + size > end)
+        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", *cursor, end, size, __LINE__));
     const size_t old = code.size ();
     Assert (old == import_function_count);
     code.resize (old + size);
@@ -2373,19 +2373,19 @@ void Module::read_code (uint8*& cursor)
         Code& a = code [old + i];
         a.import = false;
         a.size = read_varuint32 (cursor);
-        if (cursor + a.size > end)
-            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", cursor, end, a.size, __LINE__));
-        a.cursor = cursor;
+        if (*cursor + a.size > end)
+            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", *cursor, end, a.size, __LINE__));
+        a.cursor = *cursor;
         printf ("code [%" FORMAT_SIZE "X]: %p/%" FORMAT_SIZE "X\n", i, a.cursor, a.size);
         if (a.size)
         {
-            //printf (InstructionName (cursor [0]));
-            cursor += a.size;
+            //printf (InstructionName ((*cursor) [0]));
+            *cursor += a.size;
         }
     }
 }
 
-void Module::read_elements (uint8*& cursor)
+void Module::read_elements (uint8** cursor)
 {
     const uint size1 = read_varuint32 (cursor);
     printf ("reading section9 elements size1:%X\n", size1);
@@ -2407,7 +2407,7 @@ void Module::read_elements (uint8*& cursor)
     printf ("read elements9 size:%X\n", size1);
 }
 
-void Module::read_exports (uint8*& cursor)
+void Module::read_exports (uint8** cursor)
 {
     printf ("reading section 7\n");
     const uint size = read_varuint32 (cursor);
@@ -2437,7 +2437,7 @@ void Module::read_exports (uint8*& cursor)
     printf ("read exports7 size:%X\n", size);
 }
 
-void Module::read_globals (uint8*& cursor)
+void Module::read_globals (uint8** cursor)
 {
     //printf ("reading section 6\n");
     const uint size = read_varuint32 (cursor);
@@ -2447,14 +2447,14 @@ void Module::read_globals (uint8*& cursor)
     {
         Global& a = globals [i];
         a.global_type = read_globaltype (cursor);
-        printf ("read_globals %X:%X value_type:%X  mutable:%X init:%p\n", i, size, a.global_type.value_type, a.global_type.is_mutable, cursor);
+        printf ("read_globals %X:%X value_type:%X  mutable:%X init:%p\n", i, size, a.global_type.value_type, a.global_type.is_mutable, *cursor);
         DecodeInstructions (this, a.init, cursor);
         // Init points to code -- Instructions until end of block 0x0B Instruction.
     }
     printf ("read globals6 size:%X\n", size);
 }
 
-void Module::read_functions (uint8*& cursor)
+void Module::read_functions (uint8** cursor)
 {
     printf ("reading section 3\n");
     const size_t old = functions.size ();
@@ -2472,7 +2472,7 @@ void Module::read_functions (uint8*& cursor)
     printf ("read section 3\n");
 }
 
-void Module::read_imports (uint8*& cursor)
+void Module::read_imports (uint8** cursor)
 {
     printf ("reading section 2\n");
     const size_t size = read_varuint32 (cursor);
@@ -2525,7 +2525,7 @@ void Module::read_imports (uint8*& cursor)
     code.resize (import_function_count, imported_code);
 }
 
-void Module::read_vector_ValueType (std::vector<ValueType>& result, uint8*& cursor)
+void Module::read_vector_ValueType (std::vector<ValueType>& result, uint8** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     result.resize (size);
@@ -2533,13 +2533,13 @@ void Module::read_vector_ValueType (std::vector<ValueType>& result, uint8*& curs
         result [i] = read_valuetype (cursor);
 }
 
-void Module::read_function_type (FunctionType& functionType, uint8*& cursor)
+void Module::read_function_type (FunctionType& functionType, uint8** cursor)
 {
     read_vector_ValueType (functionType.parameters, cursor);
     read_vector_ValueType (functionType.results, cursor);
 }
 
-void Module::read_types (uint8*& cursor)
+void Module::read_types (uint8** cursor)
 {
     printf ("reading section 1\n");
     const size_t size = read_varuint32 (cursor);
@@ -2556,7 +2556,7 @@ void Module::read_types (uint8*& cursor)
 
 static
 InstructionEnum
-DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8*& cursor)
+DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8** cursor)
 {
     uint b0 = (uint)Block;
     size_t index;
@@ -2636,7 +2636,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
 
 static
 void
-DecodeFunction (Module* module, Code& code, uint8*& cursor)
+DecodeFunction (Module* module, Code& code, uint8** cursor)
 {
     uint local_type_count = module->read_varuint32 (cursor);
     printf ("local_type_count:%X\n", local_type_count);
@@ -2673,19 +2673,19 @@ SECTIONS
 
 };
 
-uint Module::read_i32 (uint8*& cursor)
+uint Module::read_i32 (uint8** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
     return read_varuint32 (cursor);
 }
 
-uint64 Module::read_i64 (uint8*& cursor)
+uint64 Module::read_i64 (uint8** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
     return read_varuint64 (cursor, end);
 }
 
-float Module::read_f32 (uint8*& cursor)
+float Module::read_f32 (uint8** cursor)
 // floats are not variably sized? Spec is unclear due to fancy notation
 // getting in the way.
 {
@@ -2698,7 +2698,7 @@ float Module::read_f32 (uint8*& cursor)
     return u.f32;
 }
 
-double Module::read_f64 (uint8*& cursor)
+double Module::read_f64 (uint8** cursor)
 // floats are not variably sized? Spec is unclear due to fancy notation
 // getting in the way.
 {
@@ -2711,13 +2711,13 @@ double Module::read_f64 (uint8*& cursor)
     return u.f64;
 }
 
-uint Module::read_varuint7 (uint8*& cursor)
+uint Module::read_varuint7 (uint8** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return w3::read_varuint7 (cursor, end);
 }
 
-uint Module::read_byte (uint8*& cursor)
+uint Module::read_byte (uint8** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return w3::read_byte (cursor, end);
@@ -2725,31 +2725,31 @@ uint Module::read_byte (uint8*& cursor)
 
 // TODO efficiency
 // i.e. string_view or such pointing right into the mmap
-String Module::read_string (uint8*& cursor)
+String Module::read_string (uint8** cursor)
 {
     const uint size = read_varuint32 (cursor);
-    if (size + cursor > end)
+    if (size + *cursor > end)
         ThrowString ("malformed in read_string");
     // TODO UTF8 handling
     String a;
-    a.data = (char*)cursor;
+    a.data = (char*)*cursor;
     a.size = size;
 
     // TODO string recognizer?
-    printf ("read_string %X:%.*s\n", size, size, cursor);
-    if (size == 7 && !memcmp (cursor, "$_start", 7))
+    printf ("read_string %X:%.*s\n", size, size, *cursor);
+    if (size == 7 && !memcmp (*cursor, "$_start", 7))
     {
         a.builtin = BuiltinString_start;
     }
-    else if (size == 5 && !memcmp (cursor, "_main", 5))
+    else if (size == 5 && !memcmp (*cursor, "_main", 5))
     {
         a.builtin = BuiltinString_main;
     }
-    cursor += size;
+    *cursor += size;
     return a;
 }
 
-void Module::read_vector_varuint32 (std::vector<uint>& result, uint8*& cursor)
+void Module::read_vector_varuint32 (std::vector<uint>& result, uint8** cursor)
 {
     const uint size = read_varuint32 (cursor);
     result.resize (size);
@@ -2757,13 +2757,13 @@ void Module::read_vector_varuint32 (std::vector<uint>& result, uint8*& cursor)
         result [i] = read_varuint32 (cursor);
 }
 
-uint Module::read_varuint32 (uint8*& cursor)
+uint Module::read_varuint32 (uint8** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return w3::read_varuint32 (cursor, end);
 }
 
-Limits Module::read_limits (uint8*& cursor)
+Limits Module::read_limits (uint8** cursor)
 {
     Limits limits = { };
     const uint tag = read_byte (cursor);
@@ -2783,13 +2783,13 @@ Limits Module::read_limits (uint8*& cursor)
     return limits;
 }
 
-MemoryType Module::read_memorytype (uint8*& cursor)
+MemoryType Module::read_memorytype (uint8** cursor)
 {
     const MemoryType m = { read_limits (cursor) };
     return m;
 }
 
-bool Module::read_mutable (uint8*& cursor)
+bool Module::read_mutable (uint8** cursor)
 {
     const uint m = read_byte (cursor);
     switch (m)
@@ -2802,7 +2802,7 @@ bool Module::read_mutable (uint8*& cursor)
     return m == 1;
 }
 
-ValueType Module::read_valuetype (uint8*& cursor)
+ValueType Module::read_valuetype (uint8** cursor)
 {
     const uint value_type = read_byte (cursor);
     switch (value_type)
@@ -2819,7 +2819,7 @@ ValueType Module::read_valuetype (uint8*& cursor)
     return (ValueType)value_type;
 }
 
-BlockType Module::read_blocktype(uint8*& cursor)
+BlockType Module::read_blocktype(uint8** cursor)
 {
     const uint block_type = read_byte (cursor);
     switch (block_type)
@@ -2837,7 +2837,7 @@ BlockType Module::read_blocktype(uint8*& cursor)
     return (BlockType)block_type;
 }
 
-GlobalType Module::read_globaltype (uint8*& cursor)
+GlobalType Module::read_globaltype (uint8** cursor)
 {
     GlobalType globalType = { };
     globalType.value_type = read_valuetype (cursor);
@@ -2845,7 +2845,7 @@ GlobalType Module::read_globaltype (uint8*& cursor)
     return globalType;
 }
 
-TableElementType Module::read_elementtype (uint8*& cursor)
+TableElementType Module::read_elementtype (uint8** cursor)
 {
     TableElementType elementType = (TableElementType)read_byte (cursor);
     if (elementType != TableElementType_funcRef)
@@ -2853,7 +2853,7 @@ TableElementType Module::read_elementtype (uint8*& cursor)
     return elementType;
 }
 
-TableType Module::read_tabletype (uint8*& cursor)
+TableType Module::read_tabletype (uint8** cursor)
 {
     TableType tableType = { };
     tableType.elementType = read_elementtype (cursor);
@@ -2862,7 +2862,7 @@ TableType Module::read_tabletype (uint8*& cursor)
     return tableType;
 }
 
-void Module::read_memory (uint8*& cursor)
+void Module::read_memory (uint8** cursor)
 {
     const Limits limits = read_limits (cursor);
     printf ("reading section5 min:%X hasMax:%X max:%X\n", limits.min, limits.hasMax, limits.max);
@@ -2871,7 +2871,7 @@ void Module::read_memory (uint8*& cursor)
         memory.resize (limits.max << PageShift, 0);
 }
 
-void Module::read_tables (uint8*& cursor)
+void Module::read_tables (uint8** cursor)
 {
     const uint size = read_varuint32 (cursor);
     printf ("reading tables size:%X\n", size);
@@ -2883,9 +2883,9 @@ void Module::read_tables (uint8*& cursor)
     }
 }
 
-void Module::read_section (uint8*& cursor)
+void Module::read_section (uint8** cursor)
 {
-    uint8* payload = cursor;
+    uint8* payload = *cursor;
     const uint id = read_varuint7 (cursor);
 
     if (id > 11)
@@ -2893,20 +2893,20 @@ void Module::read_section (uint8*& cursor)
 
     const uint payload_size = read_varuint32 (cursor);
     printf ("%s payload_size:%X\n", __func__, payload_size);
-    payload = cursor;
+    payload = *cursor;
     uint name_size = 0;
-    const char* name = 0;
+    char* name = 0;
     if (id == 0)
     {
         name_size = read_varuint32 (cursor);
-        name = (char*)cursor;
-        if (cursor + name_size > end)
+        name = (char*)*cursor;
+        if (name + name_size > (char*)end)
             ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     }
     if (payload + payload_size > end)
         ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context
 
-    cursor = payload + payload_size;
+    *cursor = payload + payload_size;
 
     if (id == 0)
     {
@@ -2917,13 +2917,13 @@ void Module::read_section (uint8*& cursor)
 
     Section& section = sections [id];
     section.id = id;
-    section.name.data = (char*)name;
+    section.name.data = name;
     section.name.size = name_size;
     section.payload_size = payload_size;
     section.payload = payload;
-    (this->*section_traits [id].read) (payload);
-    if (payload != cursor)
-        ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, cursor));
+    (this->*section_traits [id].read) (&payload);
+    if (payload != *cursor)
+        ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, *cursor));
 }
 
 void Module::read_module (const char* file_name)
@@ -2947,13 +2947,13 @@ void Module::read_module (const char* file_name)
     if (version != 1)
         ThrowString (StringFormat ("incorrect version: %X", (uint)version));
 
-    // Valid module with no section
+    // Valid module with no sections.
     if (file_size == 8)
         return;
 
     uint8* cursor = base + 8;
     while (cursor < end)
-        read_section (cursor);
+        read_section (&cursor);
 
     Assert (cursor == end);
 }
@@ -3099,7 +3099,7 @@ void Interp::Invoke (Function& function)
     uint8* cursor = code.cursor;
     if (cursor)
     {
-        DecodeFunction (module, code, cursor);
+        DecodeFunction (module, code, &cursor);
         code.cursor = 0;
     }
     size_t size = code.decoded_instructions.size ();
