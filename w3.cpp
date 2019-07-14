@@ -1258,6 +1258,7 @@ struct StackBase : private StackBaseBase
     using base::front;
     using base::resize;
     using base::begin;
+    using base::empty;
 
     void push (const StackValue& a)
     {
@@ -1306,6 +1307,7 @@ struct Stack : private StackBase
     using base::front;
     using base::resize;
     using base::begin;
+    using base::empty;
 
     void reserve (size_t n)
     {
@@ -3119,7 +3121,7 @@ INTERP (Call)
 
 void Interp::Invoke (Function& function)
 {
-    __debugbreak ();
+    //__debugbreak ();
     // Decode function upon first call.
     // TODO thread safety
     // TODO merge with calli (invoke)
@@ -3302,7 +3304,8 @@ INTERP (Else)
 
 INTERP (BlockEnd)
 {
-    Assert (!"BlockEnd"); // not yet implemented
+    while (!empty () && back ().type == StackTag_Value)
+        pop_value ();
 }
 
 INTERP (BrIf)
@@ -3323,7 +3326,7 @@ INTERP (Ret)
 
 INTERP (Br)
 {
-    __debugbreak ();
+    //__debugbreak ();
 
     // This is confusing.
 
