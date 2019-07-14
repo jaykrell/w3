@@ -25,7 +25,7 @@ echo Wall=%Wall%
 del config.mk 2>nul
 
 set Qspectre=
-cl /c /Qspectre config.cpp 1.c 2>&1 | findstr Qspectre >nul
+cl /c /Qspectre config.cpp 2>&1 | findstr Qspectre >nul
 if errorlevel 1 set Qspectre=/Qspectre
 
 cl 2>&1 | findstr /e /i x64 >nul: && goto :x64
