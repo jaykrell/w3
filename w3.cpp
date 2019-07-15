@@ -949,7 +949,7 @@ struct stderr_stream : stream
 };
 
 static
-uint
+uint8
 read_byte (uint8** cursor, const uint8* end)
 {
     if (*cursor >= end)
@@ -990,10 +990,10 @@ read_varuint32 (uint8** cursor, const uint8* end)
 }
 
 static
-uint
+uint8
 read_varuint7 (uint8** cursor, const uint8* end)
 {
-    const uint result = read_byte (cursor, end);
+    const uint8 result = read_byte (cursor, end);
     if (result & 0x80)
         ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     return result;
@@ -1314,7 +1314,7 @@ struct Stack : private StackBase
         // TODO
     }
 
-    int value_depth; // excluding labels and frames
+    ssize_t value_depth; // excluding labels and frames
 
     // TODO labels and frames on stack
 
@@ -1355,14 +1355,17 @@ struct Stack : private StackBase
     void pop_value ()
     {
         Assert (value_depth >= 1);
+        uint t = tag ();
         pop ();
         --value_depth;
+        printf ("pop_value tag:%X depth:%" FORMAT_SIZE "X value_depth:%" FORMAT_SIZE "X\n", t, size (), value_depth);
     }
 
     void push_value (StackValue value)
     {
         push (value);
         value_depth += 1;
+        printf ("push_value tag:%X depth:%" FORMAT_SIZE "X value_depth:%" FORMAT_SIZE "X\n", value.type, size (), value_depth);
     }
 
     // type specific pushers
@@ -2337,9 +2340,9 @@ struct Module
     float read_f32 (uint8** cursor);
     double read_f64 (uint8** cursor);
 
-    uint read_byte (uint8** cursor);
-    uint read_varuint7 (uint8** cursor);
-    uint read_varuint32 (uint8** cursor);
+    uint8 read_byte (uint8** cursor);
+    uint8 read_varuint7 (uint8** cursor);
+    uint32 read_varuint32 (uint8** cursor);
 
     void read_vector_varuint32 (std::vector<uint>&, uint8** cursor);
     Limits read_limits (uint8** cursor);
@@ -2596,7 +2599,10 @@ InstructionEnum
 DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8** cursor)
 {
     uint b0 = (uint)Block;
-    size_t index;
+    int index = -1;
+    uint uindex = (uint)index;
+    int b1 = -1;
+
     while (b0 != (uint)BlockEnd && b0 != (uint)Else)
     {
         InstructionEncoding e;
@@ -2612,19 +2618,22 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
         }
         i.name = e.name;
         if (e.fixed_size == 2) // TODO
-            if (module->read_byte (cursor))
+        {
+            b1 = (int)module->read_byte (cursor);
+            if (b1)
                 ThrowString ("second byte not 0");
-        printf ("decode> %s\n", InstructionName (i.name));
+        }
+        printf ("decode1 %s\n", InstructionName (i.name));
         switch (e.immediate)
         {
         case Imm_sequence:
             i.blockType = module->read_blocktype (cursor);
-            index = instructions.size ();
+            uindex = (uint)instructions.size ();
+            index = (int)uindex;
             instructions.push_back (i);
             InstructionEnum next;
             next = DecodeInstructions (module, instructions, cursor);
             Assert (next == BlockEnd || (i.name == If && next == Else));
-            // TODO if vs. else?
             switch (b0)
             {
             default:
@@ -2637,14 +2646,14 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
                     Assert (!"invalid next after If");
                     break;
                 case BlockEnd:
-                    instructions [index].if_false = (int)instructions.size ();
-                    instructions [index].if_end = (int)instructions.size ();
+                    instructions [uindex].if_false = (int)instructions.size ();
+                    instructions [uindex].if_end = (int)instructions.size ();
                     break;
                 case Else:
-                    instructions [index].if_false = (int)instructions.size ();
+                    instructions [uindex].if_false = (int)instructions.size ();
                     next = DecodeInstructions (module, instructions, cursor);
                     Assert (next == BlockEnd);
-                    instructions [index].if_end = (int)instructions.size ();
+                    instructions [uindex].if_end = (int)instructions.size ();
                     break;
 #if _MSC_VER // {
 #pragma warning (suppress:4061) // unhandled case
@@ -2654,12 +2663,20 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
 #endif
                 break;
             case Block: // label is forward
-                instructions [index].label = (int)instructions.size ();
+                instructions [uindex].label = (int)instructions.size ();
                 break;
-            case Loop: // label is backward
-                instructions [index].label = (int)index;
+            case Loop: // label is backward, to self; each invocation repushes the label
+                // and there need not be any instructions between it and
+                // a branch -- infinite empty loop -- and a branch
+                // to self would fail for lack of labels on stack,
+                // or branch incorrect to ever further out labels
+                // Obviously TODO is make branches optimized
+                // and not deal with a stack at all, at least
+                // not as late as currently.
+                instructions [uindex].label = (int)index;
                 break;
             }
+            break;
         case Imm_memory:
             i.align = module->read_varuint32 (cursor);
             i.offset = module->read_varuint32 (cursor);
@@ -2696,7 +2713,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
             module->read_vector_varuint32 (i.vecLabel, cursor);
             break;
         }
-        printf ("decode< %s 0x%X %d\n", InstructionName (i.name), i.i32, i.i32);
+        printf ("decode2 %s 0x%X %d\n", InstructionName (i.name), i.i32, i.i32);
         if (e.immediate != Imm_sequence)
             instructions.push_back (i);
     }
@@ -2780,13 +2797,13 @@ double Module::read_f64 (uint8** cursor)
     return u.f64;
 }
 
-uint Module::read_varuint7 (uint8** cursor)
+uint8 Module::read_varuint7 (uint8** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return w3::read_varuint7 (cursor, end);
 }
 
-uint Module::read_byte (uint8** cursor)
+uint8 Module::read_byte (uint8** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return w3::read_byte (cursor, end);
@@ -3356,7 +3373,14 @@ INTERP (BlockEnd)
 INTERP (BrIf)
 {
     if (pop_i32 ())
+    {
+        printf ("BrIfTaken\n");
         Br ();
+    }
+    else
+    {
+        printf ("BrIfNotTaken\n");
+    }
 }
 
 INTERP (BrTable)
@@ -3388,8 +3412,8 @@ INTERP (Br)
     Assert ((int)size () >= label + 1);
 
     Stack::iterator p = begin ();
-    int values = 0;
-    int j = (int)size () - 1;
+    ssize_t values = 0;
+    ssize_t j = (ssize_t)size () - 1;
 
     for (int i = 0; i < label + 1; ++i)
     {
@@ -3402,7 +3426,7 @@ INTERP (Br)
     }
     Assert (j >= 0 && p [j].type == StackTag_Label && values >= p [j].label.arity);
 
-    const int arity = p [j].label.arity;
+    const ssize_t arity = p [j].label.arity;
 
     instr = &frame->code->decoded_instructions [(size_t)p [j].label.continuation];
 
@@ -3414,6 +3438,8 @@ INTERP (Br)
         for (int k = 0; k < arity; ++k)
             p [j + k] = p [(ssize_t)size () - arity + k];
     }
+
+    printf ("Br resize %" FORMAT_SIZE "X => %" FORMAT_SIZE "X\n", size (), j + arity);
 
     // bulk pop down to j
     resize ((size_t)j + arity);
