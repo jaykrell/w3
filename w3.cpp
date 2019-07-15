@@ -1597,7 +1597,8 @@ INSTRUCTION (0x01, 1, 0, Nop,       Imm_none,     0, 0, Type_none, Type_none, Ty
 INSTRUCTION (0x02, 1, 0, Block,     Imm_sequence, 0, 0, Type_none, Type_none, Type_none, Type_none) \
 INSTRUCTION (0x03, 1, 0, Loop,      Imm_sequence, 0, 0, Type_none, Type_none, Type_none, Type_none) \
 INSTRUCTION (0x04, 1, 0, If,        Imm_sequence, 0, 0, Type_none, Type_none, Type_none, Type_none) \
-INSTRUCTION (0x05, 1, 0, Else,      Imm_sequence, 0, 0, Type_none, Type_none, Type_none, Type_none) \
+/* Else is kind of Imm_sequence but treated custom along with if. */                                \
+INSTRUCTION (0x05, 1, 0, Else,      Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none)     \
 \
 RESERVED (06) \
 RESERVED (07) \
@@ -1997,7 +1998,7 @@ struct InstructionEncoding
 
 struct DecodedInstruction
 {
-    DecodedInstruction () : continuation (-1)
+    DecodedInstruction () : if_false (-1), if_end (-1)
     {
         name = (InstructionEnum)-1;
         align = offset = (uint)-1;
@@ -2017,13 +2018,23 @@ struct DecodedInstruction
             uint align;
             uint offset;
         };
-        struct // block
+        struct // block / loop
         {
-            int arity;
-            int continuation;
+            int label;
+        };
+        struct // if / else
+        {
+            int if_false;
+            int if_end;
         };
         // etc.
     };
+
+    int Arity() const
+    {
+        return (blockType == ResultType_empty) ? 0 : 1; // FUTURE
+    }
+
     std::vector <uint> vecLabel;
     InstructionEnum name;
     BlockType blockType;
@@ -2586,7 +2597,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
 {
     uint b0 = (uint)Block;
     size_t index;
-    while (b0 != (uint)BlockEnd)
+    while (b0 != (uint)BlockEnd && b0 != (uint)Else)
     {
         InstructionEncoding e;
         DecodedInstruction i;
@@ -2608,15 +2619,47 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
         {
         case Imm_sequence:
             i.blockType = module->read_blocktype (cursor);
-            i.arity = (i.blockType == ResultType_empty) ? 0 : 1; // FUTURE
             index = instructions.size ();
             instructions.push_back (i);
             InstructionEnum next;
             next = DecodeInstructions (module, instructions, cursor);
             Assert (next == BlockEnd || (i.name == If && next == Else));
             // TODO if vs. else?
-            instructions [index].continuation = (int)instructions.size () - 1;
-            break;
+            switch (b0)
+            {
+            default:
+                Assert (!"invalid Imm_sequnce");
+                break;
+            case If:
+                switch (next)
+                {
+                default:
+                    Assert (!"invalid next after If");
+                    break;
+                case BlockEnd:
+                    instructions [index].if_false = (int)instructions.size ();
+                    instructions [index].if_end = (int)instructions.size ();
+                    break;
+                case Else:
+                    instructions [index].if_false = (int)instructions.size ();
+                    next = DecodeInstructions (module, instructions, cursor);
+                    Assert (next == BlockEnd);
+                    instructions [index].if_end = (int)instructions.size ();
+                    break;
+#if _MSC_VER // {
+#pragma warning (suppress:4061) // unhandled case
+                }
+#else
+                }
+#endif
+                break;
+            case Block: // label is forward
+                instructions [index].label = (int)instructions.size ();
+                break;
+            case Loop: // label is backward
+                instructions [index].label = (int)index;
+                break;
+            }
         case Imm_memory:
             i.align = module->read_varuint32 (cursor);
             i.offset = module->read_varuint32 (cursor);
@@ -3222,16 +3265,18 @@ INSTRUCTIONS
 
 INTERP (Block)
 {
+    // Label is end.
     StackValue stack_value;
     stack_value.type = StackTag_Label;
-    stack_value.label.arity = instr->arity;
-    stack_value.label.continuation = instr->continuation;
+    stack_value.label.arity = instr->Arity ();
+    stack_value.label.continuation = instr->label;
     push_value (stack_value);
 }
 
 INTERP (Loop)
 {
-	Assert (!"Loop"); // not yet implemented
+    // Label is start vs. end, but decoding made the difference.
+    Block ();
 }
 
 INTERP (MemGrow)
