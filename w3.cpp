@@ -772,7 +772,7 @@ uint
 UIntToDec (uint64 a, char* buf)
 {
     uint const len = UIntToDec_GetLength (a);
-    for (uint i = 0; i < len; ++i, a /= 10)
+    for (uint i = 0; i != len; ++i, a /= 10)
         buf [i] = "0123456789" [a % 10];
     return len;
 }
@@ -825,7 +825,7 @@ void
 UIntToHexLength (uint64 a, uint len, char* buf)
 {
     buf += len;
-    for (uint i = 0; i < len; ++i, a >>= 4)
+    for (uint i = 0; i != len; ++i, a >>= 4)
         *--buf = "0123456789ABCDEF" [a & 0xF];
 }
 
@@ -1012,7 +1012,7 @@ read_varint64 (uint8** cursor, const uint8* end)
         byte = read_byte (cursor, end);
         result |= (byte & 0x7F) << shift;
         shift += 7;
-    } while ((byte & 0x80) == 0);
+    } while (byte & 0x80);
 
     // sign bit of byte is second high order bit (0x40)
     if ((shift < size) && (byte & 0x40))
@@ -1034,7 +1034,7 @@ read_varint32 (uint8** cursor, const uint8* end)
         byte = read_byte (cursor, end);
         result |= (byte & 0x7F) << shift;
         shift += 7;
-    } while ((byte & 0x80) == 0);
+    } while (byte & 0x80);
 
     // sign bit of byte is second high order bit (0x40)
     if ((shift < size) && (byte & 0x40))
@@ -1076,7 +1076,16 @@ typedef union Value
 typedef struct TaggedValue
 {
     ValueType tag;
-    Value value;
+    union
+    {
+        int i32;
+        uint u32;
+        uint64 u64;
+        int64 i64;
+        float f32;
+        double f64;
+        Value value;
+    };
 } TaggedValue;
 
 // This should probabably be combined with ValueType, and called Tag.
@@ -1088,6 +1097,24 @@ typedef enum ResultType : uint8
     ResultType_f64 = 0x7C,
     ResultType_empty = 0x40
 } ResultType, BlockType;
+
+static
+const char*
+TypeToString (int tag)
+{
+    switch (tag)
+    {
+    case Type_none:     return "none(0)";
+    case Type_bool:     return "bool(1)";
+    case Type_any:      return "any(2)";
+    case ResultType_i32: return "i32(7F)";
+    case ResultType_i64: return "i64(7E)";
+    case ResultType_f32: return "f32(7D)";
+    case ResultType_f64: return "f64(7C)";
+    case ResultType_empty: return "empty(40)";
+    }
+    return "unknown";
+}
 
 typedef enum TableElementType : uint
 {
@@ -1221,6 +1248,19 @@ typedef enum StackTag
     StackTag_Frame,     // return address + locals + params
 } StackTag;
 
+static
+const char*
+StackTagToString (StackTag tag)
+{
+    switch (tag)
+    {
+    case StackTag_Value: return "Value(1)";
+    case StackTag_Label: return "Label(2)";
+    case StackTag_Frame: return "Frame(3)";
+    }
+    return "unknown";
+}
+
 typedef struct LabelValue
 {
     int arity;
@@ -1230,7 +1270,11 @@ typedef struct LabelValue
 // work in progress
 typedef struct StackValue
 {
-    StackTag type : 8;
+    union
+    {
+        StackTag type : 8; // TODO change to tag
+        StackTag tag : 8;
+    };
     union
     {
         TaggedValue value;
@@ -1294,9 +1338,7 @@ struct Frame
 // work in progress
 struct Stack : private StackBase
 {
-    Stack () : value_depth (0)
-    {
-    }
+    Stack () { }
 
     typedef StackBase base;
     using base::top;
@@ -1314,58 +1356,74 @@ struct Stack : private StackBase
         // TODO
     }
 
-    ssize_t value_depth; // excluding labels and frames
-
     // TODO labels and frames on stack
 
     ValueType& tag (ValueType tag)
     {
-        Assert (value_depth >= 1);
+        AssertTopIsValue ();
         StackValue& t = top ();
-        AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
         AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
         return t.value.tag;
     }
 
     ValueType& tag ()
     {
-        Assert (value_depth >= 1);
+        AssertTopIsValue ();
         StackValue& t = top ();
-        AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
         return t.value.tag;
     }
 
     Value& value ()
     {
-        Assert (value_depth >= 1);
+        AssertTopIsValue ();
         StackValue& t = top ();
-        AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
         return t.value.value;
     }
 
     Value& value (ValueType tag)
     {
-        Assert (value_depth >= 1);
+        AssertTopIsValue ();
         StackValue& t = top ();
-        AssertFormat (t.type == StackTag_Value, ("%X %X", t.type, StackTag_Value));
         AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
         return t.value.value;
     }
 
-    void pop_value ()
+    void pop_label ()
     {
-        Assert (value_depth >= 1);
-        uint t = tag ();
+        if (size () < 1 || top ().tag != StackTag_Label)
+            DumpStack ("AssertTopIsValue");
+        Assert (size () >= 1);
+        Assert (top ().tag == StackTag_Label);
         pop ();
-        --value_depth;
-        printf ("pop_value tag:%X depth:%" FORMAT_SIZE "X value_depth:%" FORMAT_SIZE "X\n", t, size (), value_depth);
     }
 
-    void push_value (StackValue value)
+    void pop_value ()
     {
+        AssertTopIsValue ();
+        int t = tag ();
+        pop ();
+        printf ("pop_value tag:%s depth:%X\n", TypeToString (t), (int)size ());
+    }
+
+    void push_value (const StackValue& value)
+    {
+        Assert (value.tag == StackTag_Value);
         push (value);
-        value_depth += 1;
-        printf ("push_value tag:%X depth:%" FORMAT_SIZE "X value_depth:%" FORMAT_SIZE "X\n", value.type, size (), value_depth);
+        printf ("push_value tag:%s value:%X depth:%X\n", TypeToString (value.value.tag), value.value.value.i32, (int)size ());
+    }
+
+    void push_label (const StackValue& value)
+    {
+        Assert (value.tag == StackTag_Label);
+        push (value);
+        printf ("push_label depth:%X\n", (int)size ());
+    }
+
+    void push_frame (const StackValue& value)
+    {
+        Assert (value.tag == StackTag_Frame);
+        push (value);
+        printf ("push_frame depth:%X\n", (int)size ());
     }
 
     // type specific pushers
@@ -1445,14 +1503,43 @@ struct Stack : private StackBase
         return value (ValueType_f64).f64;
     }
 
+    void DumpStack (const char* prefix)
+    {
+        int n = (int)size ();
+        printf ("stack@%s: %X ", prefix, n);
+        for (int i = 0; i < n; ++i)
+        {
+            printf ("%s:", StackTagToString (begin () [i].tag));
+            switch (begin () [i].tag)
+            {
+            case StackTag_Label:
+                break;
+            case StackTag_Frame:
+                break;
+            case StackTag_Value:
+                printf ("%s", TypeToString (begin () [i].value.tag));
+                break;
+            }
+            printf (" ");
+        }
+        printf ("\n");
+    }
+
+    void AssertTopIsValue ()
+    {
+        if (size () < 1 || top ().tag != StackTag_Value)
+            DumpStack ("AssertTopIsValue");
+        Assert (size () >= 1);
+        Assert (top ().tag == StackTag_Value);
+    }
+
     // setter, changes tag, returns ref
 
     Value& set (ValueType tag)
     {
-        Assert (value_depth >= 1);
+        AssertTopIsValue ();
         StackValue& t = top ();
         TaggedValue& v = t.value;
-        Assert (t.type == StackTag_Value);
         v.tag = tag;
         return v.value;
     }
@@ -2027,8 +2114,8 @@ struct DecodedInstruction
         };
         struct // if / else
         {
-            int if_false;
-            int if_end;
+            ssize_t if_false;
+            ssize_t if_end;
         };
         // etc.
     };
@@ -2335,8 +2422,8 @@ struct Module
 
     String read_string (uint8** cursor);
 
-    uint read_i32 (uint8** cursor);
-    uint64 read_i64 (uint8** cursor);
+    int read_i32 (uint8** cursor);
+    int64 read_i64 (uint8** cursor);
     float read_f32 (uint8** cursor);
     double read_f64 (uint8** cursor);
 
@@ -2600,11 +2687,12 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
 {
     uint b0 = (uint)Block;
     int index = -1;
-    uint uindex = (uint)index;
     int b1 = -1;
+    int pc = -1;
 
     while (b0 != (uint)BlockEnd && b0 != (uint)Else)
     {
+        ++pc;
         InstructionEncoding e;
         DecodedInstruction i;
         b0 = module->read_byte (cursor); // TODO multi-byte instructions
@@ -2623,13 +2711,14 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
             if (b1)
                 ThrowString ("second byte not 0");
         }
-        printf ("decode1 %s\n", InstructionName (i.name));
+        printf ("decode1:%X %s\n", pc, InstructionName (i.name));
+        int if_false = -1;
+        int if_end = -1;
         switch (e.immediate)
         {
         case Imm_sequence:
             i.blockType = module->read_blocktype (cursor);
-            uindex = (uint)instructions.size ();
-            index = (int)uindex;
+            index = (int)instructions.size ();
             instructions.push_back (i);
             InstructionEnum next;
             next = DecodeInstructions (module, instructions, cursor);
@@ -2646,14 +2735,16 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
                     Assert (!"invalid next after If");
                     break;
                 case BlockEnd:
-                    instructions [uindex].if_false = (int)instructions.size ();
-                    instructions [uindex].if_end = (int)instructions.size ();
+                    if_false = (int)instructions.size (); // past BlockEnd
+                    if_end = (int)instructions.size (); // past BlockEnd
                     break;
                 case Else:
-                    instructions [uindex].if_false = (int)instructions.size ();
+                    if_false = (int)instructions.size (); // past Else
+                    // If we fall to Else tell it how many values to keep.
+                    instructions [(uint)if_false - 1].blockType = i.blockType;
                     next = DecodeInstructions (module, instructions, cursor);
                     Assert (next == BlockEnd);
-                    instructions [uindex].if_end = (int)instructions.size ();
+                    if_end = (int)instructions.size (); // past BlockEnd
                     break;
 #if _MSC_VER // {
 #pragma warning (suppress:4061) // unhandled case
@@ -2661,9 +2752,11 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
 #else
                 }
 #endif
+                instructions [(uint)index].if_false = if_false;
+                instructions [(uint)index].if_end = if_end;
                 break;
             case Block: // label is forward
-                instructions [uindex].label = (int)instructions.size ();
+                instructions [(uint)index].label = (int)instructions.size (); // past BlockEnd
                 break;
             case Loop: // label is backward, to self; each invocation repushes the label
                 // and there need not be any instructions between it and
@@ -2673,9 +2766,11 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
                 // Obviously TODO is make branches optimized
                 // and not deal with a stack at all, at least
                 // not as late as currently.
-                instructions [uindex].label = (int)index;
+                instructions [(uint)index].label = (int)index; // to Loop
                 break;
             }
+            // If we fall to BlockEnd tell it how many values to keep.
+            instructions [instructions.size () - 1].blockType = i.blockType;
             break;
         case Imm_memory:
             i.align = module->read_varuint32 (cursor);
@@ -2698,10 +2793,10 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
             ThrowString ("unknown immediate");
             break;
         case Imm_i32: // Spec is confusing here, signed or unsigned.
-            i.u32 = module->read_i32 (cursor);
+            i.i32 = module->read_i32 (cursor);
             break;
         case Imm_i64: // Spec is confusing here, signed or unsigned.
-            i.u64 = module->read_i64 (cursor);
+            i.i64 = module->read_i64 (cursor);
             break;
         case Imm_f32:
             i.f32 = module->read_f32 (cursor);
@@ -2713,7 +2808,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
             module->read_vector_varuint32 (i.vecLabel, cursor);
             break;
         }
-        printf ("decode2 %s 0x%X %d\n", InstructionName (i.name), i.i32, i.i32);
+        printf ("decode2:%X %s 0x%X %d\n", pc, InstructionName (i.name), i.i32, i.i32);
         if (e.immediate != Imm_sequence)
             instructions.push_back (i);
     }
@@ -2759,16 +2854,16 @@ SECTIONS
 
 };
 
-uint Module::read_i32 (uint8** cursor)
+int Module::read_i32 (uint8** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
-    return read_varuint32 (cursor);
+    return (int)w3::read_varint32 (cursor, end);
 }
 
-uint64 Module::read_i64 (uint8** cursor)
+int64 Module::read_i64 (uint8** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
-    return read_varuint64 (cursor, end);
+    return (int64)w3::read_varint64 (cursor, end);
 }
 
 float Module::read_f32 (uint8** cursor)
@@ -2950,9 +3045,6 @@ TableType Module::read_tabletype (uint8** cursor)
 
 void Module::read_memory (uint8** cursor)
 {
-#if _WIN32
-    if (IsDebuggerPresent ()) DebugBreak ();
-#endif
     printf ("reading section5\n");
     uint size = read_varuint32 (cursor);
     AssertFormat (size <= 1, ("%X", size)); // FUTURE
@@ -3054,13 +3146,9 @@ struct IInterp
 {
     DecodedInstruction* instr; // TODO make local variable
 
-    IInterp () : instr (0)
-    {
-    }
+    IInterp () : instr (0) { }
 
-    virtual ~IInterp ()
-    {
-    }
+    virtual ~IInterp () { }
 
     virtual void Reserved () = 0;
 #undef INSTRUCTION
@@ -3083,6 +3171,24 @@ private:
 public:
     Interp() : module (0), module_instance (0), frame (0), stack (*this)
     {
+    }
+
+    DecodedInstruction* GetNextInstruction (DecodedInstruction* i)
+    {
+        switch (i->name)
+        {
+        default: return i + 1;
+            // These instructions store their result in the interpreter.
+        case w3::Br:
+        case w3::BrIf:
+        case w3::If:
+            return instr;
+#if _MSC_VER // {
+#pragma warning (suppress:4061) // unhandled case
+        }
+#else
+        }
+#endif
     }
 
     void* LoadStore (size_t size);
@@ -3181,7 +3287,7 @@ INTERP (Call)
 
 void Interp::Invoke (Function& function)
 {
-    //__debugbreak ();
+    __debugbreak ();
     // Decode function upon first call.
     // TODO thread safety
     // TODO merge with calli (invoke)
@@ -3195,6 +3301,8 @@ void Interp::Invoke (Function& function)
     }
     size_t size = code.decoded_instructions.size ();
     Assert (size);
+
+    DumpStack ("invoke1");
 
     // TODO cross-module calls
     // TODO calling embedding
@@ -3232,28 +3340,39 @@ void Interp::Invoke (Function& function)
     // Either by having split stacks, or by computing
     // maximum parameter count and putting return before it.
 
-    // For now live with memcpy.
+    // For now live with memcpy or slower (stack is not presently contiguous)..
 
-    StackValue ret {}; // fix it shortly
-    push_value (ret);
+    StackValue ret = {StackTag_Frame};
+    push_frame (ret);
+
+    DumpStack ("pushed_frame");
 
     if (n_params)
-        memmove (&*(end () - (ssize_t)n_params), &*(end () - (ssize_t)n_params - 1), n_params * sizeof (StackValue));
+    {
+        for (i = 0; i < n_params; ++i)
+        {
+            DumpStack ("moved_param_before");
+            *(end () - 1 - (ssize_t)i) = *(end () - 2 - (ssize_t)i);
+            DumpStack ("moved_param_after");
+        }
+    }
 
     // place return frame/address
 
-    (end () - 1 - (ssize_t)n_params)->type = StackTag_Frame;
+    (end () - 1 - (ssize_t)n_params)->tag = StackTag_Frame;
     (end () - 1 - (ssize_t)n_params)->frame = frame;
-    (end () - 1 - (ssize_t)n_params)->instr = instr + 1;
+    (end () - 1 - (ssize_t)n_params)->instr = instr + !!instr;
 
     // Push locals on stack.
     // TODO params also
     // TODO reserve (size () + local_count);
-    for (i = 0; i < local_count; ++i)
+    DumpStack ("push_locals_before");
+    for (i = 0; i != local_count; ++i)
     {
         StackValue value = {StackTag_Value, { code.locals [i] } };
         push_value (value);
     }
+    DumpStack ("push_locals_after");
     // Provide for indexing locals.
     frame_value.locals = stack.end () - (ssize_t)local_count - (ssize_t)n_params;
 
@@ -3262,12 +3381,16 @@ void Interp::Invoke (Function& function)
         printf ("2 entering function with local [%X] type %X\n", (uint)j, frame_value.locals [(ssize_t)j].value.tag);
     }
 
+    //DumpStack ("invoke2");
+
     // TODO provide for separate depth -- i.e. here is now 0; locals/params cannot be popped
 
     instr = &code.decoded_instructions [0];
     DecodedInstruction* end = instr + size;
-    for (; instr < end; ++instr)
+    DecodedInstruction* previous;
+    for (; instr < end; instr = GetNextInstruction (previous))
     {
+        previous = instr;
         switch (instr->name)
         {
             // break before instead of after to avoid unreachable code warning
@@ -3283,11 +3406,10 @@ INSTRUCTIONS
 INTERP (Block)
 {
     // Label is end.
-    StackValue stack_value;
-    stack_value.type = StackTag_Label;
+    StackValue stack_value = {StackTag_Label};
     stack_value.label.arity = instr->Arity ();
     stack_value.label.continuation = instr->label;
-    push_value (stack_value);
+    push_label (stack_value);
 }
 
 INTERP (Loop)
@@ -3320,8 +3442,7 @@ INTERP (Global_get)
 {
     const uint i = instr->u32;
     AssertFormat (i < module->globals.size (), ("%X %X", i, module->globals.size ()));
-    StackValue value {};
-    value.type = StackTag_Value;
+    StackValue value = {StackTag_Value};
     value.value.tag = module->globals [i].global_type.value_type; // TODO initialize the instance with types?
     value.value.value = module_instance->globals [i].value.value;
     push_value (value);
@@ -3338,7 +3459,6 @@ INTERP (Local_tee)
     // TODO params
     const uint i = instr->u32;
     AssertFormat (i < frame->local_count, ("%X %X", i, frame->local_count));
-    //Assert (value_depth >= 1);
     AssertFormat (tag () == frame->code->locals [i], ("%X %X", tag (), frame->code->locals [i]));
     AssertFormat (tag () == frame->locals [i].value.tag, ("%X %X", tag (), frame->locals [i].value.tag));
     frame->locals [i].value.value = value ();
@@ -3348,8 +3468,7 @@ INTERP (Local_get)
 {
     const uint i = instr->u32;
     AssertFormat (i < frame->local_count, ("%X %X", i, frame->local_count));
-    StackValue value {};
-    value.type = StackTag_Value;
+    StackValue value = {StackTag_Value};
     value.value = frame->locals [i].value;
     push_value (value);
 }
@@ -3366,21 +3485,42 @@ INTERP (Else)
 
 INTERP (BlockEnd)
 {
+    __debugbreak ();
+    StackValue result;
+
+    int arity = instr->Arity ();
+    Assert (arity == 0 || arity == 1);
+
+    if (arity)
+        result = top ();
+
     while (!empty () && back ().type == StackTag_Value)
         pop_value ();
+
+    pop_label ();
+
+    if (arity)
+        push_value (result);
 }
 
 INTERP (BrIf)
 {
-    if (pop_i32 ())
+    __debugbreak ();
+    DumpStack ("brIfStart");
+
+    const int condition = pop_i32 ();
+    const int label = instr->i32;
+    if (condition)
     {
-        printf ("BrIfTaken\n");
+        printf ("BrIfTaken condition:%X label:%X\n", condition, label);
         Br ();
     }
     else
     {
-        printf ("BrIfNotTaken\n");
+        printf ("BrIfNotTaken condition:%X label:%X\n", condition, label);
+        ++instr;
     }
+    DumpStack ("brIfEnd");
 }
 
 INTERP (BrTable)
@@ -3395,7 +3535,8 @@ INTERP (Ret)
 
 INTERP (Br)
 {
-    //__debugbreak ();
+    __debugbreak ();
+    DumpStack ("brStart");
 
     // This is confusing.
 
@@ -3409,40 +3550,59 @@ INTERP (Br)
     int label = instr->i32;
     Assert (label >= 0);
 
+    printf ("Br label:%X\n", label);
+
     Assert ((int)size () >= label + 1);
 
     Stack::iterator p = begin ();
-    ssize_t values = 0;
-    ssize_t j = (ssize_t)size () - 1;
+    ssize_t initial_values = 0;
+    ssize_t j = (ssize_t)size ();
+    int arity = -1;
 
-    for (int i = 0; i < label + 1; ++i)
+    // Iterate to find the arity.
+
+    // We diverge from the spec because we branch to BlockEnd
+    // instead of past it. This is slower however.
+    // We do this to ease loops that continue, i.e. branch
+    // to Loop, not after it.
+    // However we should be able to optimize both. A lot.
+    for (ssize_t i = 0; i != label + 1; ++i)
     {
-        while (j >= 0 && p [j].type == StackTag_Value)
+        while (j > 0 && p [j - 1].type == StackTag_Value)
         {
-            values += (i == 0);
-            --j;
+            initial_values += (i == 0);
+            --j; // Pop_values.
         }
-        Assert (j >= 0 && p [j].type == StackTag_Label);
+        Assert (j > 0 && p [j - 1].type == StackTag_Label);
+        arity = p [j - 1].label.arity;
+        Assert (arity == 0 || arity == 1); // FUTURE
+        --j; // pop_label
     }
-    Assert (j >= 0 && p [j].type == StackTag_Label && values >= p [j].label.arity);
 
-    const ssize_t arity = p [j].label.arity;
+    Assert (arity == 0 || arity == 1); // FUTURE
+    Assert (initial_values >= arity);
+    Assert (j >= arity);
+
+    // Get the result.
+    StackValue result;
+    if (arity)
+    {
+        result = top ();
+        pop_value ();
+        --j;
+    }
 
     instr = &frame->code->decoded_instructions [(size_t)p [j].label.continuation];
 
-    // Now pop the labels and the extra values leaving the top values.
-    if (arity > 0)
-    {
-        // deque is not contiguous
-        //memcpy (&p [j], &*(p + (ssize_t)size () - arity), arity * sizeof (StackValue));
-        for (int k = 0; k < arity; ++k)
-            p [j + k] = p [(ssize_t)size () - arity + k];
-    }
+    // Bulk pop.
+    printf ("Br resize %X => %X\n", (int)size (), (int)j);
+    resize ((size_t)j);
 
-    printf ("Br resize %" FORMAT_SIZE "X => %" FORMAT_SIZE "X\n", size (), j + arity);
+    // Repush result.
+    if (arity)
+        push_value (result);
 
-    // bulk pop down to j
-    resize ((size_t)j + arity);
+    DumpStack ("brEnd");
 }
 
 INTERP (Select)
@@ -3450,7 +3610,8 @@ INTERP (Select)
     if (pop_i32 ())
     {
         pop_value ();
-        Assert (value_depth >= 1);
+        Assert (size () >= 1);
+        AssertTopIsValue ();
     }
     else
     {
