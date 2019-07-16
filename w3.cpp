@@ -1369,15 +1369,17 @@ struct Frame
     Frame* next; // TODO remove this; it is on stack
     StackBase::iterator Locals;
     Code* code;
-    int local_count; // includes params
+    size_t local_count; // includes params
     // TODO locals/params
     // This should just be stack pointer, to another stack,
     // along with type information (module->module->locals_types[])
 
     Interp* interp;
-    int locals;
+    size_t locals;
 
-    StackValue& Local (int index);
+    StackValue& Local (ssize_t index);
+    StackValue& Local (uint index);
+    StackValue& Local (size_t index);
 };
 
 // work in progress
@@ -3282,9 +3284,19 @@ INSTRUCTIONS
     ;
 };
 
-StackValue& Frame::Local (int index)
+StackValue& Frame::Local (ssize_t index)
 {
     return interp->stack [(size_t)(locals + index)];
+}
+
+StackValue& Frame::Local (size_t index)
+{
+    return interp->stack [locals + index];
+}
+
+StackValue& Frame::Local (uint index)
+{
+    return interp->stack [locals + index];
 }
 
 //memsize
@@ -3427,7 +3439,7 @@ void Interp::Invoke (Function& function)
     }
     DumpStack ("push_locals_after");
     // Provide for indexing locals.
-    frame_value.locals = (int)stack.size () - local_count - n_params;
+    frame_value.locals = stack.size () - local_count - n_params;
 
     for (j = 0; j != local_count + n_params; ++j)
         printf ("2 entering function with local [%X] type %X\n", (uint)j, frame_value.Local (j).value.tag);
