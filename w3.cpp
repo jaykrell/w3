@@ -3395,7 +3395,10 @@ void Interp::Invoke (Function& function)
         {
             // break before instead of after to avoid unreachable code warning
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) break; case w3::name: printf("interp%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); this->name ();
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0)    \
+            break;                                                                          \
+            case w3::name:                                                                  \
+            printf ("interp%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); this->name ();
 INSTRUCTIONS
         }
     }
