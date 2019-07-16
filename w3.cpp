@@ -213,6 +213,41 @@ typedef unsigned long long uint64;
 namespace w3 // TODO Visual C++ 2.0 lacks namespaces
 {
 
+// This exists so that we can change size() from size_t to ssize_t or int.
+// As well as the result of subtracting iterators, the type for indexing, etc.
+//
+template <typename T, typename SizeT>
+struct Vector : protected std::vector<T>
+{
+    typedef std::vector<T> base;
+
+    T& operator [](SizeT i) { return base::operator []((size_t)i); }
+
+    SizeT size () { return (SizeT)base::size (); }
+
+    void resize (SizeT i) { base::size ((size_t)i); }
+
+    bool operator == (const Vector&) const;
+
+    struct iterator
+    {
+        typename base::iterator i;
+
+        SizeT operator - (SizeT j)
+        {
+            return base::iterator { i - (size_t)j };
+        }
+    };
+
+    using base::push_back;
+    using base::pop_back;
+    using base::clear;
+    using base::empty;
+
+    iterator begin () { return iterator { base::begin () }; }
+    iterator end() { return iterator { base::end() }; }
+};
+
 const size_t PageSize = (1UL << 16);
 const size_t PageShift = 16;
 
@@ -1303,6 +1338,7 @@ struct StackBase : private StackBaseBase
     using base::resize;
     using base::begin;
     using base::empty;
+    using base::operator [];
 
     void push (const StackValue& a)
     {
@@ -1320,19 +1356,28 @@ struct StackBase : private StackBaseBase
     }
 };
 
+struct Interp;
+
 struct Frame
 {
+    Frame (): interp (0), locals (0) { }
+
     // FUTURE spec return_arity
     size_t function_index; // replace with pointer?
     ModuleInstance* module_instance;
     Module* module;
     Frame* next; // TODO remove this; it is on stack
-    StackBase::iterator locals;
+    StackBase::iterator Locals;
     Code* code;
-    size_t local_count; // includes params
+    int local_count; // includes params
     // TODO locals/params
     // This should just be stack pointer, to another stack,
     // along with type information (module->module->locals_types[])
+
+    Interp* interp;
+    int locals;
+
+    StackValue& Local (int index);
 };
 
 // work in progress
@@ -1350,6 +1395,7 @@ struct Stack : private StackBase
     using base::resize;
     using base::begin;
     using base::empty;
+    using base::operator [];
 
     void reserve (size_t n)
     {
@@ -2129,6 +2175,8 @@ struct DecodedInstruction
     InstructionEnum name;
     BlockType blockType;
 };
+
+typedef Vector <DecodedInstruction, int> DecodedInstructionVector_t;
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) { byte0, fixed_size, imm, pop, push, name, offsetof (InstructionNames, name), in0, in1, in2, out0 },
@@ -3234,6 +3282,11 @@ INSTRUCTIONS
     ;
 };
 
+StackValue& Frame::Local (int index)
+{
+    return interp->stack [(size_t)(locals + index)];
+}
+
 //memsize
 //memgrow
 //if
@@ -3374,12 +3427,10 @@ void Interp::Invoke (Function& function)
     }
     DumpStack ("push_locals_after");
     // Provide for indexing locals.
-    frame_value.locals = stack.end () - (ssize_t)local_count - (ssize_t)n_params;
+    frame_value.locals = (int)stack.size () - local_count - n_params;
 
     for (j = 0; j != local_count + n_params; ++j)
-    {
-        printf ("2 entering function with local [%X] type %X\n", (uint)j, frame_value.locals [(ssize_t)j].value.tag);
-    }
+        printf ("2 entering function with local [%X] type %X\n", (uint)j, frame_value.Local (j).value.tag);
 
     //DumpStack ("invoke2");
 
@@ -3464,8 +3515,8 @@ INTERP (Local_tee)
     const uint i = instr->u32;
     AssertFormat (i < frame->local_count, ("%X %X", i, frame->local_count));
     AssertFormat (tag () == frame->code->locals [i], ("%X %X", tag (), frame->code->locals [i]));
-    AssertFormat (tag () == frame->locals [i].value.tag, ("%X %X", tag (), frame->locals [i].value.tag));
-    frame->locals [i].value.value = value ();
+    AssertFormat (tag () == frame->Local (i).value.tag, ("%X %X", tag (), frame->Local (i).value.tag));
+    frame->Local (i).value.value = value ();
 }
 
 INTERP (Local_get)
@@ -3473,7 +3524,7 @@ INTERP (Local_get)
     const uint i = instr->u32;
     AssertFormat (i < frame->local_count, ("%X %X", i, frame->local_count));
     StackValue value = {StackTag_Value};
-    value.value = frame->locals [i].value;
+    value.value = frame->Local (i).value;
     push_value (value);
 }
 
