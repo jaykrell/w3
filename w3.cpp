@@ -23,13 +23,13 @@
 // Goals: clarity, simplicity, portability, size, interpreter, compile to C++, and maybe
 // later some JIT
 
-#include <limits.h>
-
 #define WIN32_LEAN_AND_MEAN 1
 
 #if _MSC_VER
 #pragma warning (disable:4668) // #if not_defined is #if 0
 #endif
+
+#include <limits.h>
 
 // Fix for circa Visual C++ 2.0 Win32 SDK. // C:\msdev\MSVC20\INCLUDE\objbase.h(8934) : error C2065: '_fmemcmp' : undeclared identifier
 #if _WIN32 && !WIN32
@@ -61,6 +61,7 @@
 #if _MSC_VER
 
 #pragma warning (disable:4616) // unknown warning disabled
+#pragma warning (disable:4619) // invalid pragma warning disable
 #pragma warning (disable:5045) // compiler will insert Spectre mitigation
 
 #if _MSC_VER <= 1700 // TODO which version?
@@ -95,7 +96,6 @@ double round (double);
 #pragma warning (disable:4371) // layout change from previous compiler version
 #pragma warning (disable:4505) // unused static function
 #pragma warning (disable:4514) // unused function
-#pragma warning (disable:4619) // invalid pragma warning disable
 #pragma warning (disable:4668) // #if not_defined is #if 0
 #pragma warning (disable:4710) // function not inlined
 #pragma warning (disable:4820) // padding
@@ -127,7 +127,6 @@ double round (double);
 #include <stack>
 #include <assert.h>
 #include <errno.h>
-#include <limits.h>
 #include <memory.h>
 #include <stdarg.h>
 #include <stddef.h>
