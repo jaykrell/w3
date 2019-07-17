@@ -142,6 +142,8 @@ typedef ptrdiff_t ssize_t;
 __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #if _MSC_VER <= 1100 // TODO which version?
 #define __debugbreak DebugBreak
+#else
+#define DebugBreak __debugbreak
 #endif
 #else
 #define IsDebuggerPresent() (0)
@@ -159,11 +161,10 @@ __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #endif
 
 #if _WIN64 || _LP64 || __LP64__
-#define _LP64 1
+#define HOST64 1
 #else
-#define _LP64 0
+#define HOST64 0
 #endif
-
 
 #if _MSC_VER && _MSC_VER <= 1500
 // TODO find out what other pre-C99 platforms have these?
@@ -1404,7 +1405,7 @@ struct Frame
 
     StackValue& Local (ssize_t index);
     StackValue& Local (size_t index);
-#if _LP64
+#if HOST64
     StackValue& Local (uint index);
 #endif
 };
@@ -3321,7 +3322,7 @@ StackValue& Frame::Local (size_t index)
     return interp->stack [locals + index];
 }
 
-#if _LP64
+#if HOST64
 StackValue& Frame::Local (uint index)
 {
     return interp->stack [locals + index];
@@ -3601,7 +3602,6 @@ INTERP (BlockEnd)
 
 INTERP (BrIf)
 {
-    __debugbreak ();
     DumpStack ("brIfStart");
 
     const int condition = pop_i32 ();
@@ -3631,7 +3631,6 @@ INTERP (Ret)
 
 INTERP (Br)
 {
-    __debugbreak ();
     DumpStack ("brStart");
 
     // This is confusing.
@@ -3640,7 +3639,7 @@ INTERP (Br)
     // Label + 1 times.
     // Skipping values.
     // Checking for labels.
-    // When arriave at the label + 1'the label, find the arity.
+    // When arrive at the label + 1'th label, find the arity.
     // There must be at least arity values before the first label.
 
     int label = instr->i32;
@@ -3657,11 +3656,6 @@ INTERP (Br)
 
     // Iterate to find the arity.
 
-    // We diverge from the spec because we branch to BlockEnd
-    // instead of past it. This is slower however.
-    // We do this to ease loops that continue, i.e. branch
-    // to Loop, not after it.
-    // However we should be able to optimize both. A lot.
     for (ssize_t i = 0; i != label + 1; ++i)
     {
         while (j > 0 && p [j - 1].type == StackTag_Value)
@@ -3675,7 +3669,6 @@ INTERP (Br)
         --j; // pop_label
     }
 
-    Assert (arity == 0 || arity == 1); // FUTURE
     Assert (initial_values >= arity);
     Assert (j >= arity);
 
@@ -3754,7 +3747,6 @@ ModuleInstance::ModuleInstance (Module* mod) : module (mod)
     memory.resize (module->memory_limits.min << PageShift, 0);
 
     // initialize memory TODO
-
     globals.resize (mod->globals.size (), StackValue ()); // TODO intialize
 }
 
