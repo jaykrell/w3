@@ -23,6 +23,8 @@
 // Goals: clarity, simplicity, portability, size, interpreter, compile to C++, and maybe
 // later some JIT
 
+#include <limits.h>
+
 #if _MSC_VER
 #pragma warning (disable:4668) // #if not_defined is #if 0
 #endif
@@ -56,13 +58,17 @@
 
 #if _MSC_VER
 
+#pragma warning (disable:4616) // unknown warning disabled
 #pragma warning (disable:5045) // compiler will insert Spectre mitigation
 
 #if _MSC_VER <= 1500 // TODO which version?
+extern "C"
+{
 float truncf (float);
 double trunc (double);
 float roundf (float);
 double round (double);
+}
 #endif
 
 #if _MSC_VER <= 1100
@@ -81,7 +87,6 @@ double round (double);
 #pragma warning (disable:4201) // nonstandard extension used: nameless struct/union
 #pragma warning (disable:4296) // always false
 #pragma warning (disable:4480) // enum base type was non-standard
-#pragma warning (disable:4616) // unknown warning disabled
 //#pragma warning (disable:4706) // assignment within conditional
 #endif
 #pragma warning (disable:4100) // unused parameter
@@ -112,7 +117,9 @@ double round (double);
 #if _MSC_VER
 #include <intrin.h>
 #endif
+#ifndef _ISOC99_SOURCE
 #define _ISOC99_SOURCE
+#endif
 #include <math.h>
 #include <stack>
 #include <assert.h>
@@ -151,6 +158,13 @@ __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #endif
 #endif
 
+#if _WIN64 || _LP64 || __LP64__
+#define _LP64 1
+#else
+#define _LP64 0
+#endif
+
+
 #if _MSC_VER && _MSC_VER <= 1500
 // TODO find out what other pre-C99 platforms have these?
 typedef signed __int8 int8;
@@ -159,7 +173,7 @@ typedef __int64 int64;
 typedef unsigned __int8 uint8;
 typedef unsigned __int16 uint16;
 typedef unsigned __int64 uint64;
-typedef unsigned __int32 uint;
+typedef unsigned __int32 uint, uint32;
 
 #else
 
@@ -186,11 +200,10 @@ typedef uint16_t uint16;
 
 #if UINT_MAX == 0x0FFFFFFFFUL
 typedef          int        int32;
-typedef unsigned int       uint32;
-typedef unsigned int       uint;
+typedef unsigned int       uint, uint32;
 #elif ULONG_MAX == 0x0FFFFFFFFUL
 typedef          long       int32;
-typedef unsigned long      uint32;
+typedef unsigned long      uint, uint32;
 #else
 typedef  int32_t  int32; // TODO we just use int
 typedef uint32_t uint;
@@ -235,7 +248,8 @@ struct Vector : protected std::vector<T>
 
         SizeT operator - (SizeT j)
         {
-            return base::iterator { i - (size_t)j };
+            typename base::iterator a = { i - (size_t)j };
+            return a;
         }
     };
 
@@ -244,8 +258,17 @@ struct Vector : protected std::vector<T>
     using base::clear;
     using base::empty;
 
-    iterator begin () { return iterator { base::begin () }; }
-    iterator end() { return iterator { base::end() }; }
+    iterator begin ()
+    {
+        iterator a = { base::begin () };
+        return a;
+    }
+
+    iterator end()
+    {
+        iterator a = { base::end () };
+        return a;
+    }
 };
 
 const size_t PageSize = (1UL << 16);
@@ -281,8 +304,10 @@ T Max(const T& a, const T& b)
 
 #if _WIN64
 #define FORMAT_SIZE "I64"
+#define long_t __int64
 #else
 #define FORMAT_SIZE "l"
+#define long_t long
 #endif
 #if _MSC_VER
 #pragma warning (disable:4777) // printf maybe wrong for other platforms
@@ -1378,8 +1403,10 @@ struct Frame
     size_t locals;
 
     StackValue& Local (ssize_t index);
-    StackValue& Local (uint index);
     StackValue& Local (size_t index);
+#if _LP64
+    StackValue& Local (uint index);
+#endif
 };
 
 // work in progress
@@ -2235,8 +2262,8 @@ struct Section
 
 struct SectionTraits
 {
-    const char* name;
     void (Module::*read)(uint8** cursor);
+    const char* name;
 };
 
 typedef enum ImportTag { // aka desc
@@ -2539,9 +2566,9 @@ void Module::read_code (uint8** cursor)
 {
     printf ("reading CodeSection10\n");
     const size_t size = read_varuint32 (cursor);
-    printf ("reading CodeSection size:%" FORMAT_SIZE "X\n", size);
+    printf ("reading CodeSection size:%" FORMAT_SIZE "X\n", (long_t)size);
     if (*cursor + size > end)
-        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", *cursor, end, size, __LINE__));
+        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", *cursor, end, (long_t)size, __LINE__));
     const size_t old = code.size ();
     Assert (old == import_function_count);
     code.resize (old + size);
@@ -2551,9 +2578,9 @@ void Module::read_code (uint8** cursor)
         a.import = false;
         a.size = read_varuint32 (cursor);
         if (*cursor + a.size > end)
-            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", *cursor, end, a.size, __LINE__));
+            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", *cursor, end, (long_t)a.size, __LINE__));
         a.cursor = *cursor;
-        printf ("code [%" FORMAT_SIZE "X]: %p/%" FORMAT_SIZE "X\n", i, a.cursor, a.size);
+        printf ("code [%" FORMAT_SIZE "X]: %p/%" FORMAT_SIZE "X\n", (long_t)i, a.cursor, (long_t)a.size);
         if (a.size)
         {
             //printf (InstructionName ((*cursor) [0]));
@@ -2640,7 +2667,7 @@ void Module::read_functions (uint8** cursor)
     functions.resize (old + size);
     for (size_t i = 0; i < size; ++i)
     {
-        printf ("read_function %" FORMAT_SIZE "X:%" FORMAT_SIZE "X\n", i, size);
+        printf ("read_function %" FORMAT_SIZE "X:%" FORMAT_SIZE "X\n", (long_t)i, (long_t)size);
         Function& a = functions [old + i];
         a.function_type_index = read_varuint32 (cursor);
         a.function_index = i + old; // TODO probably not needed
@@ -2691,10 +2718,10 @@ void Module::read_imports (uint8** cursor)
         }
     }
     printf ("read section 2 import_function_count:%" FORMAT_SIZE "X import_table_count:%" FORMAT_SIZE "X import_memory_count:%" FORMAT_SIZE "X import_global_count:%" FORMAT_SIZE "X\n",
-        import_function_count,
-        import_table_count,
-        import_memory_count,
-        import_global_count);
+        (long_t)import_function_count,
+        (long_t)import_table_count,
+        (long_t)import_memory_count,
+        (long_t)import_global_count);
 
     // TODO fill in more about imports?
     Code imported_code;
@@ -2899,7 +2926,7 @@ SectionTraits section_traits [ ] =
     SECTION (DataSection, read_data) \
 
 #undef SECTION
-#define SECTION(x, read) {#x, &Module::read},
+#define SECTION(x, read) {&Module::read, #x},
 SECTIONS
 
 };
@@ -2923,7 +2950,7 @@ float Module::read_f32 (uint8** cursor)
     union {
         uint8 bytes [4];
         float f32;
-    } u;
+    } u = { 0 };
     for (int i = 0; i < 4; ++i)
         u.bytes [i] = (uint8)read_byte (cursor);
     return u.f32;
@@ -2996,7 +3023,7 @@ uint Module::read_varuint32 (uint8** cursor)
 
 Limits Module::read_limits (uint8** cursor)
 {
-    Limits limits = { };
+    Limits limits;
     const uint tag = read_byte (cursor);
     switch (tag)
     {
@@ -3086,7 +3113,7 @@ TableElementType Module::read_elementtype (uint8** cursor)
 
 TableType Module::read_tabletype (uint8** cursor)
 {
-    TableType tableType = { };
+    TableType tableType;
     tableType.elementType = read_elementtype (cursor);
     tableType.limits = read_limits (cursor);
     printf ("read_tabletype:type:%X min:%X hasMax:%X max:%X\n", tableType.elementType, tableType.limits.min, tableType.limits.hasMax, tableType.limits.max);
@@ -3122,7 +3149,7 @@ void Module::read_section (uint8** cursor)
         ThrowString (StringFormat ("malformed line:%d id:%X payload:%p base:%p end:%p", __LINE__, id, payload, base, end)); // UNDONE context
 
     const size_t payload_size = read_varuint32 (cursor);
-    printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, payload_size);
+    printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, (long_t)payload_size);
     payload = *cursor;
     uint name_size = 0;
     char* name = 0;
@@ -3134,7 +3161,7 @@ void Module::read_section (uint8** cursor)
             ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     }
     if (payload + payload_size > end)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%" FORMAT_SIZE "X base:%p end:%p", __LINE__, id, payload, payload_size, base, end)); // UNDONE context
+        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%" FORMAT_SIZE "X base:%p end:%p", __LINE__, id, payload, (long_t)payload_size, base, end)); // UNDONE context
 
     *cursor = payload + payload_size;
 
@@ -3294,10 +3321,12 @@ StackValue& Frame::Local (size_t index)
     return interp->stack [locals + index];
 }
 
+#if _LP64
 StackValue& Frame::Local (uint index)
 {
     return interp->stack [locals + index];
 }
+#endif
 
 //memsize
 //memgrow
@@ -3334,7 +3363,7 @@ void* Interp::LoadStore (size_t size)
         Overflow ();
     AssertFormat (effective_address + size <= frame->module_instance->memory.size (),
         ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X %" FORMAT_SIZE "X",
-        effective_address, size, frame->module_instance->memory.size ()));
+        (long_t)effective_address, (long_t)size, (long_t)frame->module_instance->memory.size ()));
     return &frame->module_instance->memory [effective_address];
 }
 
