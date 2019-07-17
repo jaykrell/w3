@@ -25,6 +25,8 @@
 
 #include <limits.h>
 
+#define WIN32_LEAN_AND_MEAN 1
+
 #if _MSC_VER
 #pragma warning (disable:4668) // #if not_defined is #if 0
 #endif
@@ -61,7 +63,7 @@
 #pragma warning (disable:4616) // unknown warning disabled
 #pragma warning (disable:5045) // compiler will insert Spectre mitigation
 
-#if _MSC_VER <= 1500 // TODO which version?
+#if _MSC_VER <= 1700 // TODO which version?
 extern "C"
 {
 float truncf (float);
@@ -121,6 +123,7 @@ double round (double);
 #define _ISOC99_SOURCE
 #endif
 #include <math.h>
+#pragma warning (disable:4350) // behavior change
 #include <stack>
 #include <assert.h>
 #include <errno.h>
@@ -1024,7 +1027,12 @@ read_varuint64 (uint8** cursor, const uint8* end)
 {
     uint64 result = 0;
     uint shift = 0;
+#if _MSC_VER
+#pragma warning (suppress : 4127)
     while (true)
+#else
+    while (true)
+#endif
     {
         const uint byte = read_byte (cursor, end);
         result |= (byte & 0x7F) << shift;
@@ -1040,7 +1048,12 @@ read_varuint32 (uint8** cursor, const uint8* end)
 {
     uint result = 0;
     uint shift = 0;
+#if _MSC_VER
+#pragma warning (suppress : 4127)
     while (true)
+#else
+    while (true)
+#endif
     {
         const uint byte = read_byte (cursor, end);
         result |= (byte & 0x7F) << shift;
@@ -2096,7 +2109,7 @@ INSTRUCTIONS
    BITS_FOR_UINT_HELPER (a,  9) BITS_FOR_UINT_HELPER (a,  8) BITS_FOR_UINT_HELPER (a,  7) BITS_FOR_UINT_HELPER (a,  6) BITS_FOR_UINT_HELPER (a,  5) \
    BITS_FOR_UINT_HELPER (a,  4) BITS_FOR_UINT_HELPER (a,  3) BITS_FOR_UINT_HELPER (a,  2) BITS_FOR_UINT_HELPER (a,  1) BITS_FOR_UINT_HELPER (a,  0) 1)
 
-#if _MSC_VER && _MSC_VER <= 1500
+#if _MSC_VER && _MSC_VER <= 1700
 
 #define __func__ __FUNCTION__
 #include <windows.h>
