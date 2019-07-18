@@ -32,18 +32,17 @@ wasm_roundd (double x)
 {
 	double t;
 
-	if (wasm_isinf (x) || wasm_isnan (x))
-		return (x);
+	if (wasm_isinfd (x) || wasm_isnand (x))
+		return x;
 
 	if (x >= 0.0) {
-		t = floor(x);
+		t = floor (x);
 		if (t - x <= -0.5)
 			t += 1.0;
 		return (t);
-	} else {
-		t = floor(-x);
-		if (t + x <= -0.5)
-			t += 1.0;
-		return (-t);
-	}
+    }
+	t = floor (-x);
+	if (t + x <= -0.5)
+		t += 1.0;
+	return (-t);
 }

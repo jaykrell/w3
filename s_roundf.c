@@ -32,18 +32,17 @@ wasm_roundf (float x)
 {
 	float t;
 
-	if (wasm_isinf (x) || wasm_isnan (x))
-		return (x);
+	if (wasm_isinff (x) || wasm_isnanf (x))
+		return x;
 
 	if (x >= 0.0) {
-		t = floorf(x);
+		t = floorf (x);
 		if (t - x <= -0.5)
 			t += 1.0;
-		return (t);
-	} else {
-		t = floorf(-x);
-		if (t + x <= -0.5)
-			t += 1.0;
-		return (-t);
+		return t;
 	}
+	t = floorf (-x);
+	if (t + x <= -0.5)
+		t += 1.0;
+	return (-t);
 }
