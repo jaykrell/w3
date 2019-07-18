@@ -24,16 +24,119 @@
 // later some JIT
 
 #define WIN32_LEAN_AND_MEAN 1
+#ifdef __cplusplus
+#define __BEGIN_HIDDEN_DECLS extern "C" {
+#define __END_HIDDEN_DECLS }
+#else
+#define __BEGIN_HIDDEN_DECLS
+#define __END_HIDDEN_DECLS
+#endif
 
 #if _MSC_VER
 #pragma warning (disable:4668) // #if not_defined is #if 0
 #endif
 
+#if _WIN32 && !WIN32 // Fix for circa Visual C++ 2.0 Win32 SDK. // C:\msdev\MSVC20\INCLUDE\objbase.h(8934) : error C2065: '_fmemcmp' : undeclared identifier
+#define WIN32 1
+#endif
+
+#if _WIN32
+#define BIG_ENDIAN 2
+#define LITTLE_ENDIAN 1
+#define BYTE_ORDER LITTLE_ENDIAN
+#endif
+
+#if _MSC_VER > 1100 //TODO which version?
+#pragma warning (push)
+#pragma warning (disable:4820) // padding
+#endif
+
+#include "math.h"
 #include <limits.h>
 
-// Fix for circa Visual C++ 2.0 Win32 SDK. // C:\msdev\MSVC20\INCLUDE\objbase.h(8934) : error C2065: '_fmemcmp' : undeclared identifier
-#if _WIN32 && !WIN32
-#define WIN32 1
+#if _MSC_VER > 1100 //TODO which version?
+#pragma warning (pop)
+#endif
+
+#if _MSC_VER && _MSC_VER <= 1500
+// TODO find out what other pre-C99 platforms have these?
+typedef signed __int8 int8;
+typedef signed __int16 int16;
+typedef __int64 int64;
+typedef int int32_t;
+typedef unsigned __int8 uint8;
+typedef unsigned __int16 uint16;
+typedef unsigned __int64 uint64, u_int64_t;
+typedef unsigned __int32 uint, uint32, uint32_t, u_int32_t;
+
+#else
+
+#if UCHAR_MAX == 0x0FFUL
+typedef   signed char        int8;
+typedef unsigned char       uint8;
+#else
+typedef  int8_t  int8;
+typedef uint8_t uint8;
+//#error unable to find 8bit integer
+#endif
+#if USHRT_MAX == 0x0FFFFUL
+typedef          short      int16;
+typedef unsigned short     uint16;
+#else
+typedef  int16_t  int16;
+typedef uint16_t uint16;
+//#error unable to find 16bit integer
+#endif
+
+#if UINT_MAX != 0x0FFFFFFFFUL
+#error Change int to int32 where needed (or everywhere to be safe)
+#endif
+
+#if UINT_MAX == 0x0FFFFFFFFUL
+typedef          int        int32, int32_t;
+typedef unsigned int       uint, uint32, u_int32_t;
+#elif ULONG_MAX == 0x0FFFFFFFFUL
+typedef          long       int32, int32_t;
+typedef unsigned long      uint, uint32, u_int32_t;
+#else
+typedef  int32_t  int32; // TODO we just use int
+typedef uint32_t uint;
+#error unable to find 32bit integer
+#endif
+#if _MSC_VER || __DECC || __DECCXX || defined (__int64)
+typedef          __int64    int64;
+typedef unsigned __int64   uint64;
+#else
+typedef          long long  int64;
+typedef unsigned long long uint64;
+#endif
+// todo
+// C99 / C++?
+//typedef int64_t int64;
+
+#endif
+
+#if _MSC_VER > 1100 //TODO which version?
+#pragma warning (push)
+#pragma warning (disable:4127) // conditional expression is constant
+#pragma warning (disable:4365) // integer type mixups
+#endif
+
+#include "ieee.h"
+#include "math_private.h"
+
+#define wasm_isinf(x) ((sizeof (x) == sizeof (float)) ? wasm_isinff ((float)x) : wasm_isinfd (x))
+#define wasm_isnan(x) ((sizeof (x) == sizeof (float)) ? wasm_isnanf ((float)x) : wasm_isnand (x))
+
+#include "isnan.c"
+#include "isinf.c"
+#include "s_trunc.c"
+#include "s_truncf.c"
+#include "s_round.c"
+#include "s_roundf.c"
+
+#if _MSC_VER > 1100 //TODO which version?
+#pragma warning (pop)
 #endif
 
 #if _MSC_VER && _MSC_VER <= 1500
@@ -63,16 +166,6 @@
 #pragma warning (disable:4616) // unknown warning disabled
 #pragma warning (disable:4619) // invalid pragma warning disable
 #pragma warning (disable:5045) // compiler will insert Spectre mitigation
-
-#if _MSC_VER <= 1700 // TODO which version?
-extern "C"
-{
-float truncf (float);
-double trunc (double);
-float roundf (float);
-double round (double);
-}
-#endif
 
 #if _MSC_VER <= 1100
 #pragma warning (disable:4018) // unsigned/signed
@@ -166,64 +259,6 @@ __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #define HOST64 1
 #else
 #define HOST64 0
-#endif
-
-#if _MSC_VER && _MSC_VER <= 1500
-// TODO find out what other pre-C99 platforms have these?
-typedef signed __int8 int8;
-typedef signed __int16 int16;
-typedef __int64 int64;
-typedef unsigned __int8 uint8;
-typedef unsigned __int16 uint16;
-typedef unsigned __int64 uint64;
-typedef unsigned __int32 uint, uint32;
-
-#else
-
-#if UCHAR_MAX == 0x0FFUL
-typedef   signed char        int8;
-typedef unsigned char       uint8;
-#else
-typedef  int8_t  int8;
-typedef uint8_t uint8;
-//#error unable to find 8bit integer
-#endif
-#if USHRT_MAX == 0x0FFFFUL
-typedef          short      int16;
-typedef unsigned short     uint16;
-#else
-typedef  int16_t  int16;
-typedef uint16_t uint16;
-//#error unable to find 16bit integer
-#endif
-
-#if UINT_MAX != 0x0FFFFFFFFUL
-#error Change int to int32 where needed (or everywhere to be safe)
-#endif
-
-#if UINT_MAX == 0x0FFFFFFFFUL
-typedef          int        int32;
-typedef unsigned int       uint, uint32;
-#elif ULONG_MAX == 0x0FFFFFFFFUL
-typedef          long       int32;
-typedef unsigned long      uint, uint32;
-#else
-typedef  int32_t  int32; // TODO we just use int
-typedef uint32_t uint;
-#error unable to find 32bit integer
-#endif
-#if _MSC_VER || __DECC || __DECCXX || defined (__int64)
-typedef          __int64    int64;
-typedef unsigned __int64   uint64;
-#else
-typedef          long long  int64;
-typedef unsigned long long uint64;
-#endif
-// todo
-// C99 / C++?
-//typedef int64_t int64;
-//typedef uint64_t uint64;
-
 #endif
 
 namespace w3 // TODO Visual C++ 2.0 lacks namespaces
@@ -2218,7 +2253,8 @@ struct DecodedInstruction
     BlockType blockType;
 };
 
-typedef Vector <DecodedInstruction, int> DecodedInstructionVector_t;
+//typedef Vector <DecodedInstruction, int> DecodedInstructionVector_t;
+typedef std::vector <DecodedInstruction> DecodedInstructionVector_t;
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) { byte0, fixed_size, imm, pop, push, name, offsetof (InstructionNames, name), in0, in1, in2, out0 },
@@ -2420,7 +2456,7 @@ struct Export
         memcpy (this, &e, sizeof (e));
     }
 
-    void operator = (const Export& e);
+    //void operator = (const Export& e);
 
     ExportTag tag;
     String name;
@@ -2976,7 +3012,7 @@ double Module::read_f64 (uint8** cursor)
     union {
         uint8 bytes [8];
         double f64;
-    } u;
+    } u = { 0 };
     for (int i = 0; i < 8; ++i)
         u.bytes [i] = (uint8)read_byte (cursor);
     return u.f64;
@@ -4506,25 +4542,25 @@ INTERP (Floor_f64)
 INTERP (Trunc_f32)
 {
     float& z = f32 ();
-    z = truncf (z); // TODO C99
+    z = wasm_truncf (z); // TODO C99
 }
 
 INTERP (Trunc_f64)
 {
     double& z = f64 ();
-    z = trunc (z);
+    z = wasm_truncd (z);
 }
 
 INTERP (Nearest_f32)
 {
     float& z = f32 ();
-    z = roundf (z);
+    z = wasm_roundf (z);
 }
 
 INTERP (Nearest_f64)
 {
     double& z = f64 ();
-    z = round (z);
+    z = wasm_roundd (z);
 }
 
 INTERP (Sqrt_f32)
