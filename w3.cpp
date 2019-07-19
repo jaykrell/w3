@@ -41,7 +41,7 @@
 #pragma warning (disable:4820) // padding
 #endif
 
-#include "math.h"
+#include <math.h>
 #include <limits.h>
 
 #if _MSC_VER > 1100 //TODO which version?
