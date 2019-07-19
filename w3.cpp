@@ -1,32 +1,6 @@
-// 2-clause BSD license unless that does not suffice
-// else MIT. Need to research licenses and maybe develop a business plan.
-//
-// Implementation language is C ?or? C++. At least C++11?
-// The following features of C++ are desirable:
-//   RAII (destructors, C++98)
-//   enum class (C++11)
-//   std::size (C++17)
-//   std::string::data (direct sprintf into std::string) (C++17)
-//   non-static member initialization (C++11) (no longer in use)
-//   thread safe static initializers, maybe (C++11)
-//   char16_t (C++11, but could use C++98 unsigned short) (more of a concern for .NET, not WebAssembly, and minor there)
-//   explicit operator bool (C++11 but easy to emulate in C++98) (emulated)
-//   variadic template (C++11, really needed?)
-//   variadic macros (really needed?)
-//   std::vector (write our own?)
-//   std::string (write our own?)
-//   std::stack (write our own?)
-//   Probably more of STL.(write our own?)
-//
-// C++ library dependencies are likely to be removed, but we'll see.
-
-// Goals: clarity, simplicity, portability, size, interpreter, compile to C++, and maybe
-// later some JIT
+// A WebAssembly implementation and experimentation platform.
 
 #if _MSC_VER
-#pragma warning (disable:4018) // integer mixup
-#pragma warning (disable:4267) // integer mixup
-#pragma warning (disable:4365) // integer mixup
 #pragma warning (disable:4571) // catch(...)
 #endif
 
@@ -252,6 +226,7 @@ __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #else
 #define IsDebuggerPresent() (0)
 #define __debugbreak() ((void)0)
+#define DebugBreak() ((void)0)
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -273,37 +248,60 @@ __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 namespace w3 // TODO Visual C++ 2.0 lacks namespaces
 {
 
-// This exists so that we can change size() from size_t to ssize_t or int.
-// As well as the result of subtracting iterators, the type for indexing, etc.
-//
-template <typename T, typename SizeT>
-struct Vector : protected std::vector<T>
+// This exists to ease unsigned/signed mismatches.
+template <typename T, typename SizeT = size_t>
+struct Vector : std::vector<T>
 {
     typedef std::vector<T> base;
 
     T& operator [](SizeT i) { return base::operator []((size_t)i); }
 
-    SizeT size () { return (SizeT)base::size (); }
+    SizeT size () const { return (SizeT)base::size (); }
 
-    void resize (SizeT i) { base::size ((size_t)i); }
+    void resize (SizeT i) { base::resize ((size_t)i); }
 
-    bool operator == (const Vector&) const;
+    void resize (SizeT i, const T& t) { base::resize ((size_t)i, t); }
+
+    bool operator == (const Vector& other) const
+    {
+        return (const base&)*this == (const base&)other;
+    }
 
     struct iterator
     {
         typename base::iterator i;
 
-        SizeT operator - (SizeT j)
+        T& operator [ ] (SizeT a)
         {
-            typename base::iterator a = { i - (size_t)j };
+            return i [(ptrdiff_t)a];
+        }
+
+//        T& operator [ ] (SizeT) const;
+
+        T* operator -> ()
+        {
+            return i.operator -> ();
+        }
+//        T* operator -> () const;
+
+        T& operator * ()
+        {
+            return *i;
+        }
+//        T& operator * () const;
+
+        iterator operator - (SizeT j)
+        {
+            iterator a = { i - (ptrdiff_t)j };
+            return a;
+        }
+
+        iterator operator + (SizeT j)
+        {
+            iterator a = { i + (ptrdiff_t)j };
             return a;
         }
     };
-
-    using base::push_back;
-    using base::pop_back;
-    using base::clear;
-    using base::empty;
 
     iterator begin ()
     {
@@ -1380,8 +1378,8 @@ StackTagToString (StackTag tag)
 
 typedef struct LabelValue
 {
-    int arity;
-    int continuation;
+    size_t arity;
+    size_t continuation;
 } LabelValue;
 
 // work in progress
@@ -1407,7 +1405,8 @@ typedef struct StackValue
 } StackValue;
 
 // TODO consider a vector instead, but it affects frame.locals staying valid across push/pop
-typedef std::deque <StackValue> StackBaseBase;
+//typedef std::deque <StackValue> StackBaseBase;
+typedef Vector <StackValue> StackBaseBase;
 
 struct StackBase : private StackBaseBase
 {
@@ -1442,22 +1441,20 @@ struct Interp;
 
 struct Frame
 {
-    Frame (): function_index (-1), module_instance (0),
-        module (0), code (0), param_count (-1),
-        param_and_local_count (-1), interp (0), locals (-1), local_only_count (-1),
-        local_only_types (0), param_types (0), function_type (0)
-        //, ret (0) // redundant with local in Invoke
-        { }
+    Frame ()
+    {
+        memset (this, 0, sizeof (*this));
+    }
 
     // FUTURE spec return_arity
-    int function_index; // replace with pointer?
+    size_t function_index; // replace with pointer?
     ModuleInstance* module_instance;
     Module* module;
 //    Frame* next; // TODO remove this; it is on stack
     Code* code;
-    int param_count;
-    int local_only_count;
-    int param_and_local_count;
+    size_t param_count;
+    size_t local_only_count;
+    size_t param_and_local_count;
     ValueType* local_only_types;
     ValueType* param_types;
     FunctionType* function_type;
@@ -1466,10 +1463,9 @@ struct Frame
     // along with type information (module->module->locals_types[])
 
     Interp* interp;
-    int locals; // index in stack to start of params and locals, params first
-//    DecodedInstruction* ret; // redundant with local in Invoke
+    size_t locals; // index in stack to start of params and locals, params first
 
-    StackValue& Local (int index);
+    StackValue& Local (size_t index);
 };
 
 // work in progress
@@ -1531,8 +1527,8 @@ struct Stack : private StackBase
     {
         if (size () < 1 || top ().tag != StackTag_Label)
             DumpStack ("AssertTopIsValue");
-        Assert (size () >= 1);
-        Assert (top ().tag == StackTag_Label);
+        AssertFormat (size () >= 1, ("%X", size ()));
+        AssertFormat (top ().tag == StackTag_Label, ("%X %X", top ().tag, StackTag_Label));
         pop ();
     }
 
@@ -1541,28 +1537,28 @@ struct Stack : private StackBase
         AssertTopIsValue ();
         int t = tag ();
         pop ();
-        printf ("pop_value tag:%s depth:%X\n", TypeToString (t), (int)size ());
+        printf ("pop_value tag:%s depth:%X\n", TypeToString (t), size ());
     }
 
     void push_value (const StackValue& value)
     {
-        Assert (value.tag == StackTag_Value);
+        AssertFormat (value.tag == StackTag_Value, ("%X %X", value.tag, StackTag_Value));
         push (value);
         printf ("push_value tag:%s value:%X depth:%X\n", TypeToString (value.value.tag), value.value.value.i32, (int)size ());
     }
 
     void push_label (const StackValue& value)
     {
-        Assert (value.tag == StackTag_Label);
+        AssertFormat (value.tag == StackTag_Label, ("%X %X", value.tag, StackTag_Label));
         push (value);
-        printf ("push_label depth:%X\n", (int)size ());
+        printf ("push_label depth:%X\n", size ());
     }
 
     void push_frame (const StackValue& value)
     {
-        Assert (value.tag == StackTag_Frame);
+        AssertFormat (value.tag == StackTag_Frame, ("%X %X", value.tag, StackTag_Frame));
         push (value);
-        printf ("push_frame depth:%X\n", (int)size ());
+        printf ("push_frame depth:%X\n", size ());
     }
 
     // type specific pushers
@@ -1644,9 +1640,9 @@ struct Stack : private StackBase
 
     void DumpStack (const char* prefix)
     {
-        int n = (int)size ();
+        const size_t n = size ();
         printf ("stack@%s: %X ", prefix, n);
-        for (int i = 0; i < n; ++i)
+        for (size_t i = 0; i != n; ++i)
         {
             printf ("%s:", StackTagToString (begin () [i].tag));
             switch (begin () [i].tag)
@@ -1668,8 +1664,8 @@ struct Stack : private StackBase
     {
         if (size () < 1 || top ().tag != StackTag_Value)
             DumpStack ("AssertTopIsValue");
-        Assert (size () >= 1);
-        Assert (top ().tag == StackTag_Value);
+        AssertFormat (size () >= 1, ("%X", size ()));
+        AssertFormat (top ().tag == StackTag_Value, ("%X %X", top ().tag, StackTag_Value));
     }
 
     // setter, changes tag, returns ref
@@ -2225,15 +2221,12 @@ struct InstructionEncoding
     void (*interp) (Module*); // Module* wrong
 };
 
-struct DecodedInstruction
+struct DecodedInstructionZeroInit // ZeroMemory-compatible part
 {
-    DecodedInstruction () : if_false (-1), if_end (-1), file_offset (-1)
+    DecodedInstructionZeroInit ()
     {
-        name = (InstructionEnum)-1;
-        align = offset = (uint)-1;
+        memset (this, 0, sizeof (*this));
     }
-
-    uint64 file_offset; // to match up with disasm output, unsigned for hex
 
     union
     {
@@ -2251,28 +2244,35 @@ struct DecodedInstruction
         };
         struct // block / loop
         {
-            int label;
+            size_t label;
         };
+
         struct // if / else
         {
-            ssize_t if_false;
-            ssize_t if_end;
+            size_t if_false;
+            size_t if_end;
         };
         // etc.
     };
 
-    int Arity() const
-    {
-        return (blockType == ResultType_empty) ? 0 : 1; // FUTURE
-    }
-
-    std::vector <uint> vecLabel;
+    uint64 file_offset; // to match up with disasm output, unsigned for hex
     InstructionEnum name;
     BlockType blockType;
 };
 
-//typedef Vector <DecodedInstruction, int> DecodedInstructionVector_t;
-typedef std::vector <DecodedInstruction> DecodedInstructionVector_t;
+struct DecodedInstruction : DecodedInstructionZeroInit
+{
+    DecodedInstruction ()
+    {
+    }
+
+    size_t Arity() const
+    {
+        return (blockType == ResultType_empty) ? 0u : 1u; // FUTURE
+    }
+
+    Vector <uint> vecLabel;
+};
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) { byte0, fixed_size, imm, pop, push, name, offsetof (InstructionNames, name), in0, in1, in2, out0 },
@@ -2423,12 +2423,12 @@ struct ModuleInstance // work in progress
     ModuleInstance (Module* mod);
 
     Module* module;
-    std::vector <uint8> memory;
-    std::vector <FuncAddr*> funcs;
-    std::vector <TableAddr*> tables;
-    //std::vector <NenAddr*> mem; // mem [0] => memory for now
-    std::vector <StackValue> globals;
-    std::vector <ExportInstance> exports;
+    Vector <uint8> memory;
+    Vector <FuncAddr*> funcs;
+    Vector <TableAddr*> tables;
+    //Vector <NenAddr*> mem; // mem [0] => memory for now
+    Vector <StackValue> globals;
+    Vector <ExportInstance> exports;
 };
 
 struct FunctionInstance // work in progress
@@ -2441,26 +2441,31 @@ struct FunctionInstance // work in progress
 
 struct Function // section3
 {
-    Function () : function_type_index (-1), function_index (-1), import (false) { }
+    Function ()
+    {
+        memset (this, 0, sizeof (*this));
+    }
 
     // Functions are split between two sections: types in section3, locals/body in section10
-    int function_type_index;
-    int function_index; // TODO needed?
+    size_t function_index; // TODO needed?
+    size_t function_type_index;
+    size_t local_only_count;
+    size_t param_count;
     bool import; // TODO needed?
 };
 
 struct Global
 {
     GlobalType global_type;
-    std::vector <DecodedInstruction> init;
+    Vector <DecodedInstruction> init;
 };
 
 struct Element
 {
     uint table;
-    std::vector <DecodedInstruction> offset_instructions;
+    Vector <DecodedInstruction> offset_instructions;
     uint offset;
-    std::vector <uint> functions;
+    Vector <uint> functions;
 };
 
 struct Export
@@ -2494,7 +2499,7 @@ struct Data // section11
     Data () : memory (0), bytes (0) { }
 
     uint memory;
-    std::vector <DecodedInstruction> expr;
+    Vector <DecodedInstruction> expr;
     void* bytes;
 };
 
@@ -2506,8 +2511,8 @@ struct Code // section3 and section10
 
     size_t size;
     uint8* cursor;
-    std::vector <ValueType> locals; // params in FunctionType
-    std::vector <DecodedInstruction> decoded_instructions; // section10
+    Vector <ValueType> locals; // params in FunctionType
+    Vector <DecodedInstruction> decoded_instructions; // section10
     bool import;
 };
 
@@ -2518,8 +2523,8 @@ struct Code // section3 and section10
 struct FunctionType
 {
     // CONSIDER pointer into mmf
-    std::vector <ValueType> parameters;
-    std::vector <ValueType> results;
+    Vector <ValueType> parameters;
+    Vector <ValueType> results;
 
     bool operator == (const FunctionType& other) const
     {
@@ -2543,17 +2548,20 @@ struct Module
     uint64 file_size;
     uint8* end;
     Section sections [12];
-    //std::vector<std::shared_ptr<Section>> custom_sections; // FIXME
+    //Vector<std::shared_ptr<Section>> custom_sections; // FIXME
 
-    std::vector <FunctionType> function_types; // section1 function signatures
-    std::vector <Import> imports; // section2
-    std::vector <Function> functions; // section3 and section10 function declarations
-    std::vector <TableType> tables; // section4 indirect tables
-    std::vector <Global> globals; // section6
-    std::vector <Export> exports; // section7
-    std::vector <Element> elements; // section9 table initialization
-    std::vector <Code> code; // section10
-    std::vector <Data> data; // section11 memory initialization
+    // The order can be take advantage of.
+    // For example global is read before any code,
+    // so the index of any global.get/set can be validated right away.
+    Vector <FunctionType> function_types; // section1 function signatures
+    Vector <Import> imports; // section2
+    Vector <Function> functions; // section3 and section10 function declarations
+    Vector <TableType> tables; // section4 indirect tables
+    Vector <Global> globals; // section6
+    Vector <Export> exports; // section7
+    Vector <Element> elements; // section9 table initialization
+    Vector <Code> code; // section10
+    Vector <Data> data; // section11 memory initialization
     Limits memory_limits;
 
     Export* start;
@@ -2575,7 +2583,7 @@ struct Module
     uint8 read_varuint7 (uint8** cursor);
     uint32 read_varuint32 (uint8** cursor);
 
-    void read_vector_varuint32 (std::vector<uint>&, uint8** cursor);
+    void read_vector_varuint32 (Vector<uint>&, uint8** cursor);
     Limits read_limits (uint8** cursor);
     MemoryType read_memorytype (uint8** cursor);
     GlobalType read_globaltype (uint8** cursor);
@@ -2586,7 +2594,7 @@ struct Module
     bool read_mutable (uint8** cursor);
     void read_section (uint8** cursor);
     void read_module (const char* file_name);
-    void read_vector_ValueType (std::vector <ValueType>& result, uint8** cursor);
+    void read_vector_ValueType (Vector <ValueType>& result, uint8** cursor);
     void read_function_type (FunctionType& functionType, uint8** cursor);
 
     void read_types (uint8** cursor);
@@ -2607,19 +2615,19 @@ struct Module
 
 static
 InstructionEnum
-DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8** cursor);
+DecodeInstructions (Module* module, Vector <DecodedInstruction>& instructions, uint8** cursor, Code* code);
 
 void Module::read_data (uint8** cursor)
 {
-    const uint size1 = read_varuint32 (cursor);
+    const size_t size1 = read_varuint32 (cursor);
     printf ("reading data11 size:%X\n", size1);
     data.resize (size1);
-    for (uint i = 0; i < size1; ++i)
+    for (size_t i = 0; i < size1; ++i)
     {
         Data& a = data [i];
         a.memory = read_varuint32 (cursor);
-        DecodeInstructions (this, a.expr, cursor);
-        const uint size2 = read_varuint32 (cursor);
+        DecodeInstructions (this, a.expr, cursor, 0);
+        const size_t size2 = read_varuint32 (cursor);
         if (*cursor + size2 > end)
             ThrowString ("data out of bounds");
         a.bytes = *cursor;
@@ -2633,11 +2641,11 @@ void Module::read_code (uint8** cursor)
 {
     printf ("reading CodeSection10\n");
     const size_t size = read_varuint32 (cursor);
-    printf ("reading CodeSection size:%" FORMAT_SIZE "X\n", (long_t)size);
+    printf ("reading CodeSection size:%X\n", size);
     if (*cursor + size > end)
-        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", *cursor, end, (long_t)size, __LINE__));
+        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%X line:%X", *cursor, end, size, __LINE__));
     const size_t old = code.size ();
-    Assert (old == import_function_count);
+    AssertFormat (old == import_function_count, ("%X %X", old, import_function_count));
     code.resize (old + size);
     for (size_t i = 0; i < size; ++i)
     {
@@ -2658,17 +2666,17 @@ void Module::read_code (uint8** cursor)
 
 void Module::read_elements (uint8** cursor)
 {
-    const uint size1 = read_varuint32 (cursor);
+    const size_t size1 = read_varuint32 (cursor);
     printf ("reading section9 elements size1:%X\n", size1);
     elements.resize (size1);
-    for (uint i = 0; i < size1; ++i)
+    for (size_t i = 0; i < size1; ++i)
     {
         Element& a = elements [i];
         a.table = read_varuint32 (cursor);
-        DecodeInstructions (this, a.offset_instructions, cursor);
-        const uint size2 = read_varuint32 (cursor);
+        DecodeInstructions (this, a.offset_instructions, cursor, 0);
+        const size_t size2 = read_varuint32 (cursor);
         a.functions.resize (size2);
-        for (uint j = 0; j < size2; ++j)
+        for (size_t j = 0; j < size2; ++j)
         {
             uint& b = a.functions [j];
             b = read_varuint32 (cursor);
@@ -2681,10 +2689,10 @@ void Module::read_elements (uint8** cursor)
 void Module::read_exports (uint8** cursor)
 {
     printf ("reading section 7\n");
-    const uint size = read_varuint32 (cursor);
+    const size_t size = read_varuint32 (cursor);
     printf ("reading exports7 count:%X\n", size);
     exports.resize (size);
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
     {
         Export& a = exports [i];
         a.name = read_string (cursor);
@@ -2711,15 +2719,15 @@ void Module::read_exports (uint8** cursor)
 void Module::read_globals (uint8** cursor)
 {
     //printf ("reading section 6\n");
-    const uint size = read_varuint32 (cursor);
+    const size_t size = read_varuint32 (cursor);
     printf ("reading globals6 size:%X\n", size);
     globals.resize (size);
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
     {
         Global& a = globals [i];
         a.global_type = read_globaltype (cursor);
         printf ("read_globals %X:%X value_type:%X  mutable:%X init:%p\n", i, size, a.global_type.value_type, a.global_type.is_mutable, *cursor);
-        DecodeInstructions (this, a.init, cursor);
+        DecodeInstructions (this, a.init, cursor, 0);
         // Init points to code -- Instructions until end of block 0x0B Instruction.
     }
     printf ("read globals6 size:%X\n", size);
@@ -2734,7 +2742,7 @@ void Module::read_functions (uint8** cursor)
     functions.resize (old + size);
     for (size_t i = 0; i < size; ++i)
     {
-        printf ("read_function %" FORMAT_SIZE "X:%" FORMAT_SIZE "X\n", (long_t)i, (long_t)size);
+        printf ("read_function %X:%X\n", i, size);
         Function& a = functions [old + i];
         a.function_type_index = read_varuint32 (cursor);
         a.function_index = i + old; // TODO probably not needed
@@ -2749,7 +2757,7 @@ void Module::read_imports (uint8** cursor)
     const size_t size = read_varuint32 (cursor);
     imports.resize (size);
     // TODO two passes to limit realloc?
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
     {
         Import& r = imports [i];
         r.module = read_string (cursor);
@@ -2796,7 +2804,7 @@ void Module::read_imports (uint8** cursor)
     code.resize (import_function_count, imported_code);
 }
 
-void Module::read_vector_ValueType (std::vector<ValueType>& result, uint8** cursor)
+void Module::read_vector_ValueType (Vector<ValueType>& result, uint8** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     result.resize (size);
@@ -2827,12 +2835,12 @@ void Module::read_types (uint8** cursor)
 
 static
 InstructionEnum
-DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8** cursor)
+DecodeInstructions (Module* module, Vector <DecodedInstruction>& instructions, uint8** cursor, Code* code)
 {
     uint b0 = (uint)Block;
-    int index = -1;
-    int b1 = -1;
-    int pc = -1;
+    size_t index = 0;
+    uint b1 = 0;
+    size_t pc = ~(size_t)0;
 
     while (b0 != (uint)BlockEnd && b0 != (uint)Else)
     {
@@ -2852,21 +2860,21 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
         i.file_offset = (uint64)(*cursor - module->base - 1);
         if (e.fixed_size == 2) // TODO
         {
-            b1 = (int)module->read_byte (cursor);
+            b1 = module->read_byte (cursor);
             if (b1)
                 ThrowString ("second byte not 0");
         }
         printf ("decode1:%X %s\n", pc, InstructionName (i.name));
-        int if_false = -1;
-        int if_end = -1;
+        size_t if_false = 0;
+        size_t if_end = 0;
         switch (e.immediate)
         {
         case Imm_sequence:
             i.blockType = module->read_blocktype (cursor);
-            index = (int)instructions.size ();
+            index = instructions.size ();
             instructions.push_back (i);
             InstructionEnum next;
-            next = DecodeInstructions (module, instructions, cursor);
+            next = DecodeInstructions (module, instructions, cursor, code);
             Assert (next == BlockEnd || (i.name == If && next == Else));
             switch (b0)
             {
@@ -2880,16 +2888,16 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
                     Assert (!"invalid next after If");
                     break;
                 case BlockEnd:
-                    if_false = (int)instructions.size (); // past BlockEnd
-                    if_end = (int)instructions.size (); // past BlockEnd
+                    if_false = instructions.size (); // past BlockEnd
+                    if_end = instructions.size (); // past BlockEnd
                     break;
                 case Else:
-                    if_false = (int)instructions.size (); // past Else
+                    if_false = instructions.size (); // past Else
                     // If we fall to Else tell it how many values to keep.
-                    instructions [(uint)if_false - 1].blockType = i.blockType;
-                    next = DecodeInstructions (module, instructions, cursor);
+                    instructions [if_false - 1].blockType = i.blockType;
+                    next = DecodeInstructions (module, instructions, cursor, code);
                     Assert (next == BlockEnd);
-                    if_end = (int)instructions.size (); // past BlockEnd
+                    if_end = instructions.size (); // past BlockEnd
                     break;
 #if _MSC_VER // {
 #pragma warning (suppress:4061) // unhandled case
@@ -2897,11 +2905,11 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
 #else
                 }
 #endif
-                instructions [(uint)index].if_false = if_false;
-                instructions [(uint)index].if_end = if_end;
+                instructions [index].if_false = if_false;
+                instructions [index].if_end = if_end;
                 break;
             case Block: // label is forward
-                instructions [(uint)index].label = (int)instructions.size (); // past BlockEnd
+                instructions [index].label = instructions.size (); // past BlockEnd
                 break;
             case Loop: // label is backward, to self; each invocation repushes the label
                 // and there need not be any instructions between it and
@@ -2911,7 +2919,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
                 // Obviously TODO is make branches optimized
                 // and not deal with a stack at all, at least
                 // not as late as currently.
-                instructions [(uint)index].label = (int)index; // to Loop
+                instructions [index].label = index; // to Loop
                 break;
             }
             // If we fall to BlockEnd tell it how many values to keep.
@@ -2924,11 +2932,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
         case Imm_none:
             break;
         case Imm_global:
-            i.u32 = module->read_varuint32 (cursor);
-            break;
         case Imm_label:
-            i.u32 = module->read_varuint32 (cursor);
-            break;
         case Imm_function:
         case Imm_local:
         case Imm_type:
@@ -2953,6 +2957,29 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
             module->read_vector_varuint32 (i.vecLabel, cursor);
             break;
         }
+        switch (e.immediate)
+        {
+        case Imm_global:
+            Assert (i.u32 < module->globals.size ());
+            break;
+        case Imm_label:
+            //Assert (i.u32 < module->globals.size ());
+            break;
+        case Imm_function:
+            //Assert (i.u32 < module->globals.size ());
+            break;
+        case Imm_local:
+            //Assert (i.u32 < code->globals.size ());
+            break;
+        case Imm_type:
+            //Assert (i.u32 < module->globals.size ());
+            break;
+#if _MSC_VER // {
+#pragma warning (suppress:4062) // unhandled case
+        }
+#else
+        }
+#endif
         printf ("decode2:%X %s 0x%X %d\n", pc, InstructionName (i.name), i.i32, i.i32);
         if (e.immediate != Imm_sequence)
             instructions.push_back (i);
@@ -2962,18 +2989,18 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
 
 static
 void
-DecodeFunction (Module* module, Code& code, uint8** cursor)
+DecodeFunction (Module* module, Code* code, uint8** cursor)
 {
-    const int local_type_count = module->read_varuint32 (cursor);
+    const size_t local_type_count = module->read_varuint32 (cursor);
     printf ("local_type_count:%X\n", local_type_count);
-    for (uint i = 0; i < local_type_count; ++i)
+    for (size_t i = 0; i < local_type_count; ++i)
     {
-        const int j = module->read_varuint32 (cursor);
+        const size_t j = module->read_varuint32 (cursor);
         ValueType value_type = module->read_valuetype (cursor);
         printf ("local_type_count %X-of-%X count:%X type:%X\n", i, local_type_count, j, value_type);
-        code.locals.resize (code.locals.size () + j, value_type);
+        code->locals.resize (code->locals.size () + j, value_type);
     }
-    DecodeInstructions (module, code.decoded_instructions, cursor);
+    DecodeInstructions (module, code->decoded_instructions, cursor, code);
 }
 
 const
@@ -3019,7 +3046,7 @@ float Module::read_f32 (uint8** cursor)
         uint8 bytes [4];
         float f32;
     } u = { 0 };
-    for (int i = 0; i < 4; ++i)
+    for (uint i = 0; i < 4; ++i)
         u.bytes [i] = (uint8)read_byte (cursor);
     return u.f32;
 }
@@ -3032,7 +3059,7 @@ double Module::read_f64 (uint8** cursor)
         uint8 bytes [8];
         double f64;
     } u = { 0 };
-    for (int i = 0; i < 8; ++i)
+    for (uint i = 0; i < 8; ++i)
         u.bytes [i] = (uint8)read_byte (cursor);
     return u.f64;
 }
@@ -3053,7 +3080,7 @@ uint8 Module::read_byte (uint8** cursor)
 // i.e. string_view or such pointing right into the mmap
 String Module::read_string (uint8** cursor)
 {
-    const uint size = read_varuint32 (cursor);
+    const size_t size = read_varuint32 (cursor);
     if (size + *cursor > end)
         ThrowString ("malformed in read_string");
     // TODO UTF8 handling
@@ -3075,7 +3102,7 @@ String Module::read_string (uint8** cursor)
     return a;
 }
 
-void Module::read_vector_varuint32 (std::vector<uint>& result, uint8** cursor)
+void Module::read_vector_varuint32 (Vector<uint>& result, uint8** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     result.resize (size);
@@ -3191,20 +3218,20 @@ TableType Module::read_tabletype (uint8** cursor)
 void Module::read_memory (uint8** cursor)
 {
     printf ("reading section5\n");
-    uint size = read_varuint32 (cursor);
+    const size_t size = read_varuint32 (cursor);
     AssertFormat (size <= 1, ("%X", size)); // FUTURE
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
         memory_limits = read_limits (cursor);
     printf ("read section5 min:%X hasMax:%X max:%X\n", memory_limits.min, memory_limits.hasMax, memory_limits.max);
 }
 
 void Module::read_tables (uint8** cursor)
 {
-    const uint size = read_varuint32 (cursor);
+    const size_t size = read_varuint32 (cursor);
     printf ("reading tables size:%X\n", size);
     AssertFormat (size == 1, ("%X", size));
     tables.resize (size);
-    for (uint i = 0; i < size; ++i)
+    for (size_t i = 0; i < size; ++i)
         tables [0] = read_tabletype (cursor);
 }
 
@@ -3219,7 +3246,7 @@ void Module::read_section (uint8** cursor)
     const size_t payload_size = read_varuint32 (cursor);
     printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, (long_t)payload_size);
     payload = *cursor;
-    uint name_size = 0;
+    size_t name_size = 0;
     char* name = 0;
     if (id == 0)
     {
@@ -3361,20 +3388,14 @@ INSTRUCTIONS
     ;
 };
 
-StackValue& Frame::Local (int index)
+StackValue& Frame::Local (size_t index)
 {
     return interp->stack [locals + index];
 }
 
-//memsize
-//memgrow
 //if
-//loop
 //else
-//drop
-//select
 //brtable
-//ret
 
 void* Interp::LoadStore (size_t size)
 {
@@ -3410,8 +3431,9 @@ void* Interp::LoadStore (size_t size)
 
 INTERP (Call)
 {
-    const int function_index = instr->i32;
-    Assert ((uint)function_index < module->functions.size ());
+    // FIXME In the instruction table
+    const size_t function_index = instr->u32;
+    Assert (function_index < module->functions.size ());
     Function* function = &module->functions [function_index];
     function->function_index = function_index; // TODO remove this
     Invoke (module->functions [function_index]);
@@ -3424,14 +3446,20 @@ void Interp::Invoke (Function& function)
     // TODO thread safety
     // TODO merge with calli (invoke)
 
-    Code& code = module->code [function.function_index];
-    uint8* cursor = code.cursor;
+    const size_t function_type_index = function.function_type_index;
+    Assert (function_type_index < module->function_types.size ());
+    FunctionType* function_type = &module->function_types [function_type_index];
+    Code* code = &module->code [function.function_index];
+    const size_t local_only_count = code->locals.size ();
+    const size_t param_count = function_type->parameters.size ();
+
+    uint8* cursor = code->cursor;
     if (cursor)
     {
         DecodeFunction (module, code, &cursor);
-        code.cursor = 0;
+        code->cursor = 0;
     }
-    size_t size = code.decoded_instructions.size ();
+    const size_t size = code->decoded_instructions.size ();
     Assert (size);
 
     DumpStack ("invoke1");
@@ -3439,39 +3467,31 @@ void Interp::Invoke (Function& function)
     // TODO cross-module calls
     // TODO calling embedding
     // setup frame
-    Frame frame_value; // TODO within StackValue by value instead of by pointer? Changed due to circular typing.
+    Frame frame_value;
     frame_value.interp = this;
-    frame_value.code = &code;
-//    frame_value.next = this->frame;
+    frame_value.code = code;
     frame_value.module = this->module; // TODO cross module calls
     frame_value.module_instance = this->module_instance; // TODO cross module calls
     frame_value.function_index = function.function_index;
-    frame_value.code = &module->code [function.function_index];
-    const int local_only_count = code.locals.size ();
-    const int function_type_index = function.function_type_index;
-    Assert (function_type_index < module->function_types.size ());
-    FunctionType* function_type = &module->function_types [function_type_index];
-    const int param_count = function_type->parameters.size ();
     frame_value.param_count = param_count;
     frame_value.param_and_local_count = local_only_count + param_count; // TODO overflow
     frame_value.local_only_count = local_only_count;
-    frame_value.local_only_types = local_only_count ? &code.locals [0] : 0;
+    frame_value.local_only_types = local_only_count ? &code->locals [0] : 0;
     frame_value.param_types = param_count ? &function_type->parameters [0] : 0;
     frame_value.function_type = function_type;
 
     StackValue ret = {StackTag_Frame};
     ret.frame = frame; // null for first function?
-//    frame_value.ret = instr + 1; // redundant with local in Invoke
     this->frame = &frame_value;
     push_frame (ret);
     DumpStack ("pushed_frame");
 
-    int i;
-    int j;
+    size_t i = 0;
+    size_t j = 0;
 
     for (j = 0; j != param_count; ++j)
     {
-        printf ("2 entering function with param [%X] type %X\n", (uint)j, (end () - (ssize_t)param_count + (ssize_t)j)->value.tag);
+        printf ("2 entering function with param [%X] type %X\n", j, (end () - param_count + j)->value.tag);
     }
 
     // CONSIDER put the interp loop elsewhere
@@ -3490,16 +3510,16 @@ void Interp::Invoke (Function& function)
         for (i = 0; i < param_count; ++i)
         {
             DumpStack ("moved_param_before");
-            *(end () - 1 - (ssize_t)i) = *(end () - 2 - (ssize_t)i);
+            *(end () - 1 - i) = *(end () - 2 - i);
             DumpStack ("moved_param_after");
         }
     }
 
     // place return frame/address
 
-    (end () - 1 - (ssize_t)param_count)->tag = StackTag_Frame;
-    (end () - 1 - (ssize_t)param_count)->frame = frame;
-    (end () - 1 - (ssize_t)param_count)->instr = instr + !!instr;
+    (end () - 1 - param_count)->tag = StackTag_Frame;
+    (end () - 1 - param_count)->frame = frame;
+    (end () - 1 - param_count)->instr = instr + !!instr;
 
     // Push locals on stack.
     // TODO params also
@@ -3507,7 +3527,7 @@ void Interp::Invoke (Function& function)
     DumpStack ("push_locals_before");
     for (i = 0; i != local_only_count; ++i)
     {
-        StackValue value = {StackTag_Value, { code.locals [i] } };
+        StackValue value = {StackTag_Value, { code->locals [i] } };
         push_value (value);
     }
     DumpStack ("push_locals_after");
@@ -3515,14 +3535,14 @@ void Interp::Invoke (Function& function)
     frame_value.locals = stack.size () - local_only_count - param_count;
 
     for (j = 0; j != local_only_count + param_count; ++j)
-        printf ("2 entering function with local [%X] type %X\n", (uint)j, frame_value.Local (j).value.tag);
+        printf ("2 entering function with local [%X] type %X\n", j, frame_value.Local (j).value.tag);
 
     //DumpStack ("invoke2");
 
     // TODO provide for separate depth -- i.e. here is now 0; locals/params cannot be popped
 
     DecodedInstruction* previous = instr; // call/ret handling
-    instr = &code.decoded_instructions [0];
+    instr = &code->decoded_instructions [0];
     DecodedInstruction* end = instr + size;
     for (; ; ++instr) // Br subtracts one so this works.
     {
@@ -3577,30 +3597,37 @@ INTERP (Loop)
 INTERP (MemGrow)
 {
     //__debugbreak ();
-    const int page_growth = pop_i32 ();
-    Assert (page_growth >= 0);
     int result = -1;
-    size_t previous_size = module_instance->memory.size ();
-    size_t new_size = previous_size + (page_growth << PageShift);
-    try
+    const size_t previous_size = module_instance->memory.size ();
+    const size_t page_growth = pop_u32 ();
+    if (page_growth == 0)
     {
-        module_instance->memory.resize (new_size, 0);
         result = (int)(previous_size >> PageShift);
     }
-    catch (...)
+    else
     {
+        const size_t new_size = previous_size + (page_growth << PageShift);
+        try
+        {
+            module_instance->memory.resize (new_size, 0);
+            result = (int)(previous_size >> PageShift);
+        }
+        catch (...)
+        {
+        }
     }
     push_i32 (result);
 }
 
 INTERP (MemSize)
 {
-	Assert (!"MemSize"); // not yet implemented
+    __debugbreak (); // not yet tested
+    push_i32 ((int)(module_instance->memory.size () >> PageShift));
 }
 
 INTERP (Global_set)
 {
-    const uint i = instr->u32;
+    const size_t i = instr->u32;
     AssertFormat (i < module->globals.size (), ("%X %X", i, module->globals.size ()));
     // TODO assert mutable
     AssertFormat (tag () == module->globals [i].global_type.value_type, ("%X %X", tag (), module->globals [i].global_type.value_type));
@@ -3610,8 +3637,8 @@ INTERP (Global_set)
 
 INTERP (Global_get)
 {
-    const int i = instr->i32;
-    AssertFormat (i >= 0 && i < module->globals.size (), ("%X %X", i, module->globals.size ()));
+    const size_t i = instr->u32;
+    AssertFormat (i < module->globals.size (), ("%X %X", i, module->globals.size ()));
     StackValue value = {StackTag_Value};
     value.value.tag = module->globals [i].global_type.value_type; // TODO initialize the instance with types?
     value.value.value = module_instance->globals [i].value.value;
@@ -3627,8 +3654,8 @@ INTERP (Local_set)
 INTERP (Local_tee)
 {
     //__debugbreak ();
-    const int i = instr->i32;
-    AssertFormat (i >= 0 && (uint)i < frame->param_and_local_count, ("%X %X", i, frame->param_and_local_count));
+    const size_t i = instr->u32;
+    AssertFormat (i < frame->param_and_local_count, ("%X %X", i, frame->param_and_local_count));
     if (i < frame->param_count)
         AssertFormat (tag () == frame->param_types [i], ("%X %X", tag (), frame->param_types [i]));
     else
@@ -3639,8 +3666,8 @@ INTERP (Local_tee)
 
 INTERP (Local_get)
 {
-    const int i = instr->i32;
-    AssertFormat (i >= 0 && (uint)i < frame->param_and_local_count, ("%X %X", i, frame->param_and_local_count));
+    const size_t i = instr->u32;
+    AssertFormat (i < frame->param_and_local_count, ("%X %X", i, frame->param_and_local_count));
     StackValue value = {StackTag_Value};
     value.value = frame->Local (i).value;
     if (i < frame->param_count)
@@ -3662,10 +3689,25 @@ INTERP (Else)
 
 INTERP (BlockEnd)
 {
+    // Pop values until label is found.
+    // Pop label.
+    // Repush values.
+    //
+    // Alternatively, look for label,
+    // and shift values down.
+    //
+    // Alternatively, something much faster.
+
+    size_t i = size ();
+
+    AssertFormat (i > 0, ("%X", i));
+
+    // Skip any number of values until one label is found,
+    // 
     __debugbreak (); // implementation is incorrect -- should keep all values before first label
     StackValue result;
 
-    const int arity = instr->Arity ();
+    const size_t arity = instr->Arity ();
     Assert (arity == 0 || arity == 1);
 
     if (arity)
@@ -3684,16 +3726,16 @@ INTERP (BrIf)
 {
     DumpStack ("brIfStart");
 
-    const int condition = pop_i32 ();
-    const int label = instr->i32;
+    const uint condition = pop_u32 ();
+
     if (condition)
     {
-        printf ("BrIfTaken condition:%X label:%X\n", condition, label);
+        printf ("BrIfTaken condition:%X label:%X\n", condition, instr->u32);
         Br ();
     }
     else
     {
-        printf ("BrIfNotTaken condition:%X label:%X\n", condition, label);
+        printf ("BrIfNotTaken condition:%X label:%X\n", condition, instr->u32);
     }
     DumpStack ("brIfEnd");
 }
@@ -3711,9 +3753,9 @@ INTERP (Ret)
     Assert (frame);
 
     FunctionType* function_type = frame->function_type;
-    int arity = function_type->results.size ();
+    size_t arity = function_type->results.size ();
     Assert (arity == 0 || arity == 1);
-    Assert (size() > arity);
+    Assert (size () > arity);
 
     StackValue result;
     if (arity)
@@ -3746,21 +3788,21 @@ INTERP (Br)
     // When arrive at the label + 1'th label, find the arity.
     // There must be at least arity values before the first label.
 
-    int label = instr->i32;
-    Assert (label >= 0);
+    const size_t label = instr->u32 + 1;
 
-    printf ("Br label:%X\n", label);
+    printf ("Br label:%X\n", label - 1);
 
-    Assert ((int)size () >= label + 1);
+    Assert (label);
+    Assert (size () >= label);
 
     Stack::iterator p = begin ();
-    ssize_t initial_values = 0;
-    ssize_t j = (ssize_t)size ();
-    int arity = -1;
+    size_t initial_values = 0;
+    size_t j = size ();
+    size_t arity = 0;
 
     // Iterate to find the arity.
 
-    for (ssize_t i = 0; i != label + 1; ++i)
+    for (size_t i = 0; i != label; ++i)
     {
         while (j > 0 && p [j - 1].type == StackTag_Value)
         {
@@ -3785,11 +3827,11 @@ INTERP (Br)
         --j;
     }
 
-    instr = &frame->code->decoded_instructions [(size_t)p [j].label.continuation] - 1;
+    instr = &frame->code->decoded_instructions [p [j].label.continuation] - 1;
 
     // Bulk pop.
-    printf ("Br resize %X => %X\n", (int)size (), (int)j);
-    resize ((size_t)j);
+    printf ("Br resize %X => %X\n", size (), j);
+    resize (j);
 
     // Repush result.
     if (arity)
@@ -3819,20 +3861,19 @@ INTERP (Calli)
 {
     // TODO signed or unsigned
     // call is unsigned
-    const int function_index = pop_i32 ();
-    Assert (function_index >= 0);
+    const size_t function_index = pop_u32 ();
 
-    const int type_index1 = instr->i32;
+    const size_t type_index1 = instr->u32;
 
     // This seems like it could be validated earlier.
     Assert (function_index < module->functions.size ());
 
     Function& function = module->functions [function_index];
 
-    const int type_index2 = function.function_type_index;
+    const size_t type_index2 = function.function_type_index;
 
-    Assert ((uint)type_index1 < module->function_types.size ());
-    Assert ((uint)type_index2 < module->function_types.size ());
+    Assert (type_index1 < module->function_types.size ());
+    Assert (type_index2 < module->function_types.size ());
 
     const FunctionType* type1 = &module->function_types [type_index1];
     const FunctionType* type2 = &module->function_types [type_index2];
@@ -4342,38 +4383,38 @@ INTERP (Clz_i64)
 
 INTERP (Add_i32)
 {
-    const int a = pop_i32 ();
-    i32 () += a;
+    const uint a = pop_u32 ();
+    u32 () += a;
 }
 
 INTERP (Add_i64)
 {
-    const int64 a = pop_i64 ();
-    i64 () += a;
+    const uint64 a = pop_u64 ();
+    u64 () += a;
 }
 
 INTERP (Sub_i32)
 {
-    const int a = pop_i32 ();
-    i32 () -= a;
+    const uint a = pop_u32 ();
+    u32 () -= a;
 }
 
 INTERP (Sub_i64)
 {
-    const int64 a = pop_i64 ();
-    i64 () -= a;
+    const uint64 a = pop_u64 ();
+    u64 () -= a;
 }
 
 INTERP (Mul_i32)
 {
-    const int a = pop_i32 ();
-    i32 () *= a;
+    const uint a = pop_u32 ();
+    u32 () *= a;
 }
 
 INTERP (Mul_i64)
 {
-    const int64 a = pop_i64 ();
-    i64 () *= a;
+    const uint64 a = pop_u64 ();
+    u64 () *= a;
 }
 
 INTERP (Div_s_i32)
@@ -4426,50 +4467,50 @@ INTERP (Rem_u_i64)
 
 INTERP (And_i32)
 {
-    const int a = pop_i32 ();
-    i32 () &= a;
+    const uint a = pop_u32 ();
+    u32 () &= a;
 }
 
 INTERP (And_i64)
 {
-    const int64 a = pop_i64 ();
-    i64 () &= a;
+    const uint64 a = pop_u64 ();
+    u64 () &= a;
 }
 
 INTERP (Or_i32)
 {
-    const int a = pop_i32 ();
-    i32 () |= a;
+    const uint a = pop_u32 ();
+    u32 () |= a;
 }
 
 INTERP (Or_i64)
 {
-    const int64 a = pop_i64 ();
-    i64 () |= a;
+    const uint64 a = pop_u64 ();
+    u64 () |= a;
 }
 
 INTERP (Xor_i32)
 {
-    const int a = pop_i32 ();
-    i32 () ^= a;
+    const uint a = pop_u32 ();
+    u32 () ^= a;
 }
 
 INTERP (Xor_i64)
 {
-    const int64 a = pop_i64 ();
-    i64 () ^= a;
+    const uint64 a = pop_u64 ();
+    u64 () ^= a;
 }
 
 INTERP (Shl_i32)
 {
-    const int a = pop_i32 ();
-    i32 () <<= (a & 31);
+    const uint a = pop_u32 ();
+    u32 () <<= (a & 31);
 }
 
 INTERP (Shl_i64)
 {
-    const int64 a = pop_i64 ();
-    i64 () <<= (a & 63);
+    const uint64 a = pop_u64 ();
+    u64 () <<= (a & 63);
 }
 
 INTERP (Shr_s_i32)
@@ -4511,12 +4552,12 @@ INTERP (Rotl_i32)
 
 INTERP (Rotl_i64)
 {
-    const int n = 64;
-    const int b = (pop_i64 () & (n - 1));
+    const uint n = 64;
+    const uint b = (uint)(pop_u64 () & (n - 1));
     uint64& r = u64 ();
     uint64 a = r;
 #if _MSC_VER
-    r = _rotl64 (a, b);
+    r = _rotl64 (a, (int)b);
 #else
     r = (a << b) | (a >> (n - b));
 #endif
@@ -4524,12 +4565,12 @@ INTERP (Rotl_i64)
 
 INTERP (Rotr_i32)
 {
-    const int n = 32;
-    const int b = (int)(pop_u32 () & (n - 1));
+    const uint n = 32;
+    const uint b = (uint)(pop_u32 () & (n - 1));
     uint& r = u32 ();
     uint a = r;
 #if _MSC_VER
-    r = _rotr (a, b);
+    r = _rotr (a, (int)b);
 #else
     r = (a >> b) | (a << (n - b));
 #endif
@@ -4537,12 +4578,12 @@ INTERP (Rotr_i32)
 
 INTERP (Rotr_i64)
 {
-    const int n = 64;
-    const int b = (int)(pop_u64 () & (n - 1));
+    const uint n = 64;
+    const uint b = (uint)(pop_u64 () & (n - 1));
     uint64& r = u64 ();
     uint64 a = r;
 #if _MSC_VER
-    r = _rotr64 (a, b);
+    r = _rotr64 (a, (int)b);
 #else
     r = (a >> b) | (a << (n - b));
 #endif
