@@ -2899,8 +2899,8 @@ DecodeInstructions (Module* module, Vector <DecodedInstruction>& instructions, u
                     Assert (!"invalid next after If");
                     break;
                 case BlockEnd:
-                    if_false = instructions.size (); // past BlockEnd
-                    if_end = instructions.size (); // past BlockEnd
+                    if_false = instructions.size () - 1; // to BlockEnd
+                    if_end = instructions.size () - 1; // to BlockEnd
                     break;
                 case Else:
                     if_false = instructions.size (); // past Else
@@ -2908,7 +2908,7 @@ DecodeInstructions (Module* module, Vector <DecodedInstruction>& instructions, u
                     instructions [if_false - 1].blockType = i.blockType;
                     next = DecodeInstructions (module, instructions, cursor, code);
                     Assert (next == BlockEnd);
-                    if_end = instructions.size (); // past BlockEnd
+                    if_end = instructions.size () - 1; // to BlockEnd
                     break;
 #if _MSC_VER // {
 #pragma warning (suppress:4061) // unhandled case
@@ -3606,8 +3606,10 @@ INTERP (Block)
 
 INTERP (Loop)
 {
-    // Label is start vs. end, but decoding made the difference.
+    // Loop and Block are almost the same, esp. after decoding.
+    // Loop continuation is start, block continuation is end.
     Block ();
+    back ().arity = 0;
 }
 
 INTERP (MemGrow)
@@ -3695,14 +3697,38 @@ INTERP (Local_get)
 
 INTERP (If)
 {
-     //__debugbreak ();
+     __debugbreak ();
 
-    Assert (!"If"); // not yet implemented
+    const uint condition = pop_u32 ();
+
+    // Push the same label either way.
+    StackValue stack_value = {StackTag_Label};
+    stack_value.label.arity = instr->Arity ();
+    stack_value.label.continuation = instr->if_end;
+    push_label (stack_value);
+
+    // If condition is false, skip ahead, to just past the Else.
+    // The Else actually marks the end of If, more than the start of Else.
+    if (!condition)
+    {
+        // Branch to one before target, because interpreter loop will increment.
+        instr = &frame->code->decoded_instructions [instr->if_false] - 1;
+    }
 }
 
 INTERP (Else)
 {
-    Assert (!"Else"); // Should never see this?
+     __debugbreak ();
+
+    // Else marks the end of If is like BlockEnd, but also
+    // skips the Else block.
+    //.
+    // If we are actually running the else case,
+    // the If will have branched past the else instruction.
+
+    BlockEnd ();
+    // Branch to one before target, because interpreter loop will increment.
+    instr = &frame->code->decoded_instructions [instr->if_end] - 1;
 }
 
 INTERP (BlockEnd)
