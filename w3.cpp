@@ -1544,30 +1544,30 @@ struct Stack : private StackBase
     void pop_value ()
     {
         AssertTopIsValue ();
-        int t = tag ();
+        //int t = tag ();
         pop ();
-        printf ("pop_value tag:%s depth:%" FORMAT_SIZE "X\n", TypeToString (t), size ());
+        //printf ("pop_value tag:%s depth:%" FORMAT_SIZE "X\n", TypeToString (t), size ());
     }
 
     void push_value (const StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Value, ("%X %X", value.tag, StackTag_Value));
         push (value);
-        printf ("push_value tag:%s value:%X depth:%" FORMAT_SIZE "X\n", TypeToString (value.value.tag), value.value.value.i32, size ());
+        //printf ("push_value tag:%s value:%X depth:%" FORMAT_SIZE "X\n", TypeToString (value.value.tag), value.value.value.i32, size ());
     }
 
     void push_label (const StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Label, ("%X %X", value.tag, StackTag_Label));
         push (value);
-        printf ("push_label depth:%" FORMAT_SIZE "X\n", size ());
+        //printf ("push_label depth:%" FORMAT_SIZE "X\n", size ());
     }
 
     void push_frame (const StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Frame, ("%X %X", value.tag, StackTag_Frame));
         push (value);
-        printf ("push_frame depth:%" FORMAT_SIZE "X\n", size ());
+        //printf ("push_frame depth:%" FORMAT_SIZE "X\n", size ());
     }
 
     // type specific pushers
@@ -2479,8 +2479,10 @@ struct Element
 
 struct Export
 {
-    Export () :
-        tag ((ExportTag)-1), is_start (false), is_main (false) { }
+    Export ()
+    {
+        memset (this, 0, sizeof (*this));
+    }
 
     Export (const Export& e)
     {
@@ -3044,6 +3046,11 @@ int64 Module::read_i64 (uint8** cursor)
     return (int64)w3::read_varint64 (cursor, end);
 }
 
+#if _MSC_VER
+#pragma warning (push)
+#pragma warning (disable:4701) // uninitialized variable
+#endif
+
 float Module::read_f32 (uint8** cursor)
 // floats are not variably sized? Spec is unclear due to fancy notation
 // getting in the way.
@@ -3051,7 +3058,7 @@ float Module::read_f32 (uint8** cursor)
     union {
         uint8 bytes [4];
         float f32;
-    } u = {{ 0 }};
+    } u;
     for (uint i = 0; i < 4; ++i)
         u.bytes [i] = (uint8)read_byte (cursor);
     return u.f32;
@@ -3064,11 +3071,15 @@ double Module::read_f64 (uint8** cursor)
     union {
         uint8 bytes [8];
         double f64;
-    } u = {{ 0 }};
+    } u;
     for (uint i = 0; i < 8; ++i)
         u.bytes [i] = (uint8)read_byte (cursor);
     return u.f64;
 }
+
+#if _MSC_VER
+#pragma warning (pop)
+#endif
 
 uint8 Module::read_varuint7 (uint8** cursor)
 {
@@ -3684,12 +3695,14 @@ INTERP (Local_get)
 
 INTERP (If)
 {
+     //__debugbreak ();
+
     Assert (!"If"); // not yet implemented
 }
 
 INTERP (Else)
 {
-    Assert (!"Else"); // not yet implemented
+    Assert (!"Else"); // Should never see this?
 }
 
 INTERP (BlockEnd)
@@ -3725,7 +3738,7 @@ INTERP (BlockEnd)
 
 INTERP (BrIf)
 {
-    DumpStack ("brIfStart");
+    //DumpStack ("brIfStart");
 
     const uint condition = pop_u32 ();
 
@@ -3738,7 +3751,7 @@ INTERP (BrIf)
     {
         printf ("BrIfNotTaken condition:%X label:%X\n", condition, instr->u32);
     }
-    DumpStack ("brIfEnd");
+    //DumpStack ("brIfEnd");
 }
 
 INTERP (BrTable)
@@ -3748,7 +3761,7 @@ INTERP (BrTable)
 
 INTERP (Ret)
 {
-    __debugbreak ();
+    //__debugbreak ();
 
     Assert (!empty ());
     Assert (frame);
@@ -3782,7 +3795,7 @@ INTERP (Br)
 
     // This is confusing.
 
-    // Walk down the stack.
+    // Walk the stack.
     // Label + 1 times.
     // Skipping values.
     // Checking for labels.
@@ -3791,12 +3804,12 @@ INTERP (Br)
 
     const size_t label = instr->u32 + 1;
 
-    printf ("Br label:%" FORMAT_SIZE "X\n", label - 1);
+    //printf ("Br label:%" FORMAT_SIZE "X\n", label - 1);
 
     Assert (label);
     Assert (size () >= label);
 
-    Stack::iterator p = begin ();
+    StackValue* p = &front ();
     size_t initial_values = 0;
     size_t j = size ();
     size_t arity = 0;
@@ -3828,17 +3841,18 @@ INTERP (Br)
         --j;
     }
 
+    // Branch to one before target, because interpreter loop will increment.
     instr = &frame->code->decoded_instructions [p [j].label.continuation] - 1;
 
     // Bulk pop.
-    printf ("Br resize %" FORMAT_SIZE "X => %" FORMAT_SIZE "X\n", size (), j);
+    //printf ("Br resize %" FORMAT_SIZE "X => %" FORMAT_SIZE "X\n", size (), j);
     resize (j);
 
     // Repush result.
     if (arity)
         push_value (result);
 
-    DumpStack ("brEnd");
+    //DumpStack ("brEnd");
 }
 
 INTERP (Select)
