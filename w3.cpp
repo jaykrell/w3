@@ -3703,28 +3703,24 @@ INTERP (BlockEnd)
     //
     // Alternatively, something much faster.
 
-    size_t i = size ();
+    const size_t s = size ();
+    size_t j = s;
 
-    AssertFormat (i > 0, ("%" FORMAT_SIZE "X", i));
+    AssertFormat (s > 0, ("%" FORMAT_SIZE "X", s));
 
     // Skip any number of values until one label is found,
-    // 
-    __debugbreak (); // implementation is incorrect -- should keep all values before first label
-    StackValue result;
 
-    const size_t arity = instr->Arity ();
-    Assert (arity == 0 || arity == 1);
+    StackValue* p = &front ();
 
-    if (arity)
-        result = top ();
+    while (j > 0 && p [j - 1].tag == StackTag_Value)
+        --j;
 
-    while (!empty () && back ().tag == StackTag_Value)
-        pop_value ();
+    Assert (j > 0 && p [j - 1].tag == StackTag_Label);
 
-    pop_label ();
+    for (size_t i = j - 1; i < s; ++i)
+        p [i] = p [i + 1];
 
-    if (arity)
-        push_value (result);
+    resize (s - 1);
 }
 
 INTERP (BrIf)
