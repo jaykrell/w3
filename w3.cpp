@@ -4,7 +4,17 @@
 // efficient? (not yet)
 
 #if _MSC_VER
+#pragma warning (disable:4615) // unknown warning
 #pragma warning (disable:4571) // catch(...)
+#pragma warning (disable:4097) // typedef-name 'base' used as synonym for class-name 'Vector::vector'
+#endif
+
+#if _MSC_VER == 1100
+#include <yvals.h>
+#pragma warning (disable:4018) // unsigned/signed
+#pragma warning (disable:4100) // unused parameter
+#pragma warning (disable:4238) // nonstandard extension used : class rvalue used as lvalue
+#pragma warning (disable:4244) // int to char conversion
 #endif
 
 #define _WASI_EMULATED_MMAN
@@ -43,6 +53,9 @@
 
 #include <math.h>
 #include <limits.h>
+
+// Win32 ZeroMemory
+#define ZeroMem(p, n) memset((p), 0, (n))
 
 #if _MSC_VER > 1100 //TODO which version?
 #pragma warning (pop)
@@ -108,6 +121,8 @@ typedef unsigned long long uint64;
 
 #if _MSC_VER > 1100 //TODO which version?
 #pragma warning (push)
+#endif
+#if _MSC_VER
 #pragma warning (disable:4127) // conditional expression is constant
 #pragma warning (disable:4365) // integer type mixups
 #endif
@@ -129,10 +144,6 @@ typedef unsigned long long uint64;
 #pragma warning (pop)
 #endif
 
-#if _MSC_VER && _MSC_VER <= 1500
-//#error This version of Visual C++ is too old. Known bad versions include 5.0 and 2008. Known good includes 1900/2017.
-#endif
-
 #define _CRT_SECURE_NO_WARNINGS 1
 
 //#include "config.h"
@@ -144,7 +155,7 @@ typedef unsigned long long uint64;
 //#define _LARGEFILE64_SOURCE
 
 #ifndef HAS_TYPED_ENUM
-#if 1 // __cplusplus >= 201103L || _MSC_VER >= 1500 // TODO test more compilers
+#if __cplusplus >= 201103L || _MSC_VER >= 1500 // TODO test more compilers
 #define HAS_TYPED_ENUM 1
 #else
 #define HAS_TYPED_ENUM 0
@@ -152,16 +163,13 @@ typedef unsigned long long uint64;
 #endif
 
 #if _MSC_VER
-
 #pragma warning (disable:4616) // unknown warning disabled
 #pragma warning (disable:4619) // invalid pragma warning disable
 #pragma warning (disable:5045) // compiler will insert Spectre mitigation
-
 #if _MSC_VER <= 1100
 #pragma warning (disable:4018) // unsigned/signed
 #pragma warning (disable:4146) // negated unsigned is unsigned
 #pragma warning (disable:4238) // <utility> nonstandard extension used : class rvalue used as lvalue
-#pragma warning (disable:4244) // int to char conversion
 #pragma warning (disable:4511) // copy construct could not be generated
 #pragma warning (disable:4512) // assignment operator could not be generated
 #pragma warning (disable:4663) // C++ language change: to explicitly specialize class template..
@@ -199,7 +207,7 @@ typedef unsigned long long uint64;
 #pragma GCC diagnostic ignored "-Wunused-const-variable"
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
-#if _MSC_VER
+#if _MSC_VER > 1100 // TODO which version?
 #include <intrin.h>
 #endif
 #ifndef _ISOC99_SOURCE
@@ -226,7 +234,7 @@ typedef ptrdiff_t ssize_t;
 #define NOMINMAX 1
 #include <io.h>
 #include <windows.h>
-__declspec(dllimport) int __stdcall IsDebuggerPresent(void);
+extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #if _MSC_VER <= 1100 // TODO which version?
 #define __debugbreak DebugBreak
 #else
@@ -254,8 +262,24 @@ __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #define HOST64 0
 #endif
 
+// Visual C++ 5.0 has namespaces but they are too buggy to use, i.e. with STL.
+// TODO use manual form
+#if !_MSC_VER || _MSC_VER > 1100
+#define CONFIG_NAMESPACE 1
+#else
+#define CONFIG_NAMESPACE 0
+#endif
+
+#if CONFIG_NAMESPACE
+#define W3 w3::
+#else
+#define W3 ::
+#endif
+
+#if CONFIG_NAMESPACE
 namespace w3 // TODO Visual C++ 2.0 lacks namespaces
 {
+#endif
 
 // This exists to ease unsigned/signed mismatches.
 template <typename T, typename SizeT = size_t>
@@ -287,9 +311,9 @@ struct Vector : std::vector<T>
 
 //        T& operator [ ] (SizeT) const;
 
-        T* operator -> ()
+        typename base::iterator operator -> ()
         {
-            return i.operator -> ();
+            return i; //.operator -> ();
         }
 //        T* operator -> () const;
 
@@ -345,13 +369,13 @@ AssertFailed (const char* file, int line, const char* expr)
 #endif
 
 template <typename T>
-T Min(const T& a, const T& b)
+const T& Min (const T& a, const T& b)
 {
     return (a <= b) ? a : b;
 }
 
 template <typename T>
-T Max(const T& a, const T& b)
+const T& Max (const T& a, const T& b)
 {
     return (a >= b) ? a : b;
 }
@@ -819,8 +843,6 @@ struct MemoryMappedFile
 #define END_ENUM(name, type) ; typedef type name;
 #endif
 
-#define NOTHING /* nothing */
-
 static
 uint64
 SignExtend (uint64 value, uint bits)
@@ -1167,7 +1189,11 @@ read_varint32 (uint8** cursor, const uint8* end)
     return result;
 }
 
+#if HAS_TYPED_ENUM
 typedef enum Type : uint8
+#else
+typedef enum Type
+#endif
 {
     Type_none,
     Type_bool, // i32
@@ -1179,7 +1205,11 @@ typedef enum Type : uint8
 } Type;
 
 // This should probabably be combined with ResultType, and called Tag.
+#if HAS_TYPED_ENUM
 typedef enum ValueType : uint8
+#else
+typedef enum ValueType
+#endif
 {
     ValueType_i32 = 0x7F,
     ValueType_i64 = 0x7E,
@@ -1213,7 +1243,11 @@ typedef struct TaggedValue
 } TaggedValue;
 
 // This should probabably be combined with ValueType, and called Tag.
+#if HAS_TYPED_ENUM
 typedef enum ResultType : uint8
+#else
+typedef enum ResultType
+#endif
 {
     ResultType_i32 = 0x7F,
     ResultType_i64 = 0x7E,
@@ -1240,7 +1274,11 @@ TypeToString (int tag)
     return "unknown";
 }
 
+#if HAS_TYPED_ENUM
 typedef enum TableElementType : uint
+#else
+typedef enum TableElementType
+#endif
 {
     TableElementType_funcRef = 0x70,
 } TableElementType;
@@ -1269,6 +1307,9 @@ struct TableType
 
     TableElementType elementType;
     Limits limits;
+
+    bool operator < (const TableType&) const; // workaround old compiler
+    bool operator == (const TableType&) const; // workaround old compiler
 };
 
 // Table types have an value type, funcref
@@ -1394,6 +1435,43 @@ typedef struct LabelValue
 // work in progress
 typedef struct StackValue
 {
+    void Init ()
+    {
+        ZeroMem (this, sizeof (*this));
+    }
+
+    StackValue()
+    {
+        Init ();
+    }
+
+    StackValue (StackTag t)
+    {
+        Init ();
+        tag = t;
+    }
+
+    StackValue (ValueType t)
+    {
+        Init ();
+        tag = StackTag_Value;
+        value.tag = t;
+    }
+
+    StackValue (TaggedValue t)
+    {
+        Init ();
+        tag = StackTag_Value;
+        value = t;
+    }
+
+    StackValue (Frame* f)
+    {
+        Init ();
+        tag = StackTag_Frame;
+ //       frame = f;
+    }
+
 //    union
 //    {
 //        StackTag type : 8; // TODO change to tag
@@ -1408,9 +1486,12 @@ typedef struct StackValue
             Frame* frame; // TODO by value? Probably not. This was changed
             // to resolve circular types, and for the initial frame that seemed
             // wrong, but now that call/ret being implemented, seems right
-            DecodedInstruction* instr;
+            //DecodedInstruction* instr;
         };
     };
+
+    bool operator < (const StackValue&) const; // workaround old compiler
+    bool operator == (const StackValue&) const; // workaround old compiler
 } StackValue;
 
 // TODO consider a vector instead, but it affects frame.locals staying valid across push/pop
@@ -1431,7 +1512,7 @@ struct StackBase : private StackBaseBase
     using base::operator [];
 
     void push (const StackValue& a)
-    {
+    { // While ultimately a stack of values, labels, and frames, values dominate.
         push_back (a);
     }
 
@@ -1441,7 +1522,7 @@ struct StackBase : private StackBaseBase
     }
 
     StackValue& top ()
-    {
+    { // While ultimately a stack of values, labels, and frames, values dominate.
         return back ();
     }
 };
@@ -1452,7 +1533,7 @@ struct Frame
 {
     Frame ()
     {
-        memset (this, 0, sizeof (*this));
+        ZeroMem (this, sizeof (*this));
     }
 
     // FUTURE spec return_arity
@@ -1500,7 +1581,7 @@ struct Stack : private StackBase
         // TODO
     }
 
-    // TODO labels and frames on stack
+    // While ultimately a stack of values, labels, and frames, values dominate.
 
     ValueType& tag (ValueType tag)
     {
@@ -1574,14 +1655,14 @@ struct Stack : private StackBase
 
     void push_i32 (int i)
     {
-        StackValue value = {StackTag_Value, {{ ValueType_i32 }}};
+        StackValue value (ValueType_i32);
         value.value.value.i32 = i;
         push_value (value);
     }
 
     void push_i64 (int64 i)
     {
-        StackValue value = {StackTag_Value, {{ ValueType_i64 }}};
+        StackValue value (ValueType_i64);
         value.value.value.i64 = i;
         push_value (value);
     }
@@ -1598,14 +1679,14 @@ struct Stack : private StackBase
 
     void push_f32 (float i)
     {
-        StackValue value = {StackTag_Value, {{ ValueType_f32 }}};
+        StackValue value (ValueType_f32);
         value.value.value.f32 = i;
         push_value (value);
     }
 
     void push_f64 (double i)
     {
-        StackValue value = {StackTag_Value, {{ ValueType_f64 }}};
+        StackValue value (ValueType_f64);
         value.value.value.f64 = i;
         push_value (value);
     }
@@ -1770,7 +1851,11 @@ struct Stack : private StackBase
     }
 };
 
+#if HAS_TYPED_ENUM
 typedef enum Immediate : uint8
+#else
+typedef enum Immediate
+#endif
 {
     Imm_none = 0,
     Imm_i32,
@@ -1875,10 +1960,10 @@ RESERVED (25) \
 RESERVED (26) \
 RESERVED (27) \
 \
-LOAD (0x28, i32, ) \
-LOAD (0x29, i64, ) \
-LOAD (0x2A, f32, ) \
-LOAD (0x2B, f64, ) \
+LOAD (0x28, i32, _) \
+LOAD (0x29, i64, _) \
+LOAD (0x2A, f32, _) \
+LOAD (0x2B, f64, _) \
 \
 /* zero or sign extending load from memory to register */ \
 LOAD (0x2C, i32, 8s) \
@@ -1892,10 +1977,10 @@ LOAD (0x33, i64, 16u) \
 LOAD (0x34, i64, 32s) \
 LOAD (0x35, i64, 32u) \
 \
-STORE (0x36, i32, ) \
-STORE (0x37, i64, ) \
-STORE (0x38, f32, ) \
-STORE (0x39, f64, ) \
+STORE (0x36, i32, _) \
+STORE (0x37, i64, _) \
+STORE (0x38, f32, _) \
+STORE (0x39, f64, _) \
 \
 /* truncating store from register to memory */ \
 STORE (0x3A, i32, 8) \
@@ -1913,8 +1998,8 @@ CONST (0x43, f32) \
 CONST (0x44, f64) \
 \
 ITESTOP (0x45, Eqz, 32) \
-IRELOP (0x46, Eq, 32, ) \
-IRELOP (0x47, Ne, 32, ) \
+IRELOP (0x46, Eq, 32, _) \
+IRELOP (0x47, Ne, 32, _) \
 IRELOP (0x48, Lt, 32, s) \
 IRELOP (0x49, Lt, 32, u) \
 IRELOP (0x4A, Gt, 32, s) \
@@ -1925,8 +2010,8 @@ IRELOP (0x4E, Ge, 32, s) \
 IRELOP (0x4F, Ge, 32, u) \
 \
 ITESTOP (0x50, Eqz, 64) \
-IRELOP (0x51, Eq, 64,  ) \
-IRELOP (0x52, Ne, 64,  ) \
+IRELOP (0x51, Eq, 64, _) \
+IRELOP (0x52, Ne, 64, _) \
 IRELOP (0x53, Lt, 64, s) \
 IRELOP (0x54, Lt, 64, u) \
 IRELOP (0x55, Gt, 64, s) \
@@ -2018,7 +2103,7 @@ FBINOP (0xA4, Min,      64) \
 FBINOP (0xA5, Max,      64) \
 FBINOP (0xA6, Copysign, 64) \
 \
-CVTOP (0xA7,  Wrap, i32, i64,  )  \
+CVTOP (0xA7,  Wrap, i32, i64, _)  \
 CVTOP (0xA8, Trunc, i32, f32, s)  \
 CVTOP (0xA9, Trunc, i32, f32, u)  \
 CVTOP (0xAA, Trunc, i32, f64, s)  \
@@ -2034,17 +2119,17 @@ CVTOP (0xB2, Convert, f32, i32, u) \
 CVTOP (0xB3, Convert, f32, i32, s) \
 CVTOP (0xB4, Convert, f32, i64, u) \
 CVTOP (0xB5, Convert, f32, i64, s) \
-CVTOP (0xB6, Demote,  f32, f64, ) \
+CVTOP (0xB6, Demote,  f32, f64, _) \
 CVTOP (0xB7, Convert, f64, i32, s) \
 CVTOP (0xB8, Convert, f64, i32, u) \
 CVTOP (0xB9, Convert, f64, i64, s) \
 CVTOP (0xBA, Convert, f64, i64, u) \
-CVTOP (0xBB, Promote, f64, f32, ) \
+CVTOP (0xBB, Promote, f64, f32, _) \
 \
-CVTOP (0xBC, Reinterpret, i32, f32, ) \
-CVTOP (0xBD, Reinterpret, i64, f64, ) \
-CVTOP (0xBE, Reinterpret, f32, i32, ) \
-CVTOP (0xBF, Reinterpret, f64, i64, ) \
+CVTOP (0xBC, Reinterpret, i32, f32, _) \
+CVTOP (0xBD, Reinterpret, i64, f64, _) \
+CVTOP (0xBE, Reinterpret, f32, i32, _) \
+CVTOP (0xBF, Reinterpret, f64, i64, _) \
 \
 RESERVED (C0) \
 RESERVED (C1) \
@@ -2134,10 +2219,13 @@ RESERVED (FF) \
 #define LOAD(b0, to, from)  INSTRUCTION (b0, 1, 0, to ## _Load ## from,  Imm_memory, 0, 1, Type_none,     Type_none, Type_none, Type_ ## to)
 #define STORE(b0, from, to) INSTRUCTION (b0, 1, 0, from ## _Store ## to, Imm_memory, 1, 0, Type_ ## from, Type_none, Type_none, Type_none)
 
-
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) name,
+#if HAS_TYPED_ENUM
 enum InstructionEnum : uint16
+#else
+enum InstructionEnum
+#endif
 {
     INSTRUCTIONS
 };
@@ -2166,10 +2254,23 @@ INSTRUCTIONS
 
 #if _MSC_VER && _MSC_VER <= 1700
 
+#if _MSC_VER > 1100 // TODO which versin
 #define __func__ __FUNCTION__
+#else
+#define __func__ "__FUNCTION__"
+#endif
 #include <windows.h>
 #define bits_for_uint(x) BITS_FOR_UINT (x)
+
+#ifdef C_ASSERT
+
 #define static_assert(x, y) C_ASSERT (x)
+
+#else
+
+#define static_assert(x, y) typedef char _C_ASSERT [(x) ? 1 : -1]
+
+#endif
 
 #else
 
@@ -2221,7 +2322,11 @@ struct InstructionEncoding
     Immediate immediate;
     uint8 pop           : 2;    // required minimum stack in
     uint8 push          : 1;
+#if _MSC_VER > 1100
     InstructionEnum name : 16;
+#else
+    InstructionEnum name;
+#endif
     uint string_offset : bits_for_uint (sizeof (instructionNames));
     Type stack_in0  ; // type of stack [0] upon input, if pop >= 1
     Type stack_in1  ; // type of stack [1] upon input, if pop >= 2
@@ -2230,11 +2335,11 @@ struct InstructionEncoding
     void (*interp) (Module*); // Module* wrong
 };
 
-struct DecodedInstructionZeroInit // ZeroMemory-compatible part
+struct DecodedInstructionZeroInit // ZeroMem-compatible part
 {
     DecodedInstructionZeroInit ()
     {
-        memset (this, 0, sizeof (*this));
+        ZeroMem (this, sizeof (*this));
     }
 
     union
@@ -2281,6 +2386,9 @@ struct DecodedInstruction : DecodedInstructionZeroInit
     }
 
     Vector <uint> vecLabel;
+
+    bool operator < (const DecodedInstruction&) const; // workaround old compiler
+    bool operator == (const DecodedInstruction&) const; // workaround old compiler
 };
 
 #undef INSTRUCTION
@@ -2373,6 +2481,11 @@ struct ImportMemory
 
 struct GlobalType
 {
+    GlobalType ()
+    {
+        ZeroMem (this, sizeof (*this));
+    }
+
     ValueType value_type;
     bool is_mutable;
 };
@@ -2392,6 +2505,9 @@ struct Import
         MemoryType memory;
         GlobalType global;
     //};
+
+    bool operator < (const Import&) const; // workaround old compiler
+    bool operator == (const Import&) const; // workaround old compiler
 };
 
 struct FuncAddr // TODO
@@ -2425,6 +2541,9 @@ struct ExportInstance // work in progress
 {
     String name;
     ExternalValue external_value;
+
+    bool operator < (const ExportInstance&) const; // workaround old compiler
+    bool operator == (const ExportInstance&) const; // workaround old compiler
 };
 
 struct ModuleInstance // work in progress
@@ -2452,7 +2571,7 @@ struct Function // section3
 {
     Function ()
     {
-        memset (this, 0, sizeof (*this));
+        ZeroMem (this, sizeof (*this));
     }
 
     // Functions are split between two sections: types in section3, locals/body in section10
@@ -2461,12 +2580,18 @@ struct Function // section3
     size_t local_only_count;
     size_t param_count;
     bool import; // TODO needed?
+
+    bool operator < (const Function&) const; // workaround old compiler
+    bool operator == (const Function&) const; // workaround old compiler
 };
 
 struct Global
 {
     GlobalType global_type;
     Vector <DecodedInstruction> init;
+
+    bool operator < (const Global&) const; // workaround old compiler
+    bool operator == (const Global&) const; // workaround old compiler
 };
 
 struct Element
@@ -2475,13 +2600,16 @@ struct Element
     Vector <DecodedInstruction> offset_instructions;
     uint offset;
     Vector <uint> functions;
+
+    bool operator == (const Element&) const; // workaround old compiler
+    bool operator < (const Element&) const; // workaround old compiler
 };
 
 struct Export
 {
     Export ()
     {
-        memset (this, 0, sizeof (*this));
+        ZeroMem (this, sizeof (*this));
     }
 
     Export (const Export& e)
@@ -2503,6 +2631,9 @@ struct Export
         uint table;
         uint global;
     };
+
+    bool operator == (const Export&) const; // workaround old compiler
+    bool operator < (const Export&) const; // workaround old compiler
 };
 
 struct Data // section11
@@ -2512,6 +2643,9 @@ struct Data // section11
     uint memory;
     Vector <DecodedInstruction> expr;
     void* bytes;
+
+    bool operator == (const Data&) const; // workaround old compiler
+    bool operator < (const Data&) const; // workaround old compiler
 };
 
 struct Code // section3 and section10
@@ -2525,6 +2659,9 @@ struct Code // section3 and section10
     Vector <ValueType> locals; // params in FunctionType
     Vector <DecodedInstruction> decoded_instructions; // section10
     bool import;
+
+    bool operator < (const Code&) const; // workaround old compiler
+    bool operator == (const Code&) const; // workaround old compiler
 };
 
 // Initial representation of X and XSection are the same.
@@ -2542,6 +2679,8 @@ struct FunctionType
         return parameters == other.parameters &&
             results == other.results;
     }
+
+    bool operator < (const FunctionType&) const; // workaround old compiler
 };
 
 struct Module
@@ -3037,13 +3176,13 @@ SECTIONS
 int Module::read_i32 (uint8** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
-    return w3::read_varint32 (cursor, end);
+    return W3 read_varint32 (cursor, end);
 }
 
 int64 Module::read_i64 (uint8** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
-    return (int64)w3::read_varint64 (cursor, end);
+    return (int64)W3 read_varint64 (cursor, end);
 }
 
 #if _MSC_VER
@@ -3084,13 +3223,13 @@ double Module::read_f64 (uint8** cursor)
 uint8 Module::read_varuint7 (uint8** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
-    return w3::read_varuint7 (cursor, end);
+    return W3 read_varuint7 (cursor, end);
 }
 
 uint8 Module::read_byte (uint8** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
-    return w3::read_byte (cursor, end);
+    return W3 read_byte (cursor, end);
 }
 
 // TODO efficiency
@@ -3131,7 +3270,7 @@ void Module::read_vector_varuint32 (Vector<uint>& result, uint8** cursor)
 uint Module::read_varuint32 (uint8** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
-    return w3::read_varuint32 (cursor, end);
+    return W3 read_varuint32 (cursor, end);
 }
 
 Limits Module::read_limits (uint8** cursor)
@@ -3156,7 +3295,9 @@ Limits Module::read_limits (uint8** cursor)
 
 MemoryType Module::read_memorytype (uint8** cursor)
 {
-    const MemoryType m = { read_limits (cursor) };
+    MemoryType m;
+    ZeroMem (&m, sizeof (m));
+    m.limits = read_limits (cursor);
     return m;
 }
 
@@ -3210,7 +3351,7 @@ BlockType Module::read_blocktype(uint8** cursor)
 
 GlobalType Module::read_globaltype (uint8** cursor)
 {
-    GlobalType globalType = { };
+    GlobalType globalType;
     globalType.value_type = read_valuetype (cursor);
     globalType.is_mutable = read_mutable (cursor);
     return globalType;
@@ -3499,8 +3640,7 @@ void Interp::Invoke (Function& function)
     frame_value.param_types = param_count ? &function_type->parameters [0] : 0;
     frame_value.function_type = function_type;
 
-    StackValue ret = {StackTag_Frame};
-    ret.frame = frame; // null for first function?
+    StackValue ret (frame);
     this->frame = &frame_value;
     push_frame (ret);
     DumpStack ("pushed_frame");
@@ -3534,21 +3674,19 @@ void Interp::Invoke (Function& function)
         }
     }
 
-    // place return frame/address
+    // place return frame/address (frame is just a marker now, the data is on the native stack)
 
     (end () - 1 - param_count)->tag = StackTag_Frame;
-    (end () - 1 - param_count)->frame = frame;
-    (end () - 1 - param_count)->instr = instr + !!instr;
+    //(end () - 1 - param_count)->frame = frame;
+    //(end () - 1 - param_count)->instr = instr + !!instr;
 
     // Push locals on stack.
     // TODO params also
     // TODO reserve (size () + local_only_count);
     DumpStack ("push_locals_before");
     for (i = 0; i != local_only_count; ++i)
-    {
-        StackValue value = {StackTag_Value, {{ code->locals [i] }}};
-        push_value (value);
-    }
+        push_value (StackValue (code->locals [i]));
+
     DumpStack ("push_locals_after");
     // Provide for indexing locals.
     frame_value.locals = stack.size () - local_only_count - param_count;
@@ -3572,19 +3710,19 @@ void Interp::Invoke (Function& function)
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0)     \
             break;                                                                           \
-            case w3::name:                                                                   \
+            case W3 name:                                                                   \
             printf ("interp%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); \
             this->name ();
 INSTRUCTIONS
         }
         // special handling
-        if (instr->name == w3::Ret) // gross but most choices are
+        if (instr->name == W3 Ret) // gross but most choices are
             break;
 #include "diag-switch-push.h"
         switch (instr->name)
         {
-        case w3::Call:
-        case w3::Calli:
+        case W3 Call:
+        case W3 Calli:
             frame = &frame_value; // TODO should handled in Ret.
             break;
         }
@@ -3598,7 +3736,7 @@ INSTRUCTIONS
 INTERP (Block)
 {
     // Label is end.
-    StackValue stack_value = {StackTag_Label};
+    StackValue stack_value (StackTag_Label);
     stack_value.label.arity = instr->Arity ();
     stack_value.label.continuation = instr->label;
     push_label (stack_value);
@@ -3609,7 +3747,7 @@ INTERP (Loop)
     // Loop and Block are almost the same, esp. after decoding.
     // Loop continuation is start, block continuation is end.
     Block ();
-    back ().arity = 0;
+    back ().label.arity = 0;
 }
 
 INTERP (MemGrow)
@@ -3657,10 +3795,8 @@ INTERP (Global_get)
 {
     const size_t i = instr->u32;
     AssertFormat (i < module->globals.size (), ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, module->globals.size ()));
-    StackValue value = {StackTag_Value};
-    value.value.tag = module->globals [i].global_type.value_type; // TODO initialize the instance with types?
-    value.value.value = module_instance->globals [i].value.value;
-    push_value (value);
+    push_value (StackValue (module_instance->globals [i].value));
+    AssertFormat (tag () == module->globals [i].global_type.value_type, ("%X %X", tag (), module->globals [i].global_type.value_type));
 }
 
 INTERP (Local_set)
@@ -3686,13 +3822,11 @@ INTERP (Local_get)
 {
     const size_t i = instr->u32;
     AssertFormat (i < frame->param_and_local_count, ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, frame->param_and_local_count));
-    StackValue value = {StackTag_Value};
-    value.value = frame->Local (i).value;
+    push_value (StackValue (frame->Local (i)));
     if (i < frame->param_count)
-        AssertFormat (value.value.tag == frame->param_types [i], ("%X %X", value.value.tag, frame->param_types [i]));
+        AssertFormat (top ().tag == frame->param_types [i], ("%X %X", top ().tag, frame->param_types [i]));
     else
-        AssertFormat (value.value.tag == frame->local_only_types [i - frame->param_count], ("%X %X", value.value.tag, frame->local_only_types [i - frame->param_count]));
-    push_value (value);
+        AssertFormat (top ().tag == frame->local_only_types [i - frame->param_count], ("%X %X", top ().tag, frame->local_only_types [i - frame->param_count]));
 }
 
 INTERP (If)
@@ -3702,7 +3836,7 @@ INTERP (If)
     const uint condition = pop_u32 ();
 
     // Push the same label either way.
-    StackValue stack_value = {StackTag_Label};
+    StackValue stack_value (StackTag_Label);
     stack_value.label.arity = instr->Arity ();
     stack_value.label.continuation = instr->if_end;
     push_label (stack_value);
@@ -3808,7 +3942,7 @@ INTERP (Ret)
 
     Assert (!empty ());
     Assert (top ().tag == StackTag_Frame);
-    frame = top ().frame; // TODO Why this is not working?
+//    frame = top ().frame; // TODO Why this is not working?
     pop ();
 
     if (arity)
@@ -3960,7 +4094,7 @@ INTERP (f64_Const)
     push_f64 (instr->f64);
 }
 
-INTERP (i32_Load)
+INTERP (i32_Load_)
 {
     push_i32 (*(int*)LoadStore (4));
 }
@@ -3985,7 +4119,7 @@ INTERP (i32_Load16u)
     push_i32 (*(uint16*)LoadStore (2));
 }
 
-INTERP (i64_Load)
+INTERP (i64_Load_)
 {
     push_i64 (*(int64*)LoadStore (8));
 }
@@ -4020,17 +4154,17 @@ INTERP (i64_Load32u)
     push_i64 (*(uint*)LoadStore (4));
 }
 
-INTERP (f32_Load)
+INTERP (f32_Load_)
 {
     push_f32 (*(float*)LoadStore (4));
 }
 
-INTERP (f64_Load)
+INTERP (f64_Load_)
 {
     push_f64 (*(double*)LoadStore (8));
 }
 
-INTERP (i32_Store)
+INTERP (i32_Store_)
 {
     const uint a = pop_u32 ();
     *(uint*)LoadStore (4) = a;
@@ -4066,19 +4200,19 @@ INTERP (i64_Store32)
     *(uint*)LoadStore (4) = (uint)(a & 0xFFFFFFFF);
 }
 
-INTERP (i64_Store)
+INTERP (i64_Store_)
 {
     const uint64 a = pop_u64 ();
     *(uint64*)LoadStore (8) = a;
 }
 
-INTERP (f32_Store)
+INTERP (f32_Store_)
 {
     float a = pop_f32 ();
     *(float*)LoadStore (4) = a;
 }
 
-INTERP (f64_Store)
+INTERP (f64_Store_)
 {
     double a = pop_f64 ();
     *(double*)LoadStore (8) = a;
@@ -4122,12 +4256,12 @@ INTERP (Eqz_i64)
     push_bool (pop_i64 () == 0);
 }
 
-INTERP (Eq_i32)
+INTERP (Eq_i32_)
 {
     push_bool (pop_i32 () == pop_i32 ());
 }
 
-INTERP (Eq_i64)
+INTERP (Eq_i64_)
 {
     push_bool (pop_i64 () == pop_i64 ());
 }
@@ -4142,12 +4276,12 @@ INTERP (Eq_f64)
     push_bool (pop_f64 () == pop_f64 ());
 }
 
-INTERP (Ne_i32)
+INTERP (Ne_i32_)
 {
     push_bool (pop_i32 () != pop_i32 ());
 }
 
-INTERP (Ne_i64)
+INTERP (Ne_i64_)
 {
     push_bool (pop_i64 () != pop_i64 ());
 }
@@ -4381,7 +4515,7 @@ count_leading_zeros (T a)
 INTERP (Popcnt_i32)
 {
     uint& a = u32 ();
-#if _MSC_VER && (_M_AMD64 || _M_IX86)
+#if (_M_AMD64 || _M_IX86) && _MSC_VER > 1100 // TODO which version
     a = __popcnt (a);
 #else
     a = count_set_bits (a);
@@ -4597,7 +4731,7 @@ INTERP (Rotl_i64)
     const uint b = (uint)(pop_u64 () & (n - 1));
     uint64& r = u64 ();
     uint64 a = r;
-#if _MSC_VER
+#if _MSC_VER > 1100 // TODO which version
     r = _rotl64 (a, (int)b);
 #else
     r = (a << b) | (a >> (n - b));
@@ -4623,7 +4757,7 @@ INTERP (Rotr_i64)
     const uint b = (uint)(pop_u64 () & (n - 1));
     uint64& r = u64 ();
     uint64 a = r;
-#if _MSC_VER
+#if _MSC_VER > 1100 // TODO which version
     r = _rotr64 (a, (int)b);
 #else
     r = (a >> b) | (a << (n - b));
@@ -4804,7 +4938,7 @@ INTERP (Copysign_f64)
 
 // Various lossless and lossy conversions.
 
-INTERP (i32_Wrap_i64)
+INTERP (i32_Wrap_i64_)
 {
     set_i32 ((int)(i64 () & 0xFFFFFFFF));
 }
@@ -4869,9 +5003,31 @@ INTERP (f32_Convert_i32s)
     set_f32 ((float)(int)i32 ());
 }
 
+template <typename T>
+T uint64_to_float (unsigned __int64 ui64)
+{
+#if _MSC_VER == 1100 // error C2520: conversion from unsigned __int64 to double not implemented, use signed __int64
+    __int64 i64 = (__int64)ui64;
+    if (i64 >= 0)
+    {
+        return (T)(__int64)ui64;
+    }
+    __int64 low_bit = (__int64)(ui64 & 1);
+    unsigned __int64 uhalf = ui64 >> 1;
+    __int64 half = (__int64)uhalf;
+    Assert (half >= 0);
+    T f = (T)half;
+    f *= 2;
+    f += low_bit;
+    return f;
+#else
+    return (T)ui64;
+#endif
+}
+
 INTERP (f32_Convert_i64u)
 {
-    set_f32 ((float)u64 ());
+    set_f32 (uint64_to_float<float>(u64 ()));
 }
 
 INTERP (f32_Convert_i64s)
@@ -4879,7 +5035,7 @@ INTERP (f32_Convert_i64s)
     set_f32 ((float)i64 ());
 }
 
-INTERP (f32_Demote_f64)
+INTERP (f32_Demote_f64_)
 {
     set_f32 ((float)f64 ());
 }
@@ -4901,39 +5057,41 @@ INTERP (f64_Convert_i64s)
 
 INTERP (f64_Convert_i64u)
 {
-    set_f64 ((double)u64 ());
+    set_f64 (uint64_to_float<double>(u64 ()));
 }
 
-INTERP (f64_Promote_f32)
+INTERP (f64_Promote_f32_)
 {
     set_f64 ((double)f32 ());
 }
 
 // reinterpret; these could be more automated
 
-INTERP (i32_Reinterpret_f32)
+INTERP (i32_Reinterpret_f32_)
 {
     tag (ValueType_f32) = ValueType_i32;
 }
 
-INTERP (f32_Reinterpret_i32)
+INTERP (f32_Reinterpret_i32_)
 {
     tag (ValueType_i32) = ValueType_f32;
 }
 
-INTERP (i64_Reinterpret_f64)
+INTERP (i64_Reinterpret_f64_)
 {
     tag (ValueType_f64) = ValueType_i64;
 }
 
-INTERP (f64_Reinterpret_i64)
+INTERP (f64_Reinterpret_i64_)
 {
     tag (ValueType_i64) = ValueType_f64;
 }
 
-};
+#if CONFIG_NAMESPACE
+}
 
 using namespace w3; // TODO C or C++?
+#endif
 
 int
 main (int argc, char** argv)
