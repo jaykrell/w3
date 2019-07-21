@@ -15,6 +15,7 @@ for /f %%a in ('cl /nologo /EP mscver.cpp') do set mscver=%%a
 
 set HAS_TYPED_ENUM=1
 echo enum a : int { }; > typedenum.cpp
+cl /nologo %Wall% /c typedenum.cpp
 if errorlevel 1 set HAS_TYPED_ENUM=0
 
 set Wall=/Wall
