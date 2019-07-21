@@ -4,17 +4,21 @@
 // efficient? (not yet)
 
 #if _MSC_VER
-#pragma warning (disable:4615) // unknown warning
-#pragma warning (disable:4571) // catch(...)
+#pragma warning (disable:4616) // unknown warning disabled
 #pragma warning (disable:4097) // typedef-name 'base' used as synonym for class-name 'Vector::vector'
-#endif
-
-#if _MSC_VER == 1100
+#pragma warning (disable:4571) // catch(...)
+#pragma warning (disable:4615) // unknown warning
+#pragma warning (disable:4668) // #if not_defined is #if 0
+#pragma warning (disable:4711) // selected for inline
+#pragma warning (disable:4738) // storing 32 float in memory is slow
+#pragma warning (disable:5045) // compiler will/did insert Spectre mitigation
+#if _MSC_VER == 1100 // TODO which versions?
 #include <yvals.h>
 #pragma warning (disable:4018) // unsigned/signed
 #pragma warning (disable:4100) // unused parameter
 #pragma warning (disable:4238) // nonstandard extension used : class rvalue used as lvalue
 #pragma warning (disable:4244) // int to char conversion
+#endif
 #endif
 
 #define _WASI_EMULATED_MMAN
@@ -25,10 +29,6 @@
 #else
 #define __BEGIN_HIDDEN_DECLS
 #define __END_HIDDEN_DECLS
-#endif
-
-#if _MSC_VER
-#pragma warning (disable:4668) // #if not_defined is #if 0
 #endif
 
 #if _WIN32 && !WIN32 // Fix for circa Visual C++ 2.0 Win32 SDK. // C:\msdev\MSVC20\INCLUDE\objbase.h(8934) : error C2065: '_fmemcmp' : undeclared identifier
@@ -46,7 +46,7 @@
 #define BYTE_ORDER      __BYTE_ORDER
 #endif
 
-#if _MSC_VER > 1100 //TODO which version?
+#if _MSC_VER >= 1200
 #pragma warning (push)
 #pragma warning (disable:4820) // padding
 #endif
@@ -57,7 +57,7 @@
 // Win32 ZeroMemory
 #define ZeroMem(p, n) memset((p), 0, (n))
 
-#if _MSC_VER > 1100 //TODO which version?
+#if _MSC_VER >= 1200
 #pragma warning (pop)
 #endif
 
@@ -119,7 +119,7 @@ typedef unsigned long long uint64;
 
 #endif
 
-#if _MSC_VER > 1100 //TODO which version?
+#if _MSC_VER >= 1200
 #pragma warning (push)
 #endif
 #if _MSC_VER
@@ -140,7 +140,7 @@ typedef unsigned long long uint64;
 #include "s_round.c"
 #include "s_roundf.c"
 
-#if _MSC_VER > 1100 //TODO which version?
+#if _MSC_VER >= 1200
 #pragma warning (pop)
 #endif
 
@@ -163,9 +163,7 @@ typedef unsigned long long uint64;
 #endif
 
 #if _MSC_VER
-#pragma warning (disable:4616) // unknown warning disabled
 #pragma warning (disable:4619) // invalid pragma warning disable
-#pragma warning (disable:5045) // compiler will insert Spectre mitigation
 #if _MSC_VER <= 1100
 #pragma warning (disable:4018) // unsigned/signed
 #pragma warning (disable:4146) // negated unsigned is unsigned
@@ -190,7 +188,7 @@ typedef unsigned long long uint64;
 #pragma warning (disable:4668) // #if not_defined is #if 0
 #pragma warning (disable:4710) // function not inlined
 #pragma warning (disable:4820) // padding
-#if _MSC_VER > 1100 //TODO which version?
+#if _MSC_VER >= 1200
 #pragma warning (push)
 #endif
 #pragma warning (disable:4571) // catch(...)
@@ -251,7 +249,7 @@ extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #endif
 #if _MSC_VER
 #include <malloc.h> // for _alloca
-#if _MSC_VER > 1100 //TODO which version?
+#if _MSC_VER >= 1200
 #pragma warning (pop)
 #endif
 #endif
@@ -391,7 +389,7 @@ const T& Max (const T& a, const T& b)
 #pragma warning (disable:4777) // printf maybe wrong for other platforms
 #endif
 
-#if _MSC_VER
+#if _MSC_VER >= 1200
 #pragma warning (push)
 #pragma warning (disable:4996) // _vsnprintf dangerous
 #endif
@@ -440,7 +438,7 @@ StringFormatVa (const char* format, va_list va)
     return &s [0];
 }
 
-#if _MSC_VER
+#if _MSC_VER >= 1200
 #pragma warning (pop)
 #endif
 
@@ -3185,7 +3183,7 @@ int64 Module::read_i64 (uint8** cursor)
     return (int64)W3 read_varint64 (cursor, end);
 }
 
-#if _MSC_VER
+#if _MSC_VER >= 1200
 #pragma warning (push)
 #pragma warning (disable:4701) // uninitialized variable
 #endif
@@ -3216,7 +3214,7 @@ double Module::read_f64 (uint8** cursor)
     return u.f64;
 }
 
-#if _MSC_VER
+#if _MSC_VER >= 1200
 #pragma warning (pop)
 #endif
 
