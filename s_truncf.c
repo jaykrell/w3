@@ -19,15 +19,14 @@
  *	Inexact flag raised if x not equal to truncf(x).
  */
 
-static const float wasm_hugef = 1.0e30F;
-
 static
 float
 wasm_truncf (float x)
 {
 	int32_t i0,jj0;
 	u_int32_t i;
-	GET_FLOAT_WORD(i0,x);
+
+    GET_FLOAT_WORD(i0,x);
 	jj0 = ((i0>>23)&0xff)-0x7f;
 	if(jj0<23) {
 	    if(jj0<0) { 	/* raise inexact if x != 0 */

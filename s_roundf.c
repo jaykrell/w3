@@ -36,13 +36,13 @@ wasm_roundf (float x)
 		return x;
 
 	if (x >= 0.0) {
-		t = floorf (x);
+		t = wasm_floorf (x);
 		if (t - x <= -0.5)
-			t += 1.0;
+			t += 1.0f;
 		return t;
 	}
-	t = floorf (-x);
+	t = wasm_floorf (-x);
 	if (t + x <= -0.5)
-		t += 1.0;
+		t += 1.0f;
 	return (-t);
 }
