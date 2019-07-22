@@ -109,7 +109,8 @@ clean:
 
 $(win): w3.cpp
 	@-del $(@R).pdb $(@R).ilk
-	cl /Gy /O2s $(Wall) $(Qspectre) /W4 /MD /Zi /EHsc $** /link /out:$@ /incremental:no /opt:ref,icf
+	rem cl /Gy /O2s $(Wall) $(Qspectre) /W4 /MD /Zi /EHsc $** /link /out:$@ /incremental:no /opt:ref,icf
+	cl /Gy /O2s $(Wall) $(Qspectre) /W4 /MD /Zi /EHsc $** /link /out:$@ /incremental:no /opt:ref
 
 !else
 else

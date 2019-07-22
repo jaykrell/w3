@@ -74,7 +74,7 @@ typedef int int32_t;
 typedef unsigned __int8 uint8;
 typedef unsigned __int16 uint16;
 typedef unsigned __int64 uint64, u_int64_t;
-typedef unsigned __int32 uint, uint32, uint32_t, u_int32_t;
+typedef unsigned int /*__int32*/ uint, uint32, uint32_t, u_int32_t;
 
 #else
 
@@ -231,10 +231,12 @@ static const double wasm_huged = 1.0e300;
 typedef ptrdiff_t ssize_t;
 #include <stdio.h>
 #include <stdlib.h>
+#if !_MSC_VER || _MSC_VER > 1000
 #include <string>
 #include <vector>
 #include <memory>
 //#include <algorithm>
+#endif
 #if _WIN32
 #define NOMINMAX 1
 #include <io.h>
@@ -328,7 +330,9 @@ struct WasmStdString
     typedef char* iterator;
 };
 
+#if !_MSC_VER || _MSC_VER > 1000
 #define WasmStdString std::string
+#endif
 
 static
 void
@@ -488,7 +492,7 @@ void WasmStdCopyConstruct1toN (T* to, const T& from, size_t n)
 template <class T>
 void WasmStdCopyConstruct1 (T& to, const T& from)
 {
-    WasmStdCopyConstruct1toN (&to, from, 1);
+    WasmStdCopyConstruct1toN (&to, from, 1u);
 }
 
 template <class T>
@@ -507,7 +511,19 @@ struct WasmStdVector
     T* last;
     T* allocated;
 
-    typedef T* iterator;
+    struct iterator
+    {
+        T* p;
+
+        size_t operator - (iterator q);
+        iterator operator - (size_t );
+        iterator operator + (size_t );
+        iterator () : p (0) { }
+        iterator (T* q) : p (q) { }
+        T& operator [ ] (size_t i) { return *(p + i); }
+        T& operator * ( ) { return *p; }
+        T* operator -> ( ) { return p; }
+    };
 
     iterator begin () { return first; }
     iterator end () { return last; }
@@ -586,7 +602,7 @@ struct WasmStdVector
         if (!f)
             return; // TODO OutOfMemory
         WasmStdCopyConstructNtoN (f, first, newsize);
-        WasmStdCopyConstruct1toN (f + s, fill, newsize - s);
+        WasmStdCopyConstruct1toN (f + s, fill, (size_t)(newsize - s));
         first = f;
         last = f + newsize;
         allocated = f + newcap;
@@ -609,7 +625,9 @@ struct WasmStdVector
     }
 };
 
+#if !_MSC_VER || _MSC_VER > 1000
 #define WasmStdVector std::vector
+#endif
 
 #define _CRT_SECURE_NO_WARNINGS 1
 
@@ -683,26 +701,26 @@ struct WasmVector : WasmStdVector<T>
 
         iterator operator - (SizeT j)
         {
-            iterator a = { i - (ptrdiff_t)j };
+            iterator a = i - (ptrdiff_t)j;
             return a;
         }
 
         iterator operator + (SizeT j)
         {
-            iterator a = { i + (ptrdiff_t)j };
+            iterator a = i + (ptrdiff_t)j;
             return a;
         }
     };
 
     iterator begin ()
     {
-        iterator a = { base::begin () };
+        iterator a = base::begin ();
         return a;
     }
 
     iterator end()
     {
-        iterator a = { base::end () };
+        iterator a = base::end ();
         return a;
     }
 };
@@ -960,7 +978,7 @@ struct Fd
 
     Fd (int a = -1) : fd (a) { }
 
-    Fd& operator= (int a)
+    Fd& operator = (int a)
     {
         if (fd == a) return *this;
         cleanup ();
@@ -1182,7 +1200,7 @@ static
 uint
 IntToHex_GetLength_AtLeast8 (int64 a)
 {
-    uint const len = IntToHex_GetLength (a);
+    uint len = IntToHex_GetLength (a);
     return Max (len, 8u);
 }
 
@@ -2636,9 +2654,24 @@ struct Section
     uint8* payload;
 };
 
+struct ModuleBase // workaround old compiler
+{
+    virtual void read_types (uint8** cursor) = 0;
+    virtual void read_imports (uint8** cursor) = 0;
+    virtual void read_functions (uint8** cursor) = 0;
+    virtual void read_tables (uint8** cursor) = 0;
+    virtual void read_memory (uint8** cursor) = 0;
+    virtual void read_globals (uint8** cursor) = 0;
+    virtual void read_exports (uint8** cursor) = 0;
+    virtual void read_start (uint8** cursor) = 0;
+    virtual void read_elements (uint8** cursor) = 0;
+    virtual void read_code (uint8** cursor) = 0;
+    virtual void read_data (uint8** cursor) = 0;
+};
+
 struct SectionTraits
 {
-    void (Module::*read)(uint8** cursor);
+    void (ModuleBase::*read)(uint8** cursor);
     const char* name;
 };
 
@@ -2875,7 +2908,7 @@ struct FunctionType
     bool operator < (const FunctionType&) const; // workaround old compiler
 };
 
-struct Module
+struct Module : ModuleBase
 {
     Module () : base (0), file_size (0), end (0), start (0), main (0),
         import_function_count (0),
@@ -2939,20 +2972,20 @@ struct Module
     void read_vector_ValueType (WasmVector <ValueType>& result, uint8** cursor);
     void read_function_type (FunctionType& functionType, uint8** cursor);
 
-    void read_types (uint8** cursor);
-    void read_imports (uint8** cursor);
-    void read_functions (uint8** cursor);
-    void read_tables (uint8** cursor);
-    void read_memory (uint8** cursor);
-    void read_globals (uint8** cursor);
-    void read_exports (uint8** cursor);
-    void read_start (uint8** cursor)
+    virtual void read_types (uint8** cursor);
+    virtual void read_imports (uint8** cursor);
+    virtual void read_functions (uint8** cursor);
+    virtual void read_tables (uint8** cursor);
+    virtual void read_memory (uint8** cursor);
+    virtual void read_globals (uint8** cursor);
+    virtual void read_exports (uint8** cursor);
+    virtual void read_start (uint8** cursor)
     {
         ThrowString ("Start::read not yet implemented");
     }
-    void read_elements (uint8** cursor);
-    void read_code (uint8** cursor);
-    void read_data (uint8** cursor);
+    virtual void read_elements (uint8** cursor);
+    virtual void read_code (uint8** cursor);
+    virtual void read_data (uint8** cursor);
 };
 
 static
@@ -3242,7 +3275,7 @@ DecodeInstructions (Module* module, WasmVector <DecodedInstruction>& instruction
                     if_end = instructions.size () - 1; // to BlockEnd
                     break;
 #if _MSC_VER // {
-#pragma warning (suppress:4061) // unhandled case
+//#pragma warning (suppress:4061) // unhandled case
                 }
 #else
                 }
@@ -3360,7 +3393,7 @@ SectionTraits section_traits [ ] =
     SECTION (DataSection, read_data) \
 
 #undef SECTION
-#define SECTION(x, read) {&Module::read, #x},
+#define SECTION(x, read) {&ModuleBase::read, #x},
 SECTIONS
 
 };
@@ -4956,6 +4989,11 @@ INTERP (Rotr_i64)
 #endif
 }
 
+float __cdecl ceilf (float);
+float __cdecl fabsf (float);
+float __cdecl sqrtf (float);
+float __cdecl fabsf (float);
+
 INTERP (Abs_f32)
 {
     float& z = f32 ();
@@ -5196,9 +5234,9 @@ INTERP (f32_Convert_i32s)
 }
 
 template <class T>
-T uint64_to_float (unsigned __int64 ui64)
+T uint64_to_float (unsigned __int64 ui64, T*)
 {
-#if _MSC_VER == 1100 // error C2520: conversion from unsigned __int64 to double not implemented, use signed __int64
+#if _MSC_VER <= 1100 // error C2520: conversion from unsigned __int64 to double not implemented, use signed __int64
     __int64 i64 = (__int64)ui64;
     if (i64 >= 0)
     {
@@ -5219,7 +5257,7 @@ T uint64_to_float (unsigned __int64 ui64)
 
 INTERP (f32_Convert_i64u)
 {
-    set_f32 (uint64_to_float<float>(u64 ()));
+    set_f32 (uint64_to_float (u64 (), (float*)0));
 }
 
 INTERP (f32_Convert_i64s)
@@ -5249,7 +5287,7 @@ INTERP (f64_Convert_i64s)
 
 INTERP (f64_Convert_i64u)
 {
-    set_f64 (uint64_to_float<double>(u64 ()));
+    set_f64 (uint64_to_float (u64 (), (double*)0));
 }
 
 INTERP (f64_Promote_f32_)
