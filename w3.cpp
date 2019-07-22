@@ -2320,10 +2320,14 @@ struct InstructionEncoding
     Immediate immediate;
     uint8 pop           : 2;    // required minimum stack in
     uint8 push          : 1;
-#if _MSC_VER > 1100
+#if 0 // _MSC_VER > 1100
     InstructionEnum name : 16;
 #else
-    InstructionEnum name;
+    union // Workaround for Visual C++ 5.0 (1100) error C2077: non-scalar field initializer
+    {
+        uint name_init : 16;
+        InstructionEnum name : 16;
+    };
 #endif
     uint string_offset : bits_for_uint (sizeof (instructionNames));
     Type stack_in0  ; // type of stack [0] upon input, if pop >= 1
