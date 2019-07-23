@@ -111,7 +111,7 @@ $(win): w3.cpp
 	@-del $(@R).pdb $(@R).ilk
 	@rem TODO /GX on old, /EHsc on new
 	rem cl /Gy /O2s $(Wall) $(Qspectre) /W4 /MD /Zi /GX $** /link /out:$@ /incremental:no /opt:ref,icf
-	cl /Gy /O2s $(Wall) $(Qspectre) /W4 /MD /Zi /GX $** /link /out:$@ /incremental:no /opt:ref
+	cl /Gy $(Wall) $(Qspectre) /W4 /MD /Zi /GX $** /link /out:$@ /incremental:no /opt:ref /pdb:$(@B).pdb
 
 !else
 else

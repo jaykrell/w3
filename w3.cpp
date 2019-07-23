@@ -295,6 +295,12 @@ RESERVED (FF)
 
 #else
 
+#if _MSC_VER && _MSC_VER < 1000 // TODO
+#define DEBUG_EXPORT __declspec(dllexport) // since symbols do not work
+#else
+#define DEBUG_EXPORT /* nothing */
+#endif
+
 #if _MSC_VER
 #if _MSC_VER < 1000
 #pragma warning (disable:4284) // return type for operator -> is not a UDT or reference to a UDT. Will produce errors if applied using infix notation
@@ -535,6 +541,9 @@ typedef ptrdiff_t ssize_t;
 #include <io.h>
 #include <windows.h>
 extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
+#if _MSC_VER < 1000
+#define IsDebuggerPresent() (0)
+#endif
 #if _MSC_VER <= 1100 // TODO which version?
 #define __debugbreak DebugBreak
 #else
@@ -576,7 +585,10 @@ extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #define W3 ::
 #endif
 
-void* operator new (size_t, void*);
+void* operator new (size_t, void* p)
+{
+    return p;
+}
 
 #if CONFIG_NAMESPACE
 namespace w3 // TODO Visual C++ 2.0 lacks namespaces
@@ -613,13 +625,49 @@ struct WasmStdString
 {
     // This resembles std::string.
 
-    WasmStdString ();
-    WasmStdString (const char*);
-    WasmStdString (const char*, size_t);
-    friend WasmStdString operator + (const WasmStdString&, const char*);
-    friend WasmStdString operator + (const WasmStdString&, const WasmStdString&);
-    size_t length ();
-    const char* c_str () const;
+    size_t len;
+    char* s;
+
+    WasmStdString () : len (0), s (0) { }
+
+    WasmStdString (const char* t)
+    {
+        len = strlen (t);
+        s = (char*)malloc (len + 1);
+        memcpy (s, t, len + 1);
+    }
+
+    WasmStdString (const char* t, size_t n)
+    {
+        len = n;
+        s = (char*)malloc (n + 1);
+        memcpy (s, t, n);
+        s [n] = 0;
+    }
+
+    friend WasmStdString operator + (const WasmStdString& a, const char* b)
+    {
+        WasmStdString c;
+        size_t blen = strlen (b);
+        c.len = blen + a.len;
+        c.s = (char*)malloc (c.len + 1);
+        memcpy (c.s, a.s, a.len);
+        memcpy (c.s + a.len, b, blen + 1);
+        return c;
+    }
+
+    friend WasmStdString operator + (const WasmStdString& a, const WasmStdString& b)
+    {
+        WasmStdString c;
+        c.len = b.len + a.len;
+        c.s = (char*)malloc (c.len + 1);
+        memcpy (c.s, a.s, a.len);
+        memcpy (c.s + a.len, b.s, b.len + 1);
+        return c;
+    }
+
+    size_t length () { return len; }
+    const char* c_str () const { return s; }
     typedef char* iterator;
 };
 
@@ -794,8 +842,46 @@ template <class T>
 void WasmStdDestroy (T* a, size_t n)
 {
     for (size_t i = 0; i < n; ++i)
-        (a++)->~T();
+        (a++)->T::~T();
 }
+
+struct FuncAddr // TODO
+{
+};
+
+struct TableAddr // TODO
+{
+};
+
+struct MemAddr // TODO
+{
+};
+
+struct GlobalAddr // TODO
+{
+};
+
+// This should probabably be combined with ResultType, and called Tag.
+#if HAS_TYPED_ENUM
+typedef enum ValueType : uint8
+#else
+typedef enum ValueType
+#endif
+{
+    ValueType_i32 = 0x7F,
+    ValueType_i64 = 0x7E,
+    ValueType_f32 = 0x7D,
+    ValueType_f64 = 0x7C,
+} ValueType;
+
+// workaround Visual C++ 2.0
+void WasmStdDestroy (int*, size_t) { }
+void WasmStdDestroy (uint*, size_t) { }
+void WasmStdDestroy (char*, size_t) { }
+void WasmStdDestroy (unsigned char*, size_t) { }
+void WasmStdDestroy (TableAddr**, size_t) { }
+void WasmStdDestroy (FuncAddr**, size_t) { }
+void WasmStdDestroy (ValueType*, size_t) { }
 
 template <class T>
 struct WasmStdVector
@@ -811,8 +897,17 @@ struct WasmStdVector
         T* p;
 
         size_t operator - (iterator q);
-        iterator operator - (size_t );
-        iterator operator + (size_t );
+
+        iterator operator - (size_t n)
+        {
+            return p - n;
+        }
+
+        iterator operator + (size_t n)
+        {
+            return p + n;
+        }
+
         iterator () : p (0) { }
         iterator (T* q) : p (q) { }
         T& operator [ ] (size_t i) { return *(p + i); }
@@ -909,7 +1004,18 @@ struct WasmStdVector
         allocated = f + newcap;
     }
 
-    bool operator == (const WasmStdVector& other) const;
+    bool operator == (const WasmStdVector& other) const
+    {
+        size_t s = size ();
+        if (s != other.size ())
+            return false;
+        for (size_t i = 0 ; i < s; ++i)
+        {
+            if (first [i] != other.first [i])
+                return false;
+        }
+        return true;
+    }
 
     WasmStdVector& operator =(const WasmStdVector&);
 
@@ -1714,19 +1820,6 @@ typedef enum Type
     Type_f64 = 0x7C,
 } Type;
 
-// This should probabably be combined with ResultType, and called Tag.
-#if HAS_TYPED_ENUM
-typedef enum ValueType : uint8
-#else
-typedef enum ValueType
-#endif
-{
-    ValueType_i32 = 0x7F,
-    ValueType_i64 = 0x7E,
-    ValueType_f32 = 0x7D,
-    ValueType_f64 = 0x7C,
-} ValueType;
-
 typedef union Value
 {
     int i32;
@@ -1820,6 +1913,7 @@ struct TableType
 
     bool operator < (const TableType&) const; // workaround old compiler
     bool operator == (const TableType&) const; // workaround old compiler
+    bool operator != (const TableType&) const; // workaround old compiler
 };
 
 // Table types have an value type, funcref
@@ -1943,7 +2037,7 @@ typedef struct LabelValue
 } LabelValue;
 
 // work in progress
-typedef struct StackValue
+struct StackValue
 {
     void Init ()
     {
@@ -2002,7 +2096,8 @@ typedef struct StackValue
 
     bool operator < (const StackValue&) const; // workaround old compiler
     bool operator == (const StackValue&) const; // workaround old compiler
-} StackValue;
+    bool operator != (const StackValue&) const; // workaround old compiler
+};
 
 // TODO consider a vector instead, but it affects frame.locals staying valid across push/pop
 //typedef std::deque <StackValue> StackBaseBase;
@@ -2067,36 +2162,36 @@ struct Frame
     Interp* interp;
     size_t locals; // index in stack to start of params and locals, params first
 
-    StackValue& Local (size_t index);
+    DEBUG_EXPORT StackValue& Local (size_t index);
 };
 
 // work in progress
 struct Stack : private StackBase
 {
-    Stack () { }
+    DEBUG_EXPORT Stack () { }
 
     // old compilers lack using.
     typedef StackBase base;
     typedef base::iterator iterator;
-    void pop () { base::pop (); }
-    StackValue& top () { return base::top (); }
-    StackValue& back () { return base::back (); }
-    StackValue& front () { return base::front (); }
-    iterator begin () { return base::begin (); }
-    iterator end () { return base::end (); }
-    bool empty () const { return base::empty (); }
-    void resize (size_t newsize) { base::resize (newsize); }
-    size_t size () { return base::size (); }
-    StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
+    DEBUG_EXPORT void pop () { base::pop (); }
+    DEBUG_EXPORT StackValue& top () { return base::top (); }
+    DEBUG_EXPORT StackValue& back () { return base::back (); }
+    DEBUG_EXPORT StackValue& front () { return base::front (); }
+    DEBUG_EXPORT iterator begin () { return base::begin (); }
+    DEBUG_EXPORT iterator end () { return base::end (); }
+    DEBUG_EXPORT bool empty () const { return base::empty (); }
+    DEBUG_EXPORT void resize (size_t newsize) { base::resize (newsize); }
+    DEBUG_EXPORT size_t size () { return base::size (); }
+    DEBUG_EXPORT StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
 
-    void reserve (size_t n)
+    DEBUG_EXPORT void reserve (size_t n)
     {
         // TODO
     }
 
     // While ultimately a stack of values, labels, and frames, values dominate.
 
-    ValueType& tag (ValueType tag)
+    DEBUG_EXPORT ValueType& tag (ValueType tag)
     {
         AssertTopIsValue ();
         StackValue& t = top ();
@@ -2104,21 +2199,21 @@ struct Stack : private StackBase
         return t.value.tag;
     }
 
-    ValueType& tag ()
+    DEBUG_EXPORT ValueType& tag ()
     {
         AssertTopIsValue ();
         StackValue& t = top ();
         return t.value.tag;
     }
 
-    Value& value ()
+    DEBUG_EXPORT Value& value ()
     {
         AssertTopIsValue ();
         StackValue& t = top ();
         return t.value.value;
     }
 
-    Value& value (ValueType tag)
+    DEBUG_EXPORT Value& value (ValueType tag)
     {
         AssertTopIsValue ();
         StackValue& t = top ();
@@ -2126,7 +2221,7 @@ struct Stack : private StackBase
         return t.value.value;
     }
 
-    void pop_label ()
+    DEBUG_EXPORT void pop_label ()
     {
         if (size () < 1 || top ().tag != StackTag_Label)
             DumpStack ("AssertTopIsValue");
@@ -2135,7 +2230,7 @@ struct Stack : private StackBase
         pop ();
     }
 
-    void pop_value ()
+    DEBUG_EXPORT void pop_value ()
     {
         AssertTopIsValue ();
         //int t = tag ();
@@ -2143,21 +2238,21 @@ struct Stack : private StackBase
         //printf ("pop_value tag:%s depth:%" FORMAT_SIZE "X\n", TypeToString (t), size ());
     }
 
-    void push_value (const StackValue& value)
+    DEBUG_EXPORT void push_value (const StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Value, ("%X %X", value.tag, StackTag_Value));
         push (value);
         //printf ("push_value tag:%s value:%X depth:%" FORMAT_SIZE "X\n", TypeToString (value.value.tag), value.value.value.i32, size ());
     }
 
-    void push_label (const StackValue& value)
+    DEBUG_EXPORT void push_label (const StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Label, ("%X %X", value.tag, StackTag_Label));
         push (value);
         //printf ("push_label depth:%" FORMAT_SIZE "X\n", size ());
     }
 
-    void push_frame (const StackValue& value)
+    DEBUG_EXPORT void push_frame (const StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Frame, ("%X %X", value.tag, StackTag_Frame));
         push (value);
@@ -2166,82 +2261,82 @@ struct Stack : private StackBase
 
     // type specific pushers
 
-    void push_i32 (int i)
+    DEBUG_EXPORT void push_i32 (int i)
     {
         StackValue value (ValueType_i32);
         value.value.value.i32 = i;
         push_value (value);
     }
 
-    void push_i64 (int64 i)
+    DEBUG_EXPORT void push_i64 (int64 i)
     {
         StackValue value (ValueType_i64);
         value.value.value.i64 = i;
         push_value (value);
     }
 
-    void push_u32 (uint i)
+    DEBUG_EXPORT void push_u32 (uint i)
     {
         push_i32 ((int)i);
     }
 
-    void push_u64 (uint64 i)
+    DEBUG_EXPORT void push_u64 (uint64 i)
     {
         push_i64 ((int64)i);
     }
 
-    void push_f32 (float i)
+    DEBUG_EXPORT void push_f32 (float i)
     {
         StackValue value (ValueType_f32);
         value.value.value.f32 = i;
         push_value (value);
     }
 
-    void push_f64 (double i)
+    DEBUG_EXPORT void push_f64 (double i)
     {
         StackValue value (ValueType_f64);
         value.value.value.f64 = i;
         push_value (value);
     }
 
-    void push_bool (bool b)
+    DEBUG_EXPORT void push_bool (bool b)
     {
         push_i32 (b);
     }
 
     // accessors, check tag, return ref
 
-    int& i32 ()
+    DEBUG_EXPORT int& i32 ()
     {
         return value (ValueType_i32).i32;
     }
 
-    int64& i64 ()
+    DEBUG_EXPORT int64& i64 ()
     {
         return value (ValueType_i64).i64;
     }
 
-    uint& u32 ()
+    DEBUG_EXPORT uint& u32 ()
     {
         return value (ValueType_i32).u32;
     }
 
-    uint64& u64 ()
+    DEBUG_EXPORT uint64& u64 ()
     {
         return value (ValueType_i64).u64;
     }
 
-    float& f32 ()
+    DEBUG_EXPORT float& f32 ()
     {
         return value (ValueType_f32).f32;
     }
 
-    double& f64 ()
+    DEBUG_EXPORT double& f64 ()
     {
         return value (ValueType_f64).f64;
     }
 
-    void DumpStack (const char* prefix)
+    DEBUG_EXPORT void DumpStack (const char* prefix)
     {
         const size_t n = size ();
         printf ("stack@%s: %" FORMAT_SIZE "X ", prefix, n);
@@ -2263,7 +2358,7 @@ struct Stack : private StackBase
         printf ("\n");
     }
 
-    void AssertTopIsValue ()
+    DEBUG_EXPORT void AssertTopIsValue ()
     {
         if (size () < 1 || top ().tag != StackTag_Value)
             DumpStack ("AssertTopIsValue");
@@ -2273,7 +2368,7 @@ struct Stack : private StackBase
 
     // setter, changes tag, returns ref
 
-    Value& set (ValueType tag)
+    DEBUG_EXPORT Value& set (ValueType tag)
     {
         AssertTopIsValue ();
         StackValue& t = top ();
@@ -2284,32 +2379,32 @@ struct Stack : private StackBase
 
     // type-specific setters
 
-    void set_i32 (int a)
+    DEBUG_EXPORT void set_i32 (int a)
     {
         set (ValueType_i32).i32 = a;
     }
 
-    void set_u32 (uint a)
+    DEBUG_EXPORT void set_u32 (uint a)
     {
         set (ValueType_i32).u32 = a;
     }
 
-    void set_bool (bool a)
+    DEBUG_EXPORT void set_bool (bool a)
     {
         set_i32 (a);
     }
 
-    void set_i64 (int64 a)
+    DEBUG_EXPORT void set_i64 (int64 a)
     {
         set (ValueType_i64).i64 = a;
     }
 
-    void set_u64 (uint64 a)
+    DEBUG_EXPORT void set_u64 (uint64 a)
     {
         set (ValueType_i64).u64 = a;
     }
 
-    void set_f32 (float a)
+    DEBUG_EXPORT void set_f32 (float a)
     {
         set (ValueType_f32).f32 = a;
     }
@@ -2635,6 +2730,7 @@ struct DecodedInstruction : DecodedInstructionZeroInit
 
     bool operator < (const DecodedInstruction&) const; // workaround old compiler
     bool operator == (const DecodedInstruction&) const; // workaround old compiler
+    bool operator != (const DecodedInstruction&) const; // workaround old compiler
 };
 
 #undef INSTRUCTION
@@ -2749,6 +2845,8 @@ struct GlobalType
 
     ValueType value_type;
     bool is_mutable;
+
+    bool operator != (const GlobalType&) const; // workaround old compiler
 };
 
 struct Import
@@ -2769,22 +2867,7 @@ struct Import
 
     bool operator < (const Import&) const; // workaround old compiler
     bool operator == (const Import&) const; // workaround old compiler
-};
-
-struct FuncAddr // TODO
-{
-};
-
-struct TableAddr // TODO
-{
-};
-
-struct MemAddr // TODO
-{
-};
-
-struct GlobalAddr // TODO
-{
+    bool operator != (const Import&) const; // workaround old compiler
 };
 
 struct ExternalValue // external to a module, an export instance
@@ -2805,6 +2888,7 @@ struct ExportInstance // work in progress
 
     bool operator < (const ExportInstance&) const; // workaround old compiler
     bool operator == (const ExportInstance&) const; // workaround old compiler
+    bool operator != (const ExportInstance&) const; // workaround old compiler
 };
 
 struct ModuleInstance // work in progress
@@ -2844,6 +2928,7 @@ struct Function // section3
 
     bool operator < (const Function&) const; // workaround old compiler
     bool operator == (const Function&) const; // workaround old compiler
+    bool operator != (const Function&) const; // workaround old compiler
 };
 
 struct Global
@@ -2853,6 +2938,7 @@ struct Global
 
     bool operator < (const Global&) const; // workaround old compiler
     bool operator == (const Global&) const; // workaround old compiler
+    bool operator != (const Global&) const; // workaround old compiler
 };
 
 struct Element
@@ -2864,6 +2950,7 @@ struct Element
 
     bool operator == (const Element&) const; // workaround old compiler
     bool operator < (const Element&) const; // workaround old compiler
+    bool operator != (const Element&) const; // workaround old compiler
 };
 
 struct Export
@@ -2895,6 +2982,7 @@ struct Export
 
     bool operator == (const Export&) const; // workaround old compiler
     bool operator < (const Export&) const; // workaround old compiler
+    bool operator != (const Export&) const; // workaround old compiler
 };
 
 struct Data // section11
@@ -2907,6 +2995,7 @@ struct Data // section11
 
     bool operator == (const Data&) const; // workaround old compiler
     bool operator < (const Data&) const; // workaround old compiler
+    bool operator != (const Data&) const; // workaround old compiler
 };
 
 struct Code // section3 and section10
@@ -2923,6 +3012,7 @@ struct Code // section3 and section10
 
     bool operator < (const Code&) const; // workaround old compiler
     bool operator == (const Code&) const; // workaround old compiler
+    bool operator != (const Code&) const; // workaround old compiler
 };
 
 // Initial representation of X and XSection are the same.
@@ -2942,10 +3032,12 @@ struct FunctionType
     }
 
     bool operator < (const FunctionType&) const; // workaround old compiler
+    bool operator != (const FunctionType&) const; // workaround old compiler
 };
 
 struct Module : ModuleBase
 {
+    DEBUG_EXPORT
     Module () : base (0), file_size (0), end (0), start (0), main (0),
         import_function_count (0),
         import_table_count (0),
@@ -2983,45 +3075,45 @@ struct Module : ModuleBase
     size_t import_memory_count;
     size_t import_global_count;
 
-    WasmString read_string (uint8** cursor);
+    DEBUG_EXPORT WasmString read_string (uint8** cursor);
 
-    int read_i32 (uint8** cursor);
-    int64 read_i64 (uint8** cursor);
-    float read_f32 (uint8** cursor);
-    double read_f64 (uint8** cursor);
+    DEBUG_EXPORT int read_i32 (uint8** cursor);
+    DEBUG_EXPORT int64 read_i64 (uint8** cursor);
+    DEBUG_EXPORT float read_f32 (uint8** cursor);
+    DEBUG_EXPORT double read_f64 (uint8** cursor);
 
-    uint8 read_byte (uint8** cursor);
-    uint8 read_varuint7 (uint8** cursor);
-    uint32 read_varuint32 (uint8** cursor);
+    DEBUG_EXPORT uint8 read_byte (uint8** cursor);
+    DEBUG_EXPORT uint8 read_varuint7 (uint8** cursor);
+    DEBUG_EXPORT uint32 read_varuint32 (uint8** cursor);
 
-    void read_vector_varuint32 (WasmVector <uint>&, uint8** cursor);
-    Limits read_limits (uint8** cursor);
-    MemoryType read_memorytype (uint8** cursor);
-    GlobalType read_globaltype (uint8** cursor);
-    TableType read_tabletype (uint8** cursor);
-    ValueType read_valuetype (uint8** cursor);
-    BlockType read_blocktype(uint8** cursor);
-    TableElementType read_elementtype (uint8** cursor);
-    bool read_mutable (uint8** cursor);
-    void read_section (uint8** cursor);
-    void read_module (const char* file_name);
-    void read_vector_ValueType (WasmVector <ValueType>& result, uint8** cursor);
-    void read_function_type (FunctionType& functionType, uint8** cursor);
+    DEBUG_EXPORT void read_vector_varuint32 (WasmVector <uint>&, uint8** cursor);
+    DEBUG_EXPORT Limits read_limits (uint8** cursor);
+    DEBUG_EXPORT MemoryType read_memorytype (uint8** cursor);
+    DEBUG_EXPORT GlobalType read_globaltype (uint8** cursor);
+    DEBUG_EXPORT TableType read_tabletype (uint8** cursor);
+    DEBUG_EXPORT ValueType read_valuetype (uint8** cursor);
+    DEBUG_EXPORT BlockType read_blocktype(uint8** cursor);
+    DEBUG_EXPORT TableElementType read_elementtype (uint8** cursor);
+    DEBUG_EXPORT bool read_mutable (uint8** cursor);
+    DEBUG_EXPORT void read_section (uint8** cursor);
+    DEBUG_EXPORT void read_module (const char* file_name);
+    DEBUG_EXPORT void read_vector_ValueType (WasmVector <ValueType>& result, uint8** cursor);
+    DEBUG_EXPORT void read_function_type (FunctionType& functionType, uint8** cursor);
 
-    virtual void read_types (uint8** cursor);
-    virtual void read_imports (uint8** cursor);
-    virtual void read_functions (uint8** cursor);
-    virtual void read_tables (uint8** cursor);
-    virtual void read_memory (uint8** cursor);
-    virtual void read_globals (uint8** cursor);
-    virtual void read_exports (uint8** cursor);
-    virtual void read_start (uint8** cursor)
+    DEBUG_EXPORT virtual void read_types (uint8** cursor);
+    DEBUG_EXPORT virtual void read_imports (uint8** cursor);
+    DEBUG_EXPORT virtual void read_functions (uint8** cursor);
+    DEBUG_EXPORT virtual void read_tables (uint8** cursor);
+    DEBUG_EXPORT virtual void read_memory (uint8** cursor);
+    DEBUG_EXPORT virtual void read_globals (uint8** cursor);
+    DEBUG_EXPORT virtual void read_exports (uint8** cursor);
+    DEBUG_EXPORT virtual void read_start (uint8** cursor)
     {
         ThrowString ("Start::read not yet implemented");
     }
-    virtual void read_elements (uint8** cursor);
-    virtual void read_code (uint8** cursor);
-    virtual void read_data (uint8** cursor);
+    DEBUG_EXPORT virtual void read_elements (uint8** cursor);
+    DEBUG_EXPORT virtual void read_code (uint8** cursor);
+    DEBUG_EXPORT virtual void read_data (uint8** cursor);
 };
 
 static
@@ -3064,9 +3156,9 @@ void Module::read_code (uint8** cursor)
         a.import = false;
         a.size = read_varuint32 (cursor);
         if (*cursor + a.size > end)
-            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "XX line:%X", *cursor, end, (long_t)a.size, __LINE__));
+            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", *cursor, end, (long_t)a.size, __LINE__));
         a.cursor = *cursor;
-        printf ("code [%" FORMAT_SIZE "XX]: %p/%" FORMAT_SIZE "XX\n", (long_t)i, a.cursor, (long_t)a.size);
+        printf ("code [%" FORMAT_SIZE "X]: %p/%" FORMAT_SIZE "X\n", (long_t)i, a.cursor, (long_t)a.size);
         if (a.size)
         {
             //printf (InstructionName ((*cursor) [0]));
@@ -3203,7 +3295,7 @@ void Module::read_imports (uint8** cursor)
             ThrowString ("invalid ImportTag");
         }
     }
-    printf ("read section 2 import_function_count:%" FORMAT_SIZE "XX import_table_count:%" FORMAT_SIZE "XX import_memory_count:%" FORMAT_SIZE "XX import_global_count:%" FORMAT_SIZE "XX\n",
+    printf ("read section 2 import_function_count:%" FORMAT_SIZE "X import_table_count:%" FORMAT_SIZE "X import_memory_count:%" FORMAT_SIZE "X import_global_count:%" FORMAT_SIZE "X\n",
         (long_t)import_function_count,
         (long_t)import_table_count,
         (long_t)import_memory_count,
@@ -3663,8 +3755,10 @@ void Module::read_section (uint8** cursor)
     if (id > 11)
         ThrowString (StringFormat ("malformed line:%d id:%X payload:%p base:%p end:%p", __LINE__, id, payload, base, end)); // UNDONE context
 
+    printf("%s(%d)\n", __FILE__, __LINE__);
+
     const size_t payload_size = read_varuint32 (cursor);
-    printf ("%s payload_size:%" FORMAT_SIZE "XX\n", __func__, (long_t)payload_size);
+    printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, (long_t)payload_size);
     payload = *cursor;
     uint name_size = 0;
     char* name = 0;
@@ -3676,7 +3770,9 @@ void Module::read_section (uint8** cursor)
             ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     }
     if (payload + payload_size > end)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%" FORMAT_SIZE "XX base:%p end:%p", __LINE__, id, payload, (long_t)payload_size, base, end)); // UNDONE context
+        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%" FORMAT_SIZE "X base:%p end:%p", __LINE__, id, payload, (long_t)payload_size, base, end)); // UNDONE context
+
+    printf("%s(%d)\n", __FILE__, __LINE__);
 
     *cursor = payload + payload_size;
 
@@ -3688,13 +3784,22 @@ void Module::read_section (uint8** cursor)
         return;
     }
 
+    printf("%s(%d)\n", __FILE__, __LINE__);
+
     Section& section = sections [id];
     section.id = id;
     section.name.data = name;
     section.name.size = name_size;
     section.payload_size = payload_size;
     section.payload = payload;
+
+    printf("%s(%d) %d\n", __FILE__, __LINE__, (int)id);
+    DebugBreak ();
+
     (this->*section_traits [id].read) (&payload);
+
+    printf("%s(%d)\n", __FILE__, __LINE__);
+
     if (payload != *cursor)
         ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, *cursor));
 }
@@ -3762,7 +3867,7 @@ private:
     Interp(const Interp&);
     void operator =(const Interp&);
 public:
-    Interp() : module (0), module_instance (0), frame (0), stack (*this)
+    DEBUG_EXPORT Interp() : module (0), module_instance (0), frame (0), stack (*this)
     {
     }
 
@@ -3778,6 +3883,7 @@ public:
 
     void Invoke (Function&);
 
+    DEBUG_EXPORT
     void interp (Module* mod, Export* emain = 0)
     {
 #if 0
@@ -3842,7 +3948,7 @@ void* Interp::LoadStore (size_t size)
     if (effective_address > UINT_MAX - size)
         Overflow ();
     AssertFormat (effective_address + size <= frame->module_instance->memory.size (),
-        ("%" FORMAT_SIZE "XX %" FORMAT_SIZE "XX %" FORMAT_SIZE "XX",
+        ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X %" FORMAT_SIZE "X",
         (long_t)effective_address, (long_t)size, (long_t)frame->module_instance->memory.size ()));
     return &frame->module_instance->memory [effective_address];
 }
@@ -5031,15 +5137,14 @@ INTERP (Rotr_i64)
 #endif
 }
 
-float __cdecl ceilf (float);
-float __cdecl fabsf (float);
-float __cdecl sqrtf (float);
-float __cdecl fabsf (float);
-
 INTERP (Abs_f32)
 {
     float& z = f32 ();
+#if _MSC_VER && _MSC_VER < 1000 // TODO
+    z = fabs (z);
+#else
     z = fabsf (z);
+#endif
 }
 
 INTERP (Abs_f64)
@@ -5061,7 +5166,11 @@ INTERP (Neg_f64)
 INTERP (Ceil_f32)
 {
     float& z = f32 ();
+#if _MSC_VER && _MSC_VER < 1000 // TODO
+    z = ceil (z);
+#else
     z = ceilf (z);
+#endif
 }
 
 INTERP (Ceil_f64)
@@ -5109,7 +5218,11 @@ INTERP (Nearest_f64)
 INTERP (Sqrt_f32)
 {
     float& z = f32 ();
+#if _MSC_VER && _MSC_VER < 1000 // TODO
+    z = sqrt (z);
+#else
     z = sqrtf (z);
+#endif
 }
 
 INTERP (Sqrt_f64)
