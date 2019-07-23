@@ -23,8 +23,6 @@
 #endif
 #endif
 
-//#define _NO_CRT_STDIO_INLINE
-
 #define _WASI_EMULATED_MMAN
 #define WIN32_LEAN_AND_MEAN 1
 #ifdef __cplusplus
