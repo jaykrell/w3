@@ -338,7 +338,7 @@ RESERVED (FF)
 #define WIN32 1
 #endif
 
-#if _WIN32 || _MSDOS || __WATCOMC__ // TODO
+#if _WIN32 || _MSDOS // TODO
 #define BIG_ENDIAN      2
 #define LITTLE_ENDIAN   1
 #define BYTE_ORDER      LITTLE_ENDIAN
@@ -576,6 +576,7 @@ typedef ptrdiff_t ssize_t;
 #include <memory>
 //#include <algorithm>
 #endif
+
 #if _WIN32
 #define NOMINMAX 1
 #include <io.h>
@@ -2637,7 +2638,7 @@ union {
    BITS_FOR_UINT_HELPER (a,  9) BITS_FOR_UINT_HELPER (a,  8) BITS_FOR_UINT_HELPER (a,  7) BITS_FOR_UINT_HELPER (a,  6) BITS_FOR_UINT_HELPER (a,  5) \
    BITS_FOR_UINT_HELPER (a,  4) BITS_FOR_UINT_HELPER (a,  3) BITS_FOR_UINT_HELPER (a,  2) BITS_FOR_UINT_HELPER (a,  1) BITS_FOR_UINT_HELPER (a,  0) 1)
 
-#if (_MSC_VER && _MSC_VER <= 1700) || __WATCOMC__
+#if _MSC_VER && _MSC_VER <= 1700
 
 #if _MSC_VER > 1100 // TODO which versin
 #define __func__ __FUNCTION__
