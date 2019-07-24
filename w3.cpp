@@ -338,7 +338,7 @@ RESERVED (FF)
 #define WIN32 1
 #endif
 
-#if _WIN32
+#if _WIN32 || _MSDOS
 #define BIG_ENDIAN      2
 #define LITTLE_ENDIAN   1
 #define BYTE_ORDER      LITTLE_ENDIAN
@@ -364,12 +364,12 @@ RESERVED (FF)
 #pragma warning (pop)
 #endif
 
-#if _MSC_VER && _MSC_VER <= 1500
+#if _MSC_VER > 800 && _MSC_VER <= 1500
 // TODO find out what other pre-C99 platforms have these?
 typedef signed __int8 int8;
 typedef signed __int16 int16;
 typedef __int64 int64;
-typedef int int32_t;
+typedef int int32, int32_t;
 typedef unsigned __int8 uint8;
 typedef unsigned __int16 uint16;
 typedef unsigned __int64 uint64, u_int64_t;
@@ -395,7 +395,7 @@ typedef uint16_t uint16;
 #endif
 
 #if UINT_MAX != 0x0FFFFFFFFUL
-#error Change int to int32 where needed (or everywhere to be safe)
+//#error Change int to int32 where needed (or everywhere to be safe)
 #endif
 
 #if UINT_MAX == 0x0FFFFFFFFUL
@@ -405,16 +405,40 @@ typedef unsigned int       uint, uint32, u_int32_t;
 typedef          long       int32, int32_t;
 typedef unsigned long      uint, uint32, u_int32_t;
 #else
-typedef  int32_t  int32; // TODO we just use int
+typedef  int32_t int32; // TODO we just use int
 typedef uint32_t uint;
 #error unable to find 32bit integer
 #endif
-#if _MSC_VER || __DECC || __DECCXX || defined (__int64)
+#if _MSC_VER > 800 || __DECC || __DECCXX || defined (__int64)
 typedef          __int64    int64;
 typedef unsigned __int64   uint64;
 #else
+
+// FIXME 16bit Visual C++ 16 long long etc.
+#if _MSC_VER == 800
+
+#pragma warning (disable:4201) // nonstandard extension nameless struct/union
+
+union int64 {
+    double alignment;
+    struct {
+        int32 hi;
+        uint32 low;
+    };
+};
+
+union uint64 {
+    double alignment;
+    struct {
+        uint32 hi;
+        uint32 low;
+    };
+};
+
+#else
 typedef          long long  int64;
 typedef unsigned long long uint64;
+#endif
 #endif
 // todo
 // C99 / C++?
@@ -529,8 +553,24 @@ static const double wasm_huged = 1.0e300;
 #include <stddef.h>
 typedef ptrdiff_t ssize_t;
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
+
+// FiXME configure
 #if !_MSC_VER || _MSC_VER > 1000
+#define TYPENAME typename
+#else
+#define TYPENAME /* nothing */
+#endif
+
+// FiXME configure
+#if !_MSC_VER || _MSC_VER > 1000
+#define STL 1
+#else
+#define STL 0
+#endif
+
+#if STL
 #include <string>
 #include <vector>
 #include <memory>
@@ -553,10 +593,12 @@ extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #define IsDebuggerPresent() (0)
 #define __debugbreak() ((void)0)
 #define DebugBreak() ((void)0)
+#if !_MSDOS
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
+#endif
 #endif
 #if _MSC_VER
 #include <malloc.h> // for _alloca
@@ -585,10 +627,13 @@ extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #define W3 ::
 #endif
 
+// TODO which compilers need this?
+#if _MSC_VER
 void* operator new (size_t, void* p)
 {
     return p;
 }
+#endif
 
 #if CONFIG_NAMESPACE
 namespace w3 // TODO Visual C++ 2.0 lacks namespaces
@@ -671,7 +716,7 @@ struct WasmStdString
     typedef char* iterator;
 };
 
-#if !_MSC_VER || _MSC_VER > 1000
+#if STL
 #define WasmStdString std::string
 #endif
 
@@ -1032,7 +1077,7 @@ struct WasmStdVector
     }
 };
 
-#if !_MSC_VER || _MSC_VER > 1000
+#if STL
 #define WasmStdVector std::vector
 #endif
 
@@ -1074,6 +1119,8 @@ struct WasmVector : WasmStdVector <T>
 
     typedef WasmStdVector <T> base;
 
+    typedef TYPENAME base::iterator iterator;
+
     T& operator [](SizeT i) { return base::operator []((size_t)i); }
 
     SizeT size () const { return (SizeT)base::size (); }
@@ -1087,6 +1134,7 @@ struct WasmVector : WasmStdVector <T>
         return (const base&)*this == (const base&)other;
     }
 
+#if !STL
     struct iterator
     {
         typename base::iterator i;
@@ -1122,6 +1170,7 @@ struct WasmVector : WasmStdVector <T>
             return a;
         }
     };
+#endif
 
     iterator begin ()
     {
@@ -1186,12 +1235,6 @@ struct uintLEn_to_native_exact<64> { typedef uint64 T; };
 struct uintLEn_to_native_fast<16> { typedef uint T; };
 struct uintLEn_to_native_fast<32> { typedef uint T; };
 struct uintLEn_to_native_fast<64> { typedef uint64 T; };
-#endif
-
-#if !_MSC_VER || _MSC_VER > 1000
-#define TYPENAME typename
-#else
-#define TYPENAME /* nothing */
 #endif
 
 template <uint N>
@@ -1784,10 +1827,10 @@ read_varint64 (uint8** cursor, const uint8* end)
 }
 
 static
-int
+int32
 read_varint32 (uint8** cursor, const uint8* end)
 {
-    int result = 0;
+    int32 result = 0;
     uint shift = 0;
     uint size = 32;
     uint byte = 0;
@@ -1822,7 +1865,7 @@ typedef enum Type
 
 typedef union Value
 {
-    int i32;
+    int32 i32;
     uint u32;
     uint64 u64;
     int64 i64;
@@ -1835,7 +1878,7 @@ typedef struct TaggedValue
     ValueType tag;
     union
     {
-        int i32;
+        int32 i32;
         uint u32;
         uint64 u64;
         int64 i64;
@@ -2261,7 +2304,7 @@ struct Stack : private StackBase
 
     // type specific pushers
 
-    DEBUG_EXPORT void push_i32 (int i)
+    DEBUG_EXPORT void push_i32 (int32 i)
     {
         StackValue value (ValueType_i32);
         value.value.value.i32 = i;
@@ -2277,7 +2320,7 @@ struct Stack : private StackBase
 
     DEBUG_EXPORT void push_u32 (uint i)
     {
-        push_i32 ((int)i);
+        push_i32 ((int32)i);
     }
 
     DEBUG_EXPORT void push_u64 (uint64 i)
@@ -2306,7 +2349,7 @@ struct Stack : private StackBase
 
     // accessors, check tag, return ref
 
-    DEBUG_EXPORT int& i32 ()
+    DEBUG_EXPORT int32& i32 ()
     {
         return value (ValueType_i32).i32;
     }
@@ -2379,7 +2422,7 @@ struct Stack : private StackBase
 
     // type-specific setters
 
-    DEBUG_EXPORT void set_i32 (int a)
+    DEBUG_EXPORT void set_i32 (int32 a)
     {
         set (ValueType_i32).i32 = a;
     }
@@ -2416,9 +2459,9 @@ struct Stack : private StackBase
 
     // type specific poppers
 
-    int pop_i32 ()
+    int32 pop_i32 ()
     {
-        int a = i32 ();
+        int32 a = i32 ();
         pop_value ();
         return a;
     }
@@ -2688,7 +2731,7 @@ struct DecodedInstructionZeroInit // ZeroMem-compatible part
 
         uint  u32;
         uint64 u64;
-        int   i32;
+        int32 i32;
         int64 i64;
         float f32;
         double f64;
@@ -3077,7 +3120,7 @@ struct Module : ModuleBase
 
     DEBUG_EXPORT WasmString read_string (uint8** cursor);
 
-    DEBUG_EXPORT int read_i32 (uint8** cursor);
+    DEBUG_EXPORT int32 read_i32 (uint8** cursor);
     DEBUG_EXPORT int64 read_i64 (uint8** cursor);
     DEBUG_EXPORT float read_f32 (uint8** cursor);
     DEBUG_EXPORT double read_f64 (uint8** cursor);
@@ -3526,7 +3569,7 @@ SECTIONS
 
 };
 
-int Module::read_i32 (uint8** cursor)
+int32 Module::read_i32 (uint8** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
     return W3 read_varint32 (cursor, end);
@@ -3930,7 +3973,7 @@ void* Interp::LoadStore (size_t size)
     // focused discussion on it.
     // Why is the operand signed??
     size_t effective_address;
-    const int i = pop_i32 ();
+    const int32 i = pop_i32 ();
     const size_t offset = instr->offset;
     if (i >= 0)
     {
@@ -4120,12 +4163,12 @@ INTERP (Loop)
 INTERP (MemGrow)
 {
     //__debugbreak ();
-    int result = -1;
+    int32 result = -1;
     const size_t previous_size = module_instance->memory.size ();
     const size_t page_growth = pop_u32 ();
     if (page_growth == 0)
     {
-        result = (int)(previous_size >> PageShift);
+        result = (int32)(previous_size >> PageShift);
     }
     else
     {
@@ -4133,7 +4176,7 @@ INTERP (MemGrow)
         try
         {
             module_instance->memory.resize (new_size, 0);
-            result = (int)(previous_size >> PageShift);
+            result = (int32)(previous_size >> PageShift);
         }
         catch (...)
         {
@@ -4145,7 +4188,7 @@ INTERP (MemGrow)
 INTERP (MemSize)
 {
     __debugbreak (); // not yet tested
-    push_i32 ((int)(module_instance->memory.size () >> PageShift));
+    push_i32 ((int32)(module_instance->memory.size () >> PageShift));
 }
 
 INTERP (Global_set)
@@ -4463,7 +4506,7 @@ INTERP (f64_Const)
 
 INTERP (i32_Load_)
 {
-    push_i32 (*(int*)LoadStore (4));
+    push_i32 (*(int32*)LoadStore (4));
 }
 
 INTERP (i32_Load8s)
@@ -4513,7 +4556,7 @@ INTERP (i64_Load16u)
 
 INTERP (i64_Load32s)
 {
-    push_i64 (*(int*)LoadStore (4));
+    push_i64 (*(int32*)LoadStore (4));
 }
 
 INTERP (i64_Load32u)
@@ -4667,8 +4710,8 @@ INTERP (Ne_f64)
 
 INTERP (Lt_i32s)
 {
-    const int b = pop_i32 ();
-    const int a = pop_i32 ();
+    const int32 b = pop_i32 ();
+    const int32 a = pop_i32 ();
     push_bool (a < b);
 }
 
@@ -4711,8 +4754,8 @@ INTERP (Lt_f64)
 
 INTERP (Gt_i32s)
 {
-    const int b = pop_i32 ();
-    const int a = pop_i32 ();
+    const int32 b = pop_i32 ();
+    const int32 a = pop_i32 ();
     push_bool (a > b);
 }
 
@@ -4755,7 +4798,7 @@ INTERP (Gt_f64)
 
 INTERP (Le_i32s)
 {
-    const int b = pop_i32 ();
+    const int32 b = pop_i32 ();
     push_bool (pop_i32 () <= b);
 }
 
@@ -4811,8 +4854,8 @@ INTERP (Ge_i64u)
 
 INTERP (Ge_i32s)
 {
-    const int b = pop_i32 ();
-    const int a = pop_i32 ();
+    const int32 b = pop_i32 ();
+    const int32 a = pop_i32 ();
     push_bool (a >= b);
 }
 
@@ -4967,7 +5010,7 @@ INTERP (Mul_i64)
 
 INTERP (Div_s_i32)
 {
-    const int a = pop_i32 ();
+    const int32 a = pop_i32 ();
     i32 () /= a;
 }
 
@@ -4979,7 +5022,7 @@ INTERP (Div_u_i32)
 
 INTERP (Rem_s_i32)
 {
-    const int a = pop_i32 ();
+    const int32 a = pop_i32 ();
     i32 () %= a;
 }
 
@@ -5063,7 +5106,7 @@ INTERP (Shl_i64)
 
 INTERP (Shr_s_i32)
 {
-    const int b = pop_i32 ();
+    const int32 b = pop_i32 ();
     i32 () <<= (b & 31);
 }
 
@@ -5088,7 +5131,7 @@ INTERP (Shr_u_i64)
 INTERP (Rotl_i32)
 {
     const int n = 32;
-    const int b = (pop_i32 () & (n - 1));
+    const int32 b = (pop_i32 () & (n - 1));
     uint& r = u32 ();
     uint a = r;
 #if _MSC_VER
@@ -5140,7 +5183,7 @@ INTERP (Rotr_i64)
 INTERP (Abs_f32)
 {
     float& z = f32 ();
-#if _MSC_VER && _MSC_VER < 1000 // TODO
+#if _MSC_VER && _MSC_VER <= 1000 // TODO
     z = fabs (z);
 #else
     z = fabsf (z);
@@ -5166,7 +5209,7 @@ INTERP (Neg_f64)
 INTERP (Ceil_f32)
 {
     float& z = f32 ();
-#if _MSC_VER && _MSC_VER < 1000 // TODO
+#if _MSC_VER && _MSC_VER <= 1000 // TODO
     z = ceil (z);
 #else
     z = ceilf (z);
@@ -5218,7 +5261,7 @@ INTERP (Nearest_f64)
 INTERP (Sqrt_f32)
 {
     float& z = f32 ();
-#if _MSC_VER && _MSC_VER < 1000 // TODO
+#if _MSC_VER && _MSC_VER <= 1000 // TODO
     z = sqrt (z);
 #else
     z = sqrtf (z);
@@ -5325,12 +5368,12 @@ INTERP (Copysign_f64)
 
 INTERP (i32_Wrap_i64_)
 {
-    set_i32 ((int)(i64 () & 0xFFFFFFFF));
+    set_i32 ((int32)(i64 () & 0xFFFFFFFF));
 }
 
 INTERP (i32_Trunc_f32s)
 {
-    set_i32 ((int)f32 ());
+    set_i32 ((int32)f32 ());
 }
 
 INTERP (i32_Trunc_f32u)
@@ -5340,7 +5383,7 @@ INTERP (i32_Trunc_f32u)
 
 INTERP (i32_Trunc_f64s)
 {
-    set_i32 ((int)f64 ());
+    set_i32 ((int32)f64 ());
 }
 
 INTERP (i32_Trunc_f64u)
@@ -5385,13 +5428,13 @@ INTERP (f32_Convert_i32u)
 
 INTERP (f32_Convert_i32s)
 {
-    set_f32 ((float)(int)i32 ());
+    set_f32 ((float)i32 ());
 }
 
 template <class T>
-T uint64_to_float (unsigned __int64 ui64, T*)
+T uint64_to_float (uint64 ui64, T * = 0 /* old compiler bug workaround */)
 {
-#if _MSC_VER <= 1100 // error C2520: conversion from unsigned __int64 to double not implemented, use signed __int64
+#if _MSC_VER && _MSC_VER <= 1100 // error C2520: conversion from unsigned __int64 to double not implemented, use signed __int64
     __int64 i64 = (__int64)ui64;
     if (i64 >= 0)
     {
