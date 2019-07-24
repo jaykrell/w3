@@ -338,7 +338,7 @@ RESERVED (FF)
 #define WIN32 1
 #endif
 
-#if _WIN32 || _MSDOS
+#if _WIN32 || _MSDOS || __WATCOMC__ // TODO
 #define BIG_ENDIAN      2
 #define LITTLE_ENDIAN   1
 #define BYTE_ORDER      LITTLE_ENDIAN
@@ -593,7 +593,7 @@ extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #define IsDebuggerPresent() (0)
 #define __debugbreak() ((void)0)
 #define DebugBreak() ((void)0)
-#if !_MSDOS
+#if !_MSDOS && !__WATCOMC__ // TODO
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -1185,8 +1185,8 @@ struct WasmVector : WasmStdVector <T>
     }
 };
 
-const size_t PageSize = (1UL << 16);
-const size_t PageShift = 16;
+const uint32 PageSize = (1UL << 16);
+const uint32 PageShift = 16;
 
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
 
@@ -1291,7 +1291,11 @@ Unpack (uintLE* a)
 struct explicit_operator_bool
 {
     typedef void (explicit_operator_bool::*T) () const;
+#if __WATCOMC__
+    void True () const { }
+#else
     void True () const;
+#endif
 };
 
 typedef void (explicit_operator_bool::*bool_type) () const;
@@ -1472,8 +1476,9 @@ struct MemoryMappedFile
     void read (const char* a)
     {
 #if _WIN32
+#ifndef FILE_SHARE_DELETE // ifndef required due to Watcom 4 vs. 4L.
 #define FILE_SHARE_DELETE               0x00000004 // missing in older headers
-
+#endif
         file = CreateFileA (a, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
         if (!file) throw_GetLastError (StringFormat ("CreateFileA (%s)", a).c_str ());
         // FIXME check for size==0 and >4GB.
@@ -2632,7 +2637,7 @@ union {
    BITS_FOR_UINT_HELPER (a,  9) BITS_FOR_UINT_HELPER (a,  8) BITS_FOR_UINT_HELPER (a,  7) BITS_FOR_UINT_HELPER (a,  6) BITS_FOR_UINT_HELPER (a,  5) \
    BITS_FOR_UINT_HELPER (a,  4) BITS_FOR_UINT_HELPER (a,  3) BITS_FOR_UINT_HELPER (a,  2) BITS_FOR_UINT_HELPER (a,  1) BITS_FOR_UINT_HELPER (a,  0) 1)
 
-#if _MSC_VER && _MSC_VER <= 1700
+#if (_MSC_VER && _MSC_VER <= 1700) || __WATCOMC__
 
 #if _MSC_VER > 1100 // TODO which versin
 #define __func__ __FUNCTION__
@@ -2708,7 +2713,11 @@ struct InstructionEncoding
     union // Workaround for Visual C++ 5.0 (1100) error C2077: non-scalar field initializer
     {
         uint name_init : 16;
+#if __WATCOMC__
+        InstructionEnum name;
+#else
         InstructionEnum name : 16;
+#endif
     };
 #endif
     uint string_offset : bits_for_uint (sizeof (instructionNames));
@@ -5183,7 +5192,7 @@ INTERP (Rotr_i64)
 INTERP (Abs_f32)
 {
     float& z = f32 ();
-#if _MSC_VER && _MSC_VER <= 1000 // TODO
+#if (_MSC_VER && _MSC_VER <= 1000) || __WATCOMC__ // TODO
     z = fabs (z);
 #else
     z = fabsf (z);
@@ -5209,7 +5218,7 @@ INTERP (Neg_f64)
 INTERP (Ceil_f32)
 {
     float& z = f32 ();
-#if _MSC_VER && _MSC_VER <= 1000 // TODO
+#if (_MSC_VER && _MSC_VER <= 1000) || __WATCOMC__ // TODO
     z = ceil (z);
 #else
     z = ceilf (z);
@@ -5261,7 +5270,7 @@ INTERP (Nearest_f64)
 INTERP (Sqrt_f32)
 {
     float& z = f32 ();
-#if _MSC_VER && _MSC_VER <= 1000 // TODO
+#if (_MSC_VER && _MSC_VER <= 1000) || __WATCOMC__ // TODO
     z = sqrt (z);
 #else
     z = sqrtf (z);
