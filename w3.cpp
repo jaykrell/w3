@@ -295,6 +295,8 @@ RESERVED (FF)
 
 #else
 
+#define _CRT_SECURE_NO_WARNINGS 1
+
 #if _MSC_VER && _MSC_VER < 1000 // TODO
 #define DEBUG_EXPORT __declspec(dllexport) // since symbols do not work
 #else
@@ -629,7 +631,7 @@ extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #endif
 
 // TODO which compilers need this?
-#if _MSC_VER
+#if 0 // _MSC_VER
 void* operator new (size_t, void* p)
 {
     return p;
@@ -1081,8 +1083,6 @@ struct WasmStdVector
 #if STL
 #define WasmStdVector std::vector
 #endif
-
-#define _CRT_SECURE_NO_WARNINGS 1
 
 static
 WasmStdString
