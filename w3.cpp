@@ -2391,15 +2391,15 @@ struct Stack : private StackBase
         printf ("stack@%s: %" FORMAT_SIZE "X ", prefix, n);
         for (size_t i = 0; i != n; ++i)
         {
-            printf ("%s:", StackTagToString (begin () [i].tag));
-            switch (begin () [i].tag)
+            printf ("%s:", StackTagToString (begin () [(ptrdiff_t)i].tag));
+            switch (begin () [(ptrdiff_t)i].tag)
             {
             case StackTag_Label:
                 break;
             case StackTag_Frame:
                 break;
             case StackTag_Value:
-                printf ("%s", TypeToString (begin () [i].value.tag));
+                printf ("%s", TypeToString (begin () [(ptrdiff_t)i].value.tag));
                 break;
             }
             printf (" ");
@@ -3438,6 +3438,7 @@ DecodeInstructions (Module* module, WasmVector <DecodedInstruction>& instruction
                 Assert (!"invalid Imm_sequnce");
                 break;
             case If:
+#include "diag-switch-push.h"
                 switch (next)
                 {
                 default:
@@ -3455,12 +3456,8 @@ DecodeInstructions (Module* module, WasmVector <DecodedInstruction>& instruction
                     Assert (next == BlockEnd);
                     if_end = instructions.size () - 1; // to BlockEnd
                     break;
-#if _MSC_VER // {
-//#pragma warning (suppress:4061) // unhandled case
                 }
-#else
-                }
-#endif
+#include "diag-switch-pop.h"
                 instructions [index].if_false = if_false;
                 instructions [index].if_end = if_end;
                 break;
@@ -3847,7 +3844,7 @@ void Module::read_section (uint8** cursor)
     section.payload = payload;
 
     printf("%s(%d) %d\n", __FILE__, __LINE__, (int)id);
-    DebugBreak ();
+    //DebugBreak ();
 
     (this->*section_traits [id].read) (&payload);
 
@@ -3939,22 +3936,21 @@ public:
     DEBUG_EXPORT
     void interp (Module* mod, Export* emain = 0)
     {
-#if 0
-        Assert (mod && emain && emain->is_main && emain->tag == ExportTag_Function);
+        Assert (mod && emain && emain->tag == ExportTag_Function);
         Assert (emain->function < mod->functions.size ());
         Assert (emain->function < mod->code.size ());
         Assert (mod->functions.size () == mod->code.size ());
 
-//      Function& fmain = mod->functions [emain->function];
-        Code& cmain = mod->code [emain->function];
-#endif
+        Function& fmain = mod->functions [emain->function];
+        //Code& cmain = mod->code [emain->function];
+
         // instantiate module
         this->module = mod;
         ModuleInstance instance (module);
         this->module_instance = &instance;
 
         // Simulate call to initial function.
-        Invoke (mod->functions [12]); // TODO $_start in .name custom section
+        Invoke (fmain);
     }
 
     void Reserved ();
@@ -4021,7 +4017,7 @@ INTERP (Call)
 
 void Interp::Invoke (Function& function)
 {
-    __debugbreak ();
+    //__debugbreak ();
     // Decode function upon first call.
     // TODO thread safety
     // TODO merge with calli (invoke)
@@ -4070,7 +4066,7 @@ void Interp::Invoke (Function& function)
 
     for (j = 0; j != param_count; ++j)
     {
-        printf ("2 entering function with param [%" FORMAT_SIZE "X] type %X\n", j, (end () - param_count + j)->value.tag);
+        printf ("2 entering function with param [%" FORMAT_SIZE "X] type %X\n", j, (end () - (ptrdiff_t)param_count + (ptrdiff_t)j)->value.tag);
     }
 
     // CONSIDER put the interp loop elsewhere
@@ -4089,14 +4085,14 @@ void Interp::Invoke (Function& function)
         for (i = 0; i < param_count; ++i)
         {
             DumpStack ("moved_param_before");
-            *(end () - 1 - i) = *(end () - 2 - i);
+            *(end () - 1 - (ptrdiff_t)i) = *(end () - 2 - (ptrdiff_t)i);
             DumpStack ("moved_param_after");
         }
     }
 
     // place return frame/address (frame is just a marker now, the data is on the native stack)
 
-    (end () - 1 - param_count)->tag = StackTag_Frame;
+    (end () - 1 - (ptrdiff_t)param_count)->tag = StackTag_Frame;
     //(end () - 1 - param_count)->frame = frame;
     //(end () - 1 - param_count)->instr = instr + !!instr;
 
@@ -4121,9 +4117,9 @@ void Interp::Invoke (Function& function)
     DecodedInstruction* previous = instr; // call/ret handling
     instr = &code->decoded_instructions [0];
     DecodedInstruction* end = instr + size;
-    for (; ; ++instr) // Br subtracts one so this works.
+    for (; instr < end; ++instr) // Br subtracts one so this works.
     {
-        Assert (instr && instr < end);
+        Assert (instr);
         switch (instr->name)
         {
             // break before instead of after to avoid unreachable code warning
@@ -4150,7 +4146,7 @@ void Interp::Invoke (Function& function)
     }
     instr = previous;
     // TODO handle ret
-    __debugbreak ();
+    //__debugbreak ();
 }
 
 INTERP (Block)
@@ -4244,9 +4240,9 @@ INTERP (Local_get)
     AssertFormat (i < frame->param_and_local_count, ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, frame->param_and_local_count));
     push_value (StackValue (frame->Local (i)));
     if (i < frame->param_count)
-        AssertFormat (top ().tag == frame->param_types [i], ("%X %X", top ().tag, frame->param_types [i]));
+        AssertFormat (tag () == frame->param_types [i], ("%X %X", tag (), frame->param_types [i]));
     else
-        AssertFormat (top ().tag == frame->local_only_types [i - frame->param_count], ("%X %X", top ().tag, frame->local_only_types [i - frame->param_count]));
+        AssertFormat (tag () == frame->local_only_types [i - frame->param_count], ("%X %X", tag (), frame->local_only_types [i - frame->param_count]));
 }
 
 INTERP (If)
@@ -4308,7 +4304,10 @@ INTERP (BlockEnd)
     while (j > 0 && p [j - 1].tag == StackTag_Value)
         --j;
 
-    Assert (j > 0 && p [j - 1].tag == StackTag_Label);
+    // FIXME mark earlier if end of block or function
+    // FIXME And then assert?
+
+    Assert (j > 0 && (p [j - 1].tag == StackTag_Label || p [j - 1].tag == StackTag_Frame));
 
     for (size_t i = j - 1; i < s; ++i)
         p [i] = p [i + 1];
@@ -5606,16 +5605,35 @@ main (int argc, char** argv)
         // FIXME command line parsing
         // FIXME verbosity
         Module module;
-        module.read_module (argv [1]);
 
-        // TODO read .name custom section
+        // Support --run-all-exports for wabt test suite.
 
-        Interp().interp (&module);
+        size_t file = 1;
+        size_t i;
+        bool run_all_exports = false;
 
-        if (module.start)
-            Interp().interp (&module, module.start);
-        else if (module.main)
-            Interp().interp (&module, module.main);
+        Assert(argc >= 0);
+        for (i = 1 ; i < (uint)argc; ++i)
+        {
+            run_all_exports |= !strcmp (argv [i], "--run-all-exports");
+        }
+
+        if (run_all_exports)
+            file = 2;
+
+        module.read_module (argv [file]);
+
+        if (run_all_exports)
+        {
+            const size_t j = module.exports.size ();
+            for (i = 0; i < j; ++i)
+            {
+                Export* const xport = &module.exports [i];
+                if (xport->tag != ExportTag_Function)
+                    continue;
+                Interp().interp (&module, xport);
+            }
+        }
     }
 #if 1
     catch (int er)

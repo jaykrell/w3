@@ -9,5 +9,6 @@
 #endif
 
 #if _MSC_VER
+#pragma warning (disable:4061) // unhandled case
 #pragma warning (disable:4062) // unhandled case
 #endif
