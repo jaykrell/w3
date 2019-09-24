@@ -5617,11 +5617,15 @@ main (int argc, char** argv)
         Assert(argc >= 0);
         for (i = 1 ; i < (uint)argc; ++i)
         {
-            run_all_exports |= !strcmp (argv [i], "--run-all-exports");
+            if (strcmp (argv [i], "--run-all-exports") == 0)
+            {
+                run_all_exports = true;
+                if (i == 1)
+                    file = 2;
+                else if (i == 2)
+                    file = 1;
+            }
         }
-
-        if (run_all_exports)
-            file = 2;
 
         module.read_module (argv [file]);
 
