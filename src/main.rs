@@ -1,3 +1,5 @@
+/* 
+
 // A WebAssembly implementation and experimentation platform.
 // portable
 // simple? Always striving for the right level of complexity -- not too simple.
@@ -5530,6 +5532,71 @@ INTERP (f64_Reinterpret_i64_)
 using namespace w3; // TODO C or C++?
 #endif
 
+*/
+
+#[cfg(windows)]
+#[allow(non_snake_case)]
+pub mod windows {
+	#[link(name = "kernel32")]
+	mod kernel32 {
+		extern {
+			pub fn IsDebuggerPresent () -> u32;
+			pub fn DebugBreak();
+		}
+	}
+	pub fn IsDebuggerPresent() -> bool {
+		unsafe { kernel32::IsDebuggerPresent () != 0 }
+	}
+	pub fn DebugBreak() {
+		unsafe { kernel32::DebugBreak() }
+	}
+}
+
+#[cfg(windows)]
+use windows::*;
+
+#[cfg(not(windows))]
+#[allow(non_snake_case)]
+mod posix {
+	pub fn IsDebuggerPresent() -> bool
+	{
+		false // TODO
+	}
+	pub fn DebugBreak() {
+		// TODO
+	}
+}
+
+#[cfg(not(windows))]
+use posix::*;
+
+use std::env;
+
+//#define Xd(x) printf ("%s %I64d\n", #x, x);
+//#define Xx(x) printf ("%s %I64x\n", #x, x);
+//#define Xs(x) len = x; buf [len] = 0; printf ("%s %s\n", #x, buf);
+
+macro_rules! Xd {
+	($x:expr) => {
+		println!("{} {}", stringify!($x), $x);
+	}
+}
+
+fn main()
+{
+	if IsDebuggerPresent () { DebugBreak () }
+
+	let argv = env::args();
+	let mut argc = 0;
+	for _ in argv {
+		argc += 1
+	}
+
+	Xd! (123);
+	Xd! (0x123);
+}
+
+/*
 int
 main (int argc, char** argv)
 {
@@ -5652,4 +5719,4 @@ main (int argc, char** argv)
     return 0;
 }
 
-#endif
+*/
