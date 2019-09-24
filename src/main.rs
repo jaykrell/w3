@@ -4,7 +4,34 @@
 // portable
 // simple? Always striving for the right level of complexity -- not too simple.
 // efficient? (not yet)
+*/
 
+// Where Rust uses #, we need to hide it.
+#define WARN(x) #[warn(x)]
+#define REPR(x) #[repr(x)]
+
+//WARN(dead_code)
+
+//REPR(u8)
+enum Immediate
+{
+    None = 0,
+    I32,
+    I64,
+    F32,
+    F64,
+    Sequence,
+    VecLabel,
+    //u32,
+    Memory      ,     // align:u32 offset:u32
+    Type        ,     // read_varuint32
+    Function    ,     // read_varuint32
+    Global      ,     // read_varuint32
+    Local       ,     // read_varuint32
+    Label       ,     // read_varuint32
+}
+
+/*
 #ifdef INSTRUCTION
 
 INSTRUCTION (0x00, 1, 0, Unreach,   Imm_none,     0, 0, Type_none, Type_none, Type_none, Type_none)
@@ -318,7 +345,7 @@ RESERVED (FF)
 #pragma warning (disable:4738) // storing 32 float in memory is slow
 #pragma warning (disable:5045) // compiler will/did insert Spectre mitigation
 #if _MSC_VER == 1100 // TODO which versions?
-#include <yvals.h>
+//#include <yvals.h>
 #endif
 #if _MSC_VER <= 1100 // TODO which versions?
 #pragma warning (disable:4018) // unsigned/signed
@@ -347,7 +374,7 @@ RESERVED (FF)
 #define LITTLE_ENDIAN   1
 #define BYTE_ORDER      LITTLE_ENDIAN
 #else
-#include <endian.h>
+//#include <endian.h>
 #define BIG_ENDIAN      __BIG_ENDIAN
 #define LITTLE_ENDIAN   __LITTLE_ENDIAN
 #define BYTE_ORDER      __BYTE_ORDER
@@ -358,8 +385,8 @@ RESERVED (FF)
 #pragma warning (disable:4820) // padding
 #endif
 
-#include <math.h>
-#include <limits.h>
+//#include <math.h>
+//#include <limits.h>
 
 // Win32 ZeroMemory
 #define ZeroMem(p, n) memset((p), 0, (n))
@@ -458,8 +485,8 @@ typedef unsigned long long uint64;
 #pragma warning (disable:4365) // integer type mixups
 #endif
 
-#include "ieee.h"
-#include "math_private.h"
+//#include "ieee.h"
+//#include "math_private.h"
 
 //#define wasm_isinf(x) ((sizeof (x) == sizeof (float)) ? wasm_isinff ((float)x) : wasm_isinfd (x))
 //#define wasm_isnan(x) ((sizeof (x) == sizeof (float)) ? wasm_isnanf ((float)x) : wasm_isnand (x))
@@ -467,20 +494,20 @@ typedef unsigned long long uint64;
 static const float wasm_hugef = 1.0e30F;
 static const double wasm_huged = 1.0e300;
 
-#include "s_floor.c"
-#include "s_floorf.c"
-#include "isnan.c"
-#include "isinf.c"
-#include "s_trunc.c"
-#include "s_truncf.c"
-#include "s_round.c"
-#include "s_roundf.c"
+//#include "s_floor.c"
+//#include "s_floorf.c"
+//#include "isnan.c"
+//#include "isinf.c"
+//#include "s_trunc.c"
+//#include "s_truncf.c"
+//#include "s_round.c"
+//#include "s_roundf.c"
 
 #if _MSC_VER >= 1200
 #pragma warning (pop)
 #endif
 
-//#include "config.h"
+////#include "config.h"
 #define _DARWIN_USE_64_BIT_INODE 1
 //#define __DARWIN_ONLY_64_BIT_INO_T 1
 // TODO cmake
@@ -540,25 +567,25 @@ static const double wasm_huged = 1.0e300;
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
 #if _MSC_VER > 1100 // TODO which version?
-#include <intrin.h>
+//#include <intrin.h>
 #endif
 #ifndef _ISOC99_SOURCE
 #define _ISOC99_SOURCE
 #endif
-#include <math.h>
+//#include <math.h>
 #if _MSC_VER
 #pragma warning (disable:4350) // behavior change
 #endif
-//#include <stack>
-#include <assert.h>
-#include <errno.h>
-#include <memory.h>
-#include <stdarg.h>
-#include <stddef.h>
+////#include <stack>
+//#include <assert.h>
+//#include <errno.h>
+//#include <memory.h>
+//#include <stdarg.h>
+//#include <stddef.h>
 typedef ptrdiff_t ssize_t;
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+//#include <stdio.h>
+//#include <string.h>
+//#include <stdlib.h>
 
 // FiXME configure
 #if !_MSC_VER || _MSC_VER > 1000
@@ -575,16 +602,16 @@ typedef ptrdiff_t ssize_t;
 #endif
 
 #if STL
-#include <string>
-#include <vector>
-#include <memory>
-//#include <algorithm>
+//#include <string>
+//#include <vector>
+//#include <memory>
+////#include <algorithm>
 #endif
 
 #if _WIN32
 #define NOMINMAX 1
-#include <io.h>
-#include <windows.h>
+//#include <io.h>
+//#include <windows.h>
 extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #if _MSC_VER < 1000
 #define IsDebuggerPresent() (0)
@@ -599,14 +626,14 @@ extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #define __debugbreak() ((void)0)
 #define DebugBreak() ((void)0)
 #if !_MSDOS && !__WATCOMC__ // TODO
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
+//#include <unistd.h>
+//#include <fcntl.h>
+//#include <sys/mman.h>
+//#include <sys/stat.h>
 #endif
 #endif
 #if _MSC_VER
-#include <malloc.h> // for _alloca
+//#include <malloc.h> // for _alloca
 #if _MSC_VER >= 1200
 #pragma warning (pop)
 #endif
@@ -2510,28 +2537,6 @@ struct Stack : private StackBase
     }
 };
 
-#if HAS_TYPED_ENUM
-typedef enum Immediate : uint8
-#else
-typedef enum Immediate
-#endif
-{
-    Imm_none = 0,
-    Imm_i32,
-    Imm_i64,
-    Imm_f32,
-    Imm_f64,
-    Imm_sequence,
-    Imm_vecLabel,
-    //Imm_u32,
-    Imm_memory      ,     // align:u32 offset:u32
-    Imm_type        ,     // read_varuint32
-    Imm_function    ,     // read_varuint32
-    Imm_global      ,     // read_varuint32
-    Imm_local       ,     // read_varuint32
-    Imm_label       ,     // read_varuint32
-} Immediate;
-
 #define INTERP(x) void interp_ ## x ();
 
 INTERP (Unreach)
@@ -2647,7 +2652,7 @@ union {
 #else
 #define __func__ "__FUNCTION__"
 #endif
-#include <windows.h>
+//#include <windows.h>
 #define bits_for_uint(x) BITS_FOR_UINT (x)
 
 #ifdef C_ASSERT
@@ -3440,7 +3445,7 @@ DecodeInstructions (Module* module, WasmVector <DecodedInstruction>& instruction
                 Assert (!"invalid Imm_sequnce");
                 break;
             case If:
-#include "diag-switch-push.h"
+//#include "diag-switch-push.h"
                 switch (next)
                 {
                 default:
@@ -3459,7 +3464,7 @@ DecodeInstructions (Module* module, WasmVector <DecodedInstruction>& instruction
                     if_end = instructions.size () - 1; // to BlockEnd
                     break;
                 }
-#include "diag-switch-pop.h"
+//#include "diag-switch-pop.h"
                 instructions [index].if_false = if_false;
                 instructions [index].if_end = if_end;
                 break;
@@ -3512,7 +3517,7 @@ DecodeInstructions (Module* module, WasmVector <DecodedInstruction>& instruction
             module->read_vector_varuint32 (i.vecLabel, cursor);
             break;
         }
-#include "diag-switch-push.h"
+//#include "diag-switch-push.h"
         switch (e.immediate)
         {
         case Imm_global:
@@ -3531,7 +3536,7 @@ DecodeInstructions (Module* module, WasmVector <DecodedInstruction>& instruction
             //Assert (i.u32 < module->globals.size ());
             break;
         }
-#include "diag-switch-pop.h"
+//#include "diag-switch-pop.h"
         printf ("decode2:%" FORMAT_SIZE "X %s 0x%X %d\n", pc, InstructionName (i.name), i.i32, i.i32);
         if (e.immediate != Imm_sequence)
             instructions.push_back (i);
@@ -4136,7 +4141,7 @@ void Interp::Invoke (Function& function)
         // special handling
         if (instr->name == W3 Ret) // gross but most choices are
             break;
-#include "diag-switch-push.h"
+//#include "diag-switch-push.h"
         switch (instr->name)
         {
         case W3 Call:
@@ -4144,7 +4149,7 @@ void Interp::Invoke (Function& function)
             frame = &frame_value; // TODO should handled in Ret.
             break;
         }
-#include "diag-switch-pop.h"
+//#include "diag-switch-pop.h"
     }
     instr = previous;
     // TODO handle ret
@@ -5720,3 +5725,4 @@ main (int argc, char** argv)
 }
 
 */
+#endif
