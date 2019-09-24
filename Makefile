@@ -162,5 +162,7 @@ win32.exe: w3.cpp
 win64.exe: w3.cpp
 	x86_64-w64-mingw32-g++ -g w3.cpp -o $@ -Bsymbolic
 
+test:
+
 endif
 !endif :
