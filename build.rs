@@ -10,7 +10,7 @@ fn main() {
 	let mut f = File::create(&dest_path).unwrap();
 
 	let c = &mut cc::Build::new();
-	c.flag("-I.").flag("-I..").file("src/wasm_instructions.h");
+	c.flag("-I.").file("src/wasm_instructions.h");
     
 	// Preprocess w/o line numbers
 	// -EP for Visual C++
@@ -28,3 +28,25 @@ fn main() {
 		}
 	}
 }
+
+/*
+The .h file looks like this:
+
+#ifdef FOO
+
+FOO(...)
+FOO(...)
+
+#else
+
+#undef FOO
+#define FOO(...) ...
+#include __FILE__
+
+
+#undef FOO
+#define FOO(...) ...
+#include __FILE__
+
+#endif
+*/
