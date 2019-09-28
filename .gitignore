@@ -9,3 +9,13 @@
 **/*.c~
 **/*.h~
 **/*.i
+config.h
+config.cpp
+a.out
+a.out.js
+a.out.wasm
+a.out.wast
+wasm-debug.c
+wasm-debug.c~
+wasm-debug.h
+wasm-debug.h~
