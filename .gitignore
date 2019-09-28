@@ -19,3 +19,7 @@ wasm-debug.c
 wasm-debug.c~
 wasm-debug.h
 wasm-debug.h~
+*.exe.manifest
+xor.c
+xor.html
+xor.wasm.map
