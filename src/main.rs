@@ -40,12 +40,9 @@ enum Type
 }
 
 // TODO put this in .rs.
-//struct InstructionEncoding;
+//struct InstructionEncoding
 //enum InstructionEnum;
-
 include!(concat!(env!("OUT_DIR"), "/wasm_instructions.rs"));
-
-// For codegen purposes, an instruction is just an array of strings, or struct rather, or enum rather.
 
 /*
 
@@ -103,302 +100,10 @@ typedef enum ValueType
     ValueType_f64 = 0x7C,
 } ValueType;
 
-// workaround Visual C++ 2.0
-void WasmStdDestroy (int*, size_t) { }
-void WasmStdDestroy (uint*, size_t) { }
-void WasmStdDestroy (char*, size_t) { }
-void WasmStdDestroy (unsigned char*, size_t) { }
-void WasmStdDestroy (TableAddr**, size_t) { }
-void WasmStdDestroy (FuncAddr**, size_t) { }
-void WasmStdDestroy (ValueType*, size_t) { }
-
-template <class T>
-struct WasmStdVector
-{
-    // This resembles std::vector.
-
-    T* first;
-    T* last;
-    T* allocated;
-
-    struct iterator
-    {
-        T* p;
-
-        size_t operator - (iterator q);
-
-        iterator operator - (size_t n)
-        {
-            return p - n;
-        }
-
-        iterator operator + (size_t n)
-        {
-            return p + n;
-        }
-
-        iterator () : p (0) { }
-        iterator (T* q) : p (q) { }
-        T& operator [ ] (size_t i) { return *(p + i); }
-        T& operator * ( ) { return *p; }
-        T* operator -> ( ) { return p; }
-    };
-
-    iterator begin () { return first; }
-    iterator end () { return last; }
-
-    size_t size () const { return last - first; }
-    size_t capacity () const { return allocated - first; }
-
-    WasmStdVector () : first (0), last (0), allocated (0) { }
-
-    WasmStdVector (size_t n) : first (0), last (0), allocated (0)
-    {
-        T* f = (T*)malloc (sizeof (T) * n); // TODO IntegerOverflow
-        if (!f)
-            return; // TODO OutOfMemory
-        WasmStdConstructN (f, n);
-        allocated = last = (first = f) + n;
-    }
-
-    T& operator [] (size_t n) { return *(first + n); }
-
-    WasmStdVector (const WasmStdVector& other) : first (0), last (0), allocated (0)
-    {
-        size_t n = other.size ();
-        T* f = (T*)malloc (sizeof (T) * n); // TODO IntegerOverflow
-        if (!f)
-            return; // TODO OutOfMemory
-        WasmStdCopyConstructNtoN (f, other.first, n);
-        allocated = last = (first = f) + n;
-    }
-
-    bool empty () const { return first == last; }
-
-    void reserve (size_t newsize)
-    {
-        size_t s = capacity ();
-        if (newsize <= s)
-            return;
-        size_t newcap = Max (newsize, s * 2); // TODO IntegerOverflow
-        T* f = (T*)malloc (sizeof (T) * newcap);
-        if (!f)
-            f = (T*)malloc (sizeof (T) * (newcap = newsize)); // TODO IntegerOverflow
-        if (!f)
-            return; // TODO OutOfMemory
-        last = f + size ();
-        first = f;
-        allocated = f + newcap;
-    }
-
-    void push_back (const T& a)
-    {
-        reserve (size () + 1);
-        WasmStdCopyConstruct1 (back (), a);
-    }
-
-    void pop_back ()
-    {
-        Assert (size ());
-        WasmStdDestroy (--last, 1u);
-    }
-
-    void resize (size_t newsize)
-    {
-        T t;
-        resize (newsize, t);
-    }
-
-    void resize (size_t newsize, const T& fill)
-    {
-        size_t s = size ();
-        if (newsize == s)
-            return;
-        if (newsize < s)
-        {
-            WasmStdDestroy (first + newsize, s - newsize);
-            last = first + newsize;
-            return;
-        }
-        size_t newcap = Max (newsize, s * 2); // TODO IntegerOverflow
-        T* f = (T*)malloc (sizeof (T) * newcap);
-        if (!f)
-            f = (T*)malloc (sizeof (T) * (newcap = newsize)); // TODO IntegerOverflow
-        if (!f)
-            return; // TODO OutOfMemory
-        WasmStdCopyConstructNtoN (f, first, newsize);
-        WasmStdCopyConstruct1toN (f + s, fill, (size_t)(newsize - s));
-        first = f;
-        last = f + newsize;
-        allocated = f + newcap;
-    }
-
-    bool operator == (const WasmStdVector& other) const
-    {
-        size_t s = size ();
-        if (s != other.size ())
-            return false;
-        for (size_t i = 0 ; i < s; ++i)
-        {
-            if (first [i] != other.first [i])
-                return false;
-        }
-        return true;
-    }
-
-    WasmStdVector& operator =(const WasmStdVector&);
-
-    T& front ()
-    {
-        Assert (size());
-        return *first;
-    }
-
-    T& back ()
-    {
-        Assert (size());
-        return *(last - 1);
-    }
-};
-
-#if STL
-#define WasmStdVector std::vector
-#endif
-
-static
-WasmStdString
-StringFormatVa (const char* format, va_list va)
-{
-    // Some systems, including Linux/amd64, cannot consume a
-    // va_list multiple times. It must be copied first.
-    // Passing the parameter twice does not work.
-#if !_WIN32
-    va_list va2;
-#ifdef __va_copy
-    __va_copy (va2, va);
-#else
-    va_copy (va2, va); // C99
-#endif
-#endif
-
-    WasmStdVector <char> s (string_vformat_length (format, va));
-
-#if _WIN32
-    _vsnprintf (&s [0], s.size (), format, va);
-#else
-    vsnprintf (&s [0], s.size (), format, va2);
-#endif
-    return &s [0];
-}
-
-// This originally exists to ease unsigned/signed mismatches,
-// but we have cleaned up and use size_t, and Visual C++ 2.0 does not
-// support default template parameters.
-template <class T>
-struct WasmVector : WasmStdVector <T>
-{
-    typedef size_t SizeT;
-
-    typedef WasmStdVector <T> base;
-
-    typedef TYPENAME base::iterator iterator;
-
-    T& operator [](SizeT i) { return base::operator []((size_t)i); }
-
-    SizeT size () const { return (SizeT)base::size (); }
-
-    void resize (SizeT i) { base::resize ((size_t)i); }
-
-    void resize (SizeT i, const T& t) { base::resize ((size_t)i, t); }
-
-    bool operator == (const WasmVector& other) const
-    {
-        return (const base&)*this == (const base&)other;
-    }
-
-#if !STL
-    struct iterator
-    {
-        typename base::iterator i;
-
-        T& operator [ ] (SizeT a)
-        {
-            return i [(ptrdiff_t)a];
-        }
-
-//        T& operator [ ] (SizeT) const;
-
-        typename base::iterator operator -> ()
-        {
-            return i; //.operator -> ();
-        }
-//        T* operator -> () const;
-
-        T& operator * ()
-        {
-            return *i;
-        }
-//        T& operator * () const;
-
-        iterator operator - (SizeT j)
-        {
-            iterator a = i - (ptrdiff_t)j;
-            return a;
-        }
-
-        iterator operator + (SizeT j)
-        {
-            iterator a = i + (ptrdiff_t)j;
-            return a;
-        }
-    };
-#endif
-
-    iterator begin ()
-    {
-        iterator a = base::begin ();
-        return a;
-    }
-
-    iterator end()
-    {
-        iterator a = base::end ();
-        return a;
-    }
-};
-
 const uint32 PageSize = (1UL << 16);
 const uint32 PageShift = 16;
 
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
-
-static
-uint
-Unpack2 (const void* a)
-{
-    uint8* b = (uint8*)a;
-    return ((b [1]) << 8) | (uint)b [0];
-}
-
-static
-uint
-Unpack4 (const void* a)
-{
-    return (Unpack2 ((char*)a + 2) << 16) | Unpack2 (a);
-}
-
-static
-uint
-Unpack (const void* a, uint size)
-{
-    switch (size)
-    {
-    case 2: return Unpack2 (a);
-    case 4: return Unpack4 (a);
-    }
-    AssertFormat (size == 2 || size == 4, ("%X", size));
-    return ~0u;
-}
 
 template <uint N> struct uintLEn_to_native_exact;
 template <uint N> struct uintLEn_to_native_fast;
@@ -437,50 +142,7 @@ struct uintLEn // unsigned little endian integer, size n bits
     void operator= (uint);
 };
 
-typedef uintLEn<16> uintLE16;
 typedef uintLEn<32> uintLE;
-typedef uintLEn<64> uintLE64;
-
-static
-uint
-Unpack (uintLE16& a)
-{
-    return (uint)a;
-}
-
-static
-uint
-Unpack (uintLE16* a)
-{
-    return (uint)*a;
-}
-
-static
-uint
-Unpack (uintLE& a)
-{
-    return (uint)a;
-}
-
-static
-uint
-Unpack (uintLE* a)
-{
-    return (uint)*a;
-}
-
-// C++98 workaround for what C++11 offers.
-struct explicit_operator_bool
-{
-    typedef void (explicit_operator_bool::*T) () const;
-#if __WATCOMC__
-    void True () const { }
-#else
-    void True () const;
-#endif
-};
-
-typedef void (explicit_operator_bool::*bool_type) () const;
 
 #if _WIN32
 struct Handle
@@ -1749,6 +1411,87 @@ struct ModuleBase // workaround old compiler
     virtual void read_data (uint8** cursor) = 0;
 };
 
+struct Module : ModuleBase
+{
+    DEBUG_EXPORT
+    Module () : base (0), file_size (0), end (0), start (0), main (0),
+        import_function_count (0),
+        import_table_count (0),
+        import_memory_count (0),
+        import_global_count (0)
+    {
+    }
+
+    MemoryMappedFile mmf;
+    uint8* base;
+    uint64 file_size;
+    uint8* end;
+    Section sections [12];
+    //WasmVector <std::shared_ptr<Section>> custom_sections; // FIXME
+
+    // The order can be take advantage of.
+    // For example global is read before any code,
+    // so the index of any global.get/set can be validated right away.
+    WasmVector <FunctionType> function_types; // section1 function signatures
+    WasmVector <Import> imports; // section2
+    WasmVector <Function> functions; // section3 and section10 function declarations
+    WasmVector <TableType> tables; // section4 indirect tables
+    WasmVector <Global> globals; // section6
+    WasmVector <Export> exports; // section7
+    WasmVector <Element> elements; // section9 table initialization
+    WasmVector <Code> code; // section10
+    WasmVector <Data> data; // section11 memory initialization
+    Limits memory_limits;
+
+    Export* start;
+    Export* main;
+
+    size_t import_function_count;
+    size_t import_table_count;
+    size_t import_memory_count;
+    size_t import_global_count;
+
+    DEBUG_EXPORT WasmString read_string (uint8** cursor);
+
+    DEBUG_EXPORT int32 read_i32 (uint8** cursor);
+    DEBUG_EXPORT int64 read_i64 (uint8** cursor);
+    DEBUG_EXPORT float read_f32 (uint8** cursor);
+    DEBUG_EXPORT double read_f64 (uint8** cursor);
+
+    DEBUG_EXPORT uint8 read_byte (uint8** cursor);
+    DEBUG_EXPORT uint8 read_varuint7 (uint8** cursor);
+    DEBUG_EXPORT uint32 read_varuint32 (uint8** cursor);
+
+    DEBUG_EXPORT void read_vector_varuint32 (WasmVector <uint>&, uint8** cursor);
+    DEBUG_EXPORT Limits read_limits (uint8** cursor);
+    DEBUG_EXPORT MemoryType read_memorytype (uint8** cursor);
+    DEBUG_EXPORT GlobalType read_globaltype (uint8** cursor);
+    DEBUG_EXPORT TableType read_tabletype (uint8** cursor);
+    DEBUG_EXPORT ValueType read_valuetype (uint8** cursor);
+    DEBUG_EXPORT BlockType read_blocktype(uint8** cursor);
+    DEBUG_EXPORT TableElementType read_elementtype (uint8** cursor);
+    DEBUG_EXPORT bool read_mutable (uint8** cursor);
+    DEBUG_EXPORT void read_section (uint8** cursor);
+    DEBUG_EXPORT void read_module (const char* file_name);
+    DEBUG_EXPORT void read_vector_ValueType (WasmVector <ValueType>& result, uint8** cursor);
+    DEBUG_EXPORT void read_function_type (FunctionType& functionType, uint8** cursor);
+
+    DEBUG_EXPORT virtual void read_types (uint8** cursor);
+    DEBUG_EXPORT virtual void read_imports (uint8** cursor);
+    DEBUG_EXPORT virtual void read_functions (uint8** cursor);
+    DEBUG_EXPORT virtual void read_tables (uint8** cursor);
+    DEBUG_EXPORT virtual void read_memory (uint8** cursor);
+    DEBUG_EXPORT virtual void read_globals (uint8** cursor);
+    DEBUG_EXPORT virtual void read_exports (uint8** cursor);
+    DEBUG_EXPORT virtual void read_start (uint8** cursor)
+    {
+        ThrowString ("Start::read not yet implemented");
+    }
+    DEBUG_EXPORT virtual void read_elements (uint8** cursor);
+    DEBUG_EXPORT virtual void read_code (uint8** cursor);
+    DEBUG_EXPORT virtual void read_data (uint8** cursor);
+};
+
 struct SectionTraits
 {
     void (ModuleBase::*read)(uint8** cursor);
@@ -1981,87 +1724,6 @@ struct FunctionType
 
     bool operator < (const FunctionType&) const; // workaround old compiler
     bool operator != (const FunctionType&) const; // workaround old compiler
-};
-
-struct Module : ModuleBase
-{
-    DEBUG_EXPORT
-    Module () : base (0), file_size (0), end (0), start (0), main (0),
-        import_function_count (0),
-        import_table_count (0),
-        import_memory_count (0),
-        import_global_count (0)
-    {
-    }
-
-    MemoryMappedFile mmf;
-    uint8* base;
-    uint64 file_size;
-    uint8* end;
-    Section sections [12];
-    //WasmVector <std::shared_ptr<Section>> custom_sections; // FIXME
-
-    // The order can be take advantage of.
-    // For example global is read before any code,
-    // so the index of any global.get/set can be validated right away.
-    WasmVector <FunctionType> function_types; // section1 function signatures
-    WasmVector <Import> imports; // section2
-    WasmVector <Function> functions; // section3 and section10 function declarations
-    WasmVector <TableType> tables; // section4 indirect tables
-    WasmVector <Global> globals; // section6
-    WasmVector <Export> exports; // section7
-    WasmVector <Element> elements; // section9 table initialization
-    WasmVector <Code> code; // section10
-    WasmVector <Data> data; // section11 memory initialization
-    Limits memory_limits;
-
-    Export* start;
-    Export* main;
-
-    size_t import_function_count;
-    size_t import_table_count;
-    size_t import_memory_count;
-    size_t import_global_count;
-
-    DEBUG_EXPORT WasmString read_string (uint8** cursor);
-
-    DEBUG_EXPORT int32 read_i32 (uint8** cursor);
-    DEBUG_EXPORT int64 read_i64 (uint8** cursor);
-    DEBUG_EXPORT float read_f32 (uint8** cursor);
-    DEBUG_EXPORT double read_f64 (uint8** cursor);
-
-    DEBUG_EXPORT uint8 read_byte (uint8** cursor);
-    DEBUG_EXPORT uint8 read_varuint7 (uint8** cursor);
-    DEBUG_EXPORT uint32 read_varuint32 (uint8** cursor);
-
-    DEBUG_EXPORT void read_vector_varuint32 (WasmVector <uint>&, uint8** cursor);
-    DEBUG_EXPORT Limits read_limits (uint8** cursor);
-    DEBUG_EXPORT MemoryType read_memorytype (uint8** cursor);
-    DEBUG_EXPORT GlobalType read_globaltype (uint8** cursor);
-    DEBUG_EXPORT TableType read_tabletype (uint8** cursor);
-    DEBUG_EXPORT ValueType read_valuetype (uint8** cursor);
-    DEBUG_EXPORT BlockType read_blocktype(uint8** cursor);
-    DEBUG_EXPORT TableElementType read_elementtype (uint8** cursor);
-    DEBUG_EXPORT bool read_mutable (uint8** cursor);
-    DEBUG_EXPORT void read_section (uint8** cursor);
-    DEBUG_EXPORT void read_module (const char* file_name);
-    DEBUG_EXPORT void read_vector_ValueType (WasmVector <ValueType>& result, uint8** cursor);
-    DEBUG_EXPORT void read_function_type (FunctionType& functionType, uint8** cursor);
-
-    DEBUG_EXPORT virtual void read_types (uint8** cursor);
-    DEBUG_EXPORT virtual void read_imports (uint8** cursor);
-    DEBUG_EXPORT virtual void read_functions (uint8** cursor);
-    DEBUG_EXPORT virtual void read_tables (uint8** cursor);
-    DEBUG_EXPORT virtual void read_memory (uint8** cursor);
-    DEBUG_EXPORT virtual void read_globals (uint8** cursor);
-    DEBUG_EXPORT virtual void read_exports (uint8** cursor);
-    DEBUG_EXPORT virtual void read_start (uint8** cursor)
-    {
-        ThrowString ("Start::read not yet implemented");
-    }
-    DEBUG_EXPORT virtual void read_elements (uint8** cursor);
-    DEBUG_EXPORT virtual void read_code (uint8** cursor);
-    DEBUG_EXPORT virtual void read_data (uint8** cursor);
 };
 
 static
@@ -4488,80 +4150,15 @@ fn main()
 
 	Xd! (123);
 	Xd! (0x123);
+	// Xs!
+	// Xx!
 }
 
 /*
 int
 main (int argc, char** argv)
 {
-    if (IsDebuggerPresent ()) DebugBreak ();
-#if 0 // test code TODO move it elsewhere? Or under a switch.
-    printf ("3 %s\n", InstructionName (1));
-    printf ("4 %s\n", InstructionName (0x44));
-    char buf [99] = { 0 };
-    uint len;
-#define Xd(x) printf ("%s %I64d\n", #x, x);
-#define Xx(x) printf ("%s %I64x\n", #x, x);
-#define Xs(x) len = x; buf [len] = 0; printf ("%s %s\n", #x, buf);
-    Xd (UIntGetPrecision (0));
-    Xd (UIntGetPrecision (1));
-    Xd (UIntGetPrecision (0x2));
-    Xd (UIntGetPrecision (0x2));
-    Xd (UIntGetPrecision (0x7));
-    Xd (UIntGetPrecision (0x8));
-    Xd (IntGetPrecision (0));
-    Xd (IntGetPrecision (1));
-    Xd (IntGetPrecision (0x2));
-    Xd (IntGetPrecision (0x2));
-    Xd (IntGetPrecision (0x7));
-    Xd (IntGetPrecision (0x8));
-    Xd (IntGetPrecision (0));
-    Xd (IntGetPrecision (-1));
-    Xd (IntGetPrecision (-0x2));
-    Xd (IntGetPrecision (-0x2));
-    Xd (IntGetPrecision (-0x7));
-    Xd (IntGetPrecision (-0x8));
-    Xd (IntToDec_GetLength (0))
-    Xd (IntToDec_GetLength (1))
-    Xd (IntToDec_GetLength (2))
-    Xd (IntToDec_GetLength (300))
-    Xd (IntToDec_GetLength (-1))
-    Xx (SignExtend (0xf, 0));
-    Xx (SignExtend (0xf, 1));
-    Xx (SignExtend (0xf, 2));
-    Xx (SignExtend (0xf, 3));
-    Xx (SignExtend (0xf, 4));
-    Xx (SignExtend (0xf, 5));
-    Xd (IntToHex_GetLength (0xffffffffa65304e4));
-    Xd (IntToHex_GetLength (0xfffffffa65304e4));
-    Xd (IntToHex_GetLength (-1));
-    Xd (IntToHex_GetLength (-1ui64>>4));
-    Xd (IntToHex_GetLength (0xf));
-    Xd (IntToHex_GetLength (32767));
-    Xd (IntToHex_GetLength (-32767));
-    Xs (IntToHex (32767, buf));
-    Xs (IntToHex (-32767, buf));
-    Xs (IntToHex8 (0x123, buf));
-    Xs (IntToHex8 (0xffffffffa65304e4, buf));
-    Xs (IntToHex8 (-1, buf));
-    Xs (IntToHex (0x1, buf));
-    Xs (IntToHex (0x12, buf));
-    Xs (IntToHex (0x123, buf));
-    Xs (IntToHex (0x12345678, buf));
-    Xs (IntToHex (-1, buf));
-    Xd (IntToHex_GetLength (0x1));
-    Xd (IntToHex_GetLength (0x12));
-    Xd (IntToHex_GetLength (0x12345678));
-    Xd (IntToHex_GetLength (0x01234567));
-    Xd (IntToHex_GetLength (-1));
-    Xd (IntToHex_GetLength (~0u >> 1));
-    Xd (IntToHex_GetLength (~0u >> 2));
-    Xd (IntToHex_GetLength (~0u >> 4));
-    exit (0);
-#endif
-#if 1
     try
-#endif
     {
         // FIXME command line parsing
         // FIXME verbosity
@@ -4600,7 +4197,6 @@ main (int argc, char** argv)
             }
         }
     }
-#if 1
     catch (int er)
     {
         fprintf (stderr, "error 0x%08X\n", er);
@@ -4609,7 +4205,6 @@ main (int argc, char** argv)
     {
         fprintf (stderr, "%s", er.c_str ());
     }
-#endif
     return 0;
 }
 
