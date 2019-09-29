@@ -1,104 +1,73 @@
-/* 
-
 // A WebAssembly implementation and experimentation platform.
-// portable
-// simple? Always striving for the right level of complexity -- not too simple.
-// efficient? (not yet)
-*/
+// Full spec TBD.
 
 #[allow(dead_code)]
+#[allow(non_camel_case_types)]
 
 #[repr(u8)]
 enum Imm // Immediate
 {
-    None = 0,
-    I32,
-    I64,
-    F32,
-    F64,
-    Sequence,
-    VecLabel,
-    //u32,
-    Memory,     // align:u32 offset:u32
-    Type,	// read_varuint32
-    Function,   // read_varuint32
-    Global,     // read_varuint32
-    Local,	// read_varuint32
-    Label,	// read_varuint32
+  None = 0,
+  I32,
+  I64,
+  F32,
+  F64,
+  Sequence,
+  VecLabel,
+  //u32,
+  Memory,    // align:u32 offset:u32
+  Type,      // read_varuint32
+  Function,  // read_varuint32
+  Global,    // read_varuint32
+  Local,	 // read_varuint32
+  Label,	 // read_varuint32
 }
 
 #[repr(u8)]
 enum Type
 {
-	None,
-	Bool, // i32
-	Any, // often has some constraints
-	I32 = 0x7F,
-	I64 = 0x7E,
-	F32 = 0x7D,
-	F64 = 0x7C,
+  None,
+  Bool, // i32
+  Any, // often has some constraints
+  I32 = 0x7F,
+  I64 = 0x7E,
+  F32 = 0x7D,
+  F64 = 0x7C,
 }
+
+#[allow(non_camel_case_types)]
+enum InstructionEnum;
 
 // TODO put this in .rs.
 //struct InstructionEncoding
 //enum InstructionEnum;
 include!(concat!(env!("OUT_DIR"), "/wasm_instructions.rs"));
 
-/*
-
-//#include "ieee.h"
-//#include "math_private.h"
-
-//#define wasm_isinf(x) ((sizeof (x) == sizeof (float)) ? wasm_isinff ((float)x) : wasm_isinfd (x))
-//#define wasm_isnan(x) ((sizeof (x) == sizeof (float)) ? wasm_isnanf ((float)x) : wasm_isnand (x))
-
-static const float wasm_hugef = 1.0e30F;
-static const double wasm_huged = 1.0e300;
-
-//#include "s_floor.c"
-//#include "s_floorf.c"
-//#include "isnan.c"
-//#include "isinf.c"
-//#include "s_trunc.c"
-//#include "s_truncf.c"
-//#include "s_round.c"
-//#include "s_roundf.c"
-//#include <math.h>
-//#include <io.h>
-//#include <windows.h>
-//#include <unistd.h>
-//#include <fcntl.h>
-//#include <sys/mman.h>
-//#include <sys/stat.h>
-
-struct FuncAddr // TODO
-{
-};
-
-struct TableAddr // TODO
-{
-};
-
-struct MemAddr // TODO
-{
-};
-
-struct GlobalAddr // TODO
-{
-};
+const hugef: f32 = 1.0e30F32;
+const huged: f64 = 1.0e300F64;
 
 // This should probabably be combined with ResultType, and called Tag.
-#if HAS_TYPED_ENUM
-typedef enum ValueType : uint8
-#else
-typedef enum ValueType
-#endif
+#[repr(u8)]
+enum ValueType
 {
-    ValueType_i32 = 0x7F,
-    ValueType_i64 = 0x7E,
-    ValueType_f32 = 0x7D,
-    ValueType_f64 = 0x7C,
-} ValueType;
+    I32 = 0x7F,
+    I64 = 0x7E,
+    F32 = 0x7D,
+    F64 = 0x7C,
+};
+
+/*
+struct FuncAddr // TODO
+{ };
+
+struct TableAddr // TODO
+{ };
+
+struct MemAddr // TODO
+{ };
+
+struct GlobalAddr // TODO
+{ };
 
 const uint32 PageSize = (1UL << 16);
 const uint32 PageShift = 16;
@@ -578,60 +547,6 @@ struct Section;
 // StackValue* stack = initial_stack;
 // StackValue* min_stack = initial_stack;
 
-#if 0 // probably will not do it this way, std::stack and loop instead
-// FIXME for grow up stack
-#define ALLOC_STACK(n)                                                                  \
-do {                                                                                    \
-    if (stack - n < min_stack)                                                          \
-        min_stack = (StackValue*)alloca((min_stack - (stack - n)) * sizeof (*stack)); \
-    stack -= n;                                                                         \
-} while (0)
-
-// probably will not do it this way, std::stack and loop instead
-#define STACK_POP_CHECK(n) \
-do {                                                                                    \
-    Assert (n <= stack_depth);  \
-} while (0)
-
-#define STACK_POP_UNSAFE(n) \
-do {                                                                                    \
-    stack_depth -= n;           \
-    stack += n;                 \
-} while (0)
-
-// probably will not do it this way, std::stack and loop instead
-// FIXME for grow up stack
-#define STACK_POP(n) \
-do {                                                                                    \
-    Assert (n <= stack_depth);  \
-    stack_depth -= n;           \
-    stack += n;                 \
-} while (0)
-
-// probably will not do it this way, std::stack and loop instead
-#define STACK_PUSH(v)           \
-do {                            \                                                       \
-    ALLOC_STACK (1);            \
-    stack [0] = (v);            \
-} while (0)                     \
-
-// probably will not do it this way, std::stack and loop instead
-#define FRAME_PUSH(callee)                      \
-do {                                            \
-    ALLOC_STACK (function->locals_size + 1);    \
-    stack [0].frame = frame;                    \
-} while (0)                                     \
-
-// probably will not do it this way, std::stack and loop instead
-#define FRAME_POP()                         \
-do {                                        \
-    STACK_POP (function->locals_size);      \
-    frame = stack [0].frame;                \
-    STACK_POP (1);                          \
-} while (0)                                 \
-
-#endif
-
 typedef struct FunctionType FunctionType;
 typedef struct Function Function;
 typedef struct Code Code;
@@ -790,36 +705,36 @@ struct Frame
     Interp* interp;
     size_t locals; // index in stack to start of params and locals, params first
 
-    DEBUG_EXPORT StackValue& Local (size_t index);
+    StackValue& Local (size_t index);
 };
 
 // work in progress
 struct Stack : private StackBase
 {
-    DEBUG_EXPORT Stack () { }
+    Stack () { }
 
     // old compilers lack using.
     typedef StackBase base;
     typedef base::iterator iterator;
-    DEBUG_EXPORT void pop () { base::pop (); }
-    DEBUG_EXPORT StackValue& top () { return base::top (); }
-    DEBUG_EXPORT StackValue& back () { return base::back (); }
-    DEBUG_EXPORT StackValue& front () { return base::front (); }
-    DEBUG_EXPORT iterator begin () { return base::begin (); }
-    DEBUG_EXPORT iterator end () { return base::end (); }
-    DEBUG_EXPORT bool empty () const { return base::empty (); }
-    DEBUG_EXPORT void resize (size_t newsize) { base::resize (newsize); }
-    DEBUG_EXPORT size_t size () { return base::size (); }
-    DEBUG_EXPORT StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
+    void pop () { base::pop (); }
+    StackValue& top () { return base::top (); }
+    StackValue& back () { return base::back (); }
+    StackValue& front () { return base::front (); }
+    iterator begin () { return base::begin (); }
+    iterator end () { return base::end (); }
+    bool empty () const { return base::empty (); }
+    void resize (size_t newsize) { base::resize (newsize); }
+    size_t size () { return base::size (); }
+    StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
 
-    DEBUG_EXPORT void reserve (size_t n)
+    void reserve (size_t n)
     {
         // TODO
     }
 
     // While ultimately a stack of values, labels, and frames, values dominate.
 
-    DEBUG_EXPORT ValueType& tag (ValueType tag)
+    ValueType& tag (ValueType tag)
     {
         AssertTopIsValue ();
         StackValue& t = top ();
@@ -827,21 +742,21 @@ struct Stack : private StackBase
         return t.value.tag;
     }
 
-    DEBUG_EXPORT ValueType& tag ()
+    ValueType& tag ()
     {
         AssertTopIsValue ();
         StackValue& t = top ();
         return t.value.tag;
     }
 
-    DEBUG_EXPORT Value& value ()
+    Value& value ()
     {
         AssertTopIsValue ();
         StackValue& t = top ();
         return t.value.value;
     }
 
-    DEBUG_EXPORT Value& value (ValueType tag)
+    Value& value (ValueType tag)
     {
         AssertTopIsValue ();
         StackValue& t = top ();
@@ -849,7 +764,7 @@ struct Stack : private StackBase
         return t.value.value;
     }
 
-    DEBUG_EXPORT void pop_label ()
+    void pop_label ()
     {
         if (size () < 1 || top ().tag != StackTag_Label)
             DumpStack ("AssertTopIsValue");
@@ -858,7 +773,7 @@ struct Stack : private StackBase
         pop ();
     }
 
-    DEBUG_EXPORT void pop_value ()
+    void pop_value ()
     {
         AssertTopIsValue ();
         //int t = tag ();
@@ -866,21 +781,21 @@ struct Stack : private StackBase
         //printf ("pop_value tag:%s depth:%" FORMAT_SIZE "X\n", TypeToString (t), size ());
     }
 
-    DEBUG_EXPORT void push_value (const StackValue& value)
+    void push_value (const StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Value, ("%X %X", value.tag, StackTag_Value));
         push (value);
         //printf ("push_value tag:%s value:%X depth:%" FORMAT_SIZE "X\n", TypeToString (value.value.tag), value.value.value.i32, size ());
     }
 
-    DEBUG_EXPORT void push_label (const StackValue& value)
+    void push_label (const StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Label, ("%X %X", value.tag, StackTag_Label));
         push (value);
         //printf ("push_label depth:%" FORMAT_SIZE "X\n", size ());
     }
 
-    DEBUG_EXPORT void push_frame (const StackValue& value)
+    void push_frame (const StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Frame, ("%X %X", value.tag, StackTag_Frame));
         push (value);
@@ -889,82 +804,82 @@ struct Stack : private StackBase
 
     // type specific pushers
 
-    DEBUG_EXPORT void push_i32 (int32 i)
+    void push_i32 (int32 i)
     {
         StackValue value (ValueType_i32);
         value.value.value.i32 = i;
         push_value (value);
     }
 
-    DEBUG_EXPORT void push_i64 (int64 i)
+    void push_i64 (int64 i)
     {
         StackValue value (ValueType_i64);
         value.value.value.i64 = i;
         push_value (value);
     }
 
-    DEBUG_EXPORT void push_u32 (uint i)
+    void push_u32 (uint i)
     {
         push_i32 ((int32)i);
     }
 
-    DEBUG_EXPORT void push_u64 (uint64 i)
+    void push_u64 (uint64 i)
     {
         push_i64 ((int64)i);
     }
 
-    DEBUG_EXPORT void push_f32 (float i)
+    void push_f32 (float i)
     {
         StackValue value (ValueType_f32);
         value.value.value.f32 = i;
         push_value (value);
     }
 
-    DEBUG_EXPORT void push_f64 (double i)
+    void push_f64 (double i)
     {
         StackValue value (ValueType_f64);
         value.value.value.f64 = i;
         push_value (value);
     }
 
-    DEBUG_EXPORT void push_bool (bool b)
+    void push_bool (bool b)
     {
         push_i32 (b);
     }
 
     // accessors, check tag, return ref
 
-    DEBUG_EXPORT int32& i32 ()
+    int32& i32 ()
     {
         return value (ValueType_i32).i32;
     }
 
-    DEBUG_EXPORT int64& i64 ()
+    int64& i64 ()
     {
         return value (ValueType_i64).i64;
     }
 
-    DEBUG_EXPORT uint& u32 ()
+    uint& u32 ()
     {
         return value (ValueType_i32).u32;
     }
 
-    DEBUG_EXPORT uint64& u64 ()
+    uint64& u64 ()
     {
         return value (ValueType_i64).u64;
     }
 
-    DEBUG_EXPORT float& f32 ()
+    float& f32 ()
     {
         return value (ValueType_f32).f32;
     }
 
-    DEBUG_EXPORT double& f64 ()
+    double& f64 ()
     {
         return value (ValueType_f64).f64;
     }
 
-    DEBUG_EXPORT void DumpStack (const char* prefix)
+    void DumpStack (const char* prefix)
     {
         const size_t n = size ();
         printf ("stack@%s: %" FORMAT_SIZE "X ", prefix, n);
@@ -986,7 +901,7 @@ struct Stack : private StackBase
         printf ("\n");
     }
 
-    DEBUG_EXPORT void AssertTopIsValue ()
+    void AssertTopIsValue ()
     {
         if (size () < 1 || top ().tag != StackTag_Value)
             DumpStack ("AssertTopIsValue");
@@ -996,7 +911,7 @@ struct Stack : private StackBase
 
     // setter, changes tag, returns ref
 
-    DEBUG_EXPORT Value& set (ValueType tag)
+    Value& set (ValueType tag)
     {
         AssertTopIsValue ();
         StackValue& t = top ();
@@ -1007,32 +922,32 @@ struct Stack : private StackBase
 
     // type-specific setters
 
-    DEBUG_EXPORT void set_i32 (int32 a)
+    void set_i32 (int32 a)
     {
         set (ValueType_i32).i32 = a;
     }
 
-    DEBUG_EXPORT void set_u32 (uint a)
+    void set_u32 (uint a)
     {
         set (ValueType_i32).u32 = a;
     }
 
-    DEBUG_EXPORT void set_bool (bool a)
+    void set_bool (bool a)
     {
         set_i32 (a);
     }
 
-    DEBUG_EXPORT void set_i64 (int64 a)
+    void set_i64 (int64 a)
     {
         set (ValueType_i64).i64 = a;
     }
 
-    DEBUG_EXPORT void set_u64 (uint64 a)
+    void set_u64 (uint64 a)
     {
         set (ValueType_i64).u64 = a;
     }
 
-    DEBUG_EXPORT void set_f32 (float a)
+    void set_f32 (float a)
     {
         set (ValueType_f32).f32 = a;
     }
@@ -1451,45 +1366,45 @@ struct Module : ModuleBase
     size_t import_memory_count;
     size_t import_global_count;
 
-    DEBUG_EXPORT WasmString read_string (uint8** cursor);
+    WasmString read_string (uint8** cursor);
 
-    DEBUG_EXPORT int32 read_i32 (uint8** cursor);
-    DEBUG_EXPORT int64 read_i64 (uint8** cursor);
-    DEBUG_EXPORT float read_f32 (uint8** cursor);
-    DEBUG_EXPORT double read_f64 (uint8** cursor);
+    int32 read_i32 (uint8** cursor);
+    int64 read_i64 (uint8** cursor);
+    float read_f32 (uint8** cursor);
+    double read_f64 (uint8** cursor);
 
-    DEBUG_EXPORT uint8 read_byte (uint8** cursor);
-    DEBUG_EXPORT uint8 read_varuint7 (uint8** cursor);
-    DEBUG_EXPORT uint32 read_varuint32 (uint8** cursor);
+    uint8 read_byte (uint8** cursor);
+    uint8 read_varuint7 (uint8** cursor);
+    uint32 read_varuint32 (uint8** cursor);
 
-    DEBUG_EXPORT void read_vector_varuint32 (WasmVector <uint>&, uint8** cursor);
-    DEBUG_EXPORT Limits read_limits (uint8** cursor);
-    DEBUG_EXPORT MemoryType read_memorytype (uint8** cursor);
-    DEBUG_EXPORT GlobalType read_globaltype (uint8** cursor);
-    DEBUG_EXPORT TableType read_tabletype (uint8** cursor);
-    DEBUG_EXPORT ValueType read_valuetype (uint8** cursor);
-    DEBUG_EXPORT BlockType read_blocktype(uint8** cursor);
-    DEBUG_EXPORT TableElementType read_elementtype (uint8** cursor);
-    DEBUG_EXPORT bool read_mutable (uint8** cursor);
-    DEBUG_EXPORT void read_section (uint8** cursor);
-    DEBUG_EXPORT void read_module (const char* file_name);
-    DEBUG_EXPORT void read_vector_ValueType (WasmVector <ValueType>& result, uint8** cursor);
-    DEBUG_EXPORT void read_function_type (FunctionType& functionType, uint8** cursor);
+    void read_vector_varuint32 (WasmVector <uint>&, uint8** cursor);
+    Limits read_limits (uint8** cursor);
+    MemoryType read_memorytype (uint8** cursor);
+    GlobalType read_globaltype (uint8** cursor);
+    TableType read_tabletype (uint8** cursor);
+    ValueType read_valuetype (uint8** cursor);
+    BlockType read_blocktype(uint8** cursor);
+    TableElementType read_elementtype (uint8** cursor);
+    bool read_mutable (uint8** cursor);
+    void read_section (uint8** cursor);
+    void read_module (const char* file_name);
+    void read_vector_ValueType (WasmVector <ValueType>& result, uint8** cursor);
+    void read_function_type (FunctionType& functionType, uint8** cursor);
 
-    DEBUG_EXPORT virtual void read_types (uint8** cursor);
-    DEBUG_EXPORT virtual void read_imports (uint8** cursor);
-    DEBUG_EXPORT virtual void read_functions (uint8** cursor);
-    DEBUG_EXPORT virtual void read_tables (uint8** cursor);
-    DEBUG_EXPORT virtual void read_memory (uint8** cursor);
-    DEBUG_EXPORT virtual void read_globals (uint8** cursor);
-    DEBUG_EXPORT virtual void read_exports (uint8** cursor);
-    DEBUG_EXPORT virtual void read_start (uint8** cursor)
+    virtual void read_types (uint8** cursor);
+    virtual void read_imports (uint8** cursor);
+    virtual void read_functions (uint8** cursor);
+    virtual void read_tables (uint8** cursor);
+    virtual void read_memory (uint8** cursor);
+    virtual void read_globals (uint8** cursor);
+    virtual void read_exports (uint8** cursor);
+    virtual void read_start (uint8** cursor)
     {
         ThrowString ("Start::read not yet implemented");
     }
-    DEBUG_EXPORT virtual void read_elements (uint8** cursor);
-    DEBUG_EXPORT virtual void read_code (uint8** cursor);
-    DEBUG_EXPORT virtual void read_data (uint8** cursor);
+    virtual void read_elements (uint8** cursor);
+    virtual void read_code (uint8** cursor);
+    virtual void read_data (uint8** cursor);
 };
 
 struct SectionTraits
@@ -2474,7 +2389,7 @@ private:
     Interp(const Interp&);
     void operator =(const Interp&);
 public:
-    DEBUG_EXPORT Interp() : module (0), module_instance (0), frame (0), stack (*this)
+    Interp() : module (0), module_instance (0), frame (0), stack (*this)
     {
     }
 
