@@ -1,8 +1,9 @@
 // A WebAssembly implementation and experimentation platform.
 // Full spec TBD.
 
-#[allow(dead_code)]
-#[allow(non_camel_case_types)]
+#![allow(dead_code)]
+#![allow(non_camel_case_types)]
+#![allow(non_upper_case_globals)]
 
 #[repr(u8)]
 enum Imm // Immediate
@@ -35,16 +36,13 @@ enum Type
   F64 = 0x7C,
 }
 
-#[allow(non_camel_case_types)]
-enum InstructionEnum;
-
 // TODO put this in .rs.
 //struct InstructionEncoding
 //enum InstructionEnum;
 include!(concat!(env!("OUT_DIR"), "/wasm_instructions.rs"));
 
-const hugef: f32 = 1.0e30F32;
-const huged: f64 = 1.0e300F64;
+const hugef: f32 = 1.0e30f32;
+const huged: f64 = 1.0e300f64;
 
 // This should probabably be combined with ResultType, and called Tag.
 #[repr(u8)]
@@ -54,7 +52,7 @@ enum ValueType
     I64 = 0x7E,
     F32 = 0x7D,
     F64 = 0x7C,
-};
+}
 
 /*
 struct FuncAddr // TODO
