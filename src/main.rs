@@ -54,6 +54,17 @@ enum ValueType
     F64 = 0x7C,
 }
 
+#[link(name = "w3cpp", kind = "static")]
+extern {
+    fn w3cpp_fstat_size (fd: i32, size: *mut u64): -> i32;
+    fn w3cpp_close (fd: i32);
+}
+
+struct Fd
+{
+    fd: i32;
+}
+
 /*
 struct FuncAddr // TODO
 { };
@@ -186,79 +197,6 @@ struct Handle
     }
 };
 #endif
-
-struct Fd
-{
-    int fd;
-
-#if !_WIN32
-    uint64 get_file_size (const char* file_name = "")
-    {
-#if __CYGWIN__
-        struct stat st = { 0 }; // TODO test more systems
-        if (fstat (fd, &st))
-#else
-        struct stat64 st = { 0 }; // TODO test more systems
-        if (fstat64 (fd, &st))
-#endif
-            ThrowErrno (StringFormat ("fstat (%s)", file_name).c_str ());
-        return st.st_size;
-    }
-#endif
-
-#if 0 // C++11
-    explicit operator bool () { return valid (); } // C++11
-#else
-    operator explicit_operator_bool::T () const
-    {
-        return valid () ? &explicit_operator_bool::True : NULL;
-    }
-#endif
-
-    bool operator ! () { return !valid (); }
-
-    operator int () { return get (); }
-    static bool static_valid (int fd) { return fd != -1; }
-    int get () const { return fd; }
-    bool valid () const { return static_valid (fd); }
-
-    static void static_cleanup (int fd)
-    {
-        if (!static_valid (fd)) return;
-#if _WIN32
-        _close (fd);
-#else
-        close (fd);
-#endif
-    }
-
-    int detach ()
-    {
-        int const a = fd;
-        fd = -1;
-        return a;
-    }
-
-    void cleanup ()
-    {
-        static_cleanup (detach ());
-    }
-
-    Fd (int a = -1) : fd (a) { }
-
-    Fd& operator = (int a)
-    {
-        if (fd == a) return *this;
-        cleanup ();
-        fd = a;
-        return *this;
-    }
-
-    ~Fd ()
-    {
-        cleanup ();
-    }
-};
 
 struct MemoryMappedFile
 {
