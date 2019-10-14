@@ -56,13 +56,13 @@ enum ValueType
 
 #[link(name = "w3cpp", kind = "static")]
 extern {
-    fn w3cpp_fstat_size (fd: i32, size: *mut u64): -> i32;
+    fn w3cpp_fstat_size (fd: i32, size: *mut u64) -> i32;
     fn w3cpp_close (fd: i32);
 }
 
 struct Fd
 {
-    fd: i32;
+    fd: i32
 }
 
 /*
