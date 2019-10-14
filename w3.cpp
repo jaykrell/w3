@@ -304,7 +304,7 @@ RESERVED (FF)
 #endif
 
 #if _MSC_VER
-#if _MSC_VER < 1000
+#if _MSC_VER <= 1000
 #pragma warning (disable:4284) // return type for operator -> is not a UDT or reference to a UDT. Will produce errors if applied using infix notation
 #endif
 #pragma warning (disable:4616) // unknown warning disabled
@@ -558,14 +558,19 @@ typedef ptrdiff_t ssize_t;
 #include <string.h>
 #include <stdlib.h>
 
-// FiXME configure
+// FIXME configure
 #if !_MSC_VER || _MSC_VER > 1000
 #define TYPENAME typename
 #else
 #define TYPENAME /* nothing */
 #endif
 
-// FiXME configure
+// FIXME configure
+#if _MSC_VER && _MSC_VER <= 1000
+typedef unsigned char bool;
+#define false ((bool)0)
+#define true ((bool)1)
+#endif
 #if !_MSC_VER || _MSC_VER > 1000
 #define STL 1
 #else
@@ -630,8 +635,7 @@ extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent(void);
 #define W3 ::
 #endif
 
-// TODO which compilers need this?
-#if 0 // _MSC_VER
+#if _MSC_VER && _MSC_VER < 1100
 void* operator new (size_t, void* p)
 {
     return p;
@@ -1135,7 +1139,7 @@ struct WasmVector : WasmStdVector <T>
         return (const base&)*this == (const base&)other;
     }
 
-#if !STL
+#if 0 // !STL
     struct iterator
     {
         typename base::iterator i;
@@ -5443,7 +5447,7 @@ INTERP (f32_Convert_i32s)
 }
 
 template <class T>
-T uint64_to_float (uint64 ui64, T * = 0 /* old compiler bug workaround */)
+T uint64_to_float (uint64 ui64, T * unused = 0 /* old compiler bug workaround */)
 {
 #if _MSC_VER && _MSC_VER <= 1100 // error C2520: conversion from unsigned __int64 to double not implemented, use signed __int64
     __int64 i64 = (__int64)ui64;
