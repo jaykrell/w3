@@ -27,6 +27,10 @@ fn main() {
 			f.write(b"\n").unwrap();
 		}
 	}
+
+   cc::Build::new()
+        .file("src/w3cpp.cpp")
+        .compile("w3cpp")
 }
 
 /*

@@ -3,6 +3,7 @@ name = "w3"
 version = "0.0.0"
 authors = ["Jay Krell <jay.krell@cornell.edu>"]
 edition = "2018"
+include = ["src/w3cpp.cpp"]
 
 [dependencies]
 

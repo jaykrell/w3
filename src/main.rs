@@ -54,15 +54,17 @@ enum ValueType
     F64 = 0x7C,
 }
 
-#[link(name = "w3cpp", kind = "static")]
-extern {
-    fn w3cpp_fstat_size (fd: i32, size: *mut u64) -> i32;
-    fn w3cpp_close (fd: i32);
-}
-
+#[repr(C)]
 struct Fd
 {
-    fd: i32
+    fd: i64 // HANDLE on win32, so pointer or pointer-sized.
+}
+
+// The part of W3 in C++, possibly for no good reason.
+#[link(name = "w3cpp", kind = "static")]
+extern {
+    fn w3cpp_fstat_size (fd: *const Fd, size: *mut u64) -> i32;
+    fn w3cpp_close (fd: *mut Fd);
 }
 
 /*
