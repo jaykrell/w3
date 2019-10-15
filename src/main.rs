@@ -5,6 +5,8 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
+extern crate libc;
+
 #[repr(u8)]
 enum Imm // Immediate
 {
@@ -57,14 +59,35 @@ enum ValueType
 #[repr(C)]
 struct Fd
 {
-    fd: i64 // HANDLE on win32, so pointer or pointer-sized.
+    fd: i32
 }
 
-// The part of W3 in C++, possibly for no good reason.
-#[link(name = "w3cpp", kind = "static")]
-extern {
-    fn w3cpp_fstat_size (fd: *const Fd, size: *mut u64) -> i32;
-    fn w3cpp_close (fd: *mut Fd);
+#[repr(C)]
+struct Handle
+{
+    handle: *mut libc::c_void
+}
+
+#[repr(C)]
+pub struct File
+{
+#[cfg(windows)]
+	handle: Handle,
+#[cfg(not(windows))]
+	fd: Fd
+}
+
+extern "C" {
+    pub fn File_size(file: &File) -> i64;
+}
+
+impl File {
+	fn size(self:&File) -> i64
+	{
+		unsafe {
+			File_size(self)
+		}
+	}
 }
 
 /*
@@ -4000,6 +4023,8 @@ fn main()
 	for _ in argv {
 		argc += 1
 	}
+
+	println!("{}", std::mem::size_of::<File>());
 
 	Xd! (123);
 	Xd! (0x123);
