@@ -75,17 +75,25 @@ pub struct File
 	handle: Handle,
 #[cfg(not(windows))]
 	fd: Fd
+// FIXME drop
 }
 
 extern "C" {
-    pub fn File_size(file: &File) -> i64;
+    pub fn File_Size (file: &File) -> i64;
+    pub fn File_Cleanup (file: &File);
 }
 
 impl File {
-	fn size(self:&File) -> i64
+	fn size (self:&File) -> i64
 	{
 		unsafe {
-			File_size(self)
+			File_Size (self)
+		}
+	}
+	fn drop (self:&File)
+	{
+		unsafe {
+			File_Cleanup (self)
 		}
 	}
 }
@@ -147,82 +155,6 @@ struct uintLEn // unsigned little endian integer, size n bits
 
 typedef uintLEn<32> uintLE;
 
-#if _WIN32
-struct Handle
-{
-    // TODO Handle vs. win32file_t, etc.
-
-    uint64 get_file_size (const char* file_name = "")
-    {
-        DWORD hi = 0;
-        DWORD lo = GetFileSize (h, &hi);
-        if (lo == INVALID_FILE_SIZE)
-        {
-            DWORD err = GetLastError ();
-            if (err != NO_ERROR)
-                throw_Win32Error ((int)err, StringFormat ("GetFileSize (%s)", file_name).c_str ());
-        }
-        return (((uint64)hi) << 32) | lo;
-    }
-
-    void* h;
-
-    Handle (void* a) : h (a) { }
-    Handle () : h (0) { }
-
-    void* get () { return h; }
-
-    bool valid () const { return static_valid (h); }
-
-    static bool static_valid (void* h) { return h && h != INVALID_HANDLE_VALUE; }
-
-    operator void* () { return get (); }
-
-    static void static_cleanup (void* h)
-    {
-        if (!static_valid (h)) return;
-        CloseHandle (h);
-    }
-
-    void* detach ()
-    {
-        void* const a = h;
-        h = 0;
-        return a;
-    }
-
-    void cleanup ()
-    {
-        static_cleanup (detach ());
-    }
-
-    Handle& operator= (void* a)
-    {
-        if (h == a) return *this;
-        cleanup ();
-        h = a;
-        return *this;
-    }
-
-#if 0 // C++11
-    explicit operator bool () { return valid (); } // C++11
-#else
-    operator explicit_operator_bool::T () const
-    {
-        return valid () ? &explicit_operator_bool::True : NULL;
-    }
-#endif
-
-    bool operator ! () { return !valid (); }
-
-    ~Handle ()
-    {
-        if (valid ()) CloseHandle (h);
-        h = 0;
-    }
-};
-#endif
-
 struct MemoryMappedFile
 {
 // TODO allow for redirection to built-in data (i.e. filesystem emulation with builtin BCL)
@@ -236,6 +168,16 @@ struct MemoryMappedFile
 #endif
     MemoryMappedFile () : base (0), size (0) { }
 
+    static int Error()
+    {
+#if _WIN32
+	const int err = GetLastError ();
+#else
+	const int err = errno;
+#endif
+	return (err < 0) ? err : -err;
+    }
+
     ~MemoryMappedFile ()
     {
         if (!base)
@@ -247,21 +189,26 @@ struct MemoryMappedFile
 #endif
         base = 0;
     }
-    void read (const char* a)
+    int read (const char* a)
     {
 #if _WIN32
 #ifndef FILE_SHARE_DELETE // ifndef required due to Watcom 4 vs. 4L.
-#define FILE_SHARE_DELETE               0x00000004 // missing in older headers
+#define FILE_SHARE_DELETE 0x00000004 // missing in older headers
 #endif
         file = CreateFileA (a, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-        if (!file) throw_GetLastError (StringFormat ("CreateFileA (%s)", a).c_str ());
+        if (!file)
+		//throw_GetLastError (StringFormat ("CreateFileA (%s)", a).c_str ());
+		return Error ();
         // FIXME check for size==0 and >4GB.
         size = (size_t)file.get_file_size (a);
         Handle h2 = CreateFileMappingW (file, 0, PAGE_READONLY, 0, 0, 0);
-        if (!h2) throw_GetLastError (StringFormat ("CreateFileMapping (%s)", a).c_str ());
+        if (!h2)
+		//throw_GetLastError (StringFormat ("CreateFileMapping (%s)", a).c_str ());
+		return Error ();
         base = MapViewOfFile (h2, FILE_MAP_READ, 0, 0, 0);
         if (!base)
-            throw_GetLastError (StringFormat ("MapViewOfFile (%s)", a).c_str ());
+		//throw_GetLastError (StringFormat ("MapViewOfFile (%s)", a).c_str ());
+		return Error ();
 #else
         file = open (a, O_RDONLY);
         if (!file) ThrowErrno (StringFormat ("open (%s)", a).c_str ());
@@ -269,8 +216,10 @@ struct MemoryMappedFile
         size = (size_t)file.get_file_size (a);
         base = mmap (0, size, PROT_READ, MAP_PRIVATE, file, 0);
         if (base == MAP_FAILED)
-            ThrowErrno (StringFormat ("mmap (%s)", a).c_str ());
+            //ThrowErrno (StringFormat ("mmap (%s)", a).c_str ());
+	    return Error ();
 #endif
+	return 0;
     }
 };
 
