@@ -3,10 +3,16 @@
 #if _WIN32
 #include <windows.h>
 #include <io.h>
+#else
+#include <unistd.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#define INVALID_HANDLE_VALUE ((void*)(ssize_t)-1)
 #endif
 #include <sys/stat.h>
 #include <string.h>
 #include <string>
+#include <stdarg.h>
 
 std::string
 StringFormatVa (const char* format, va_list va);
@@ -39,86 +45,99 @@ extern "C"
 
 struct Fd
 {
-	Fd() : fd (-1) { }
+    Fd() : fd (-1) { }
 
-	~Fd()
-	{
-		static_cleanup (fd);
-	}
+    ~Fd()
+    {
+        static_cleanup (fd);
+    }
 
-	// TODO return error
-	int64_t size ()
-	{
+    // TODO return error
+    int64_t size ()
+    {
 #if __CYGWIN__ || _WIN32
-		struct stat st; // TODO test more systems
-		memset (&st, 0, sizeof (st));
-		int result = fstat (fd, &st);
+        struct stat st; // TODO test more systems
+        memset (&st, 0, sizeof (st));
+        int result = fstat (fd, &st);
 #else
-		struct stat64 st; // TODO test more systems
-		memset (&st, 0, sizeof (st));
-		int result = fstat64 (fd, &st);
+        struct stat64 st; // TODO test more systems
+        memset (&st, 0, sizeof (st));
+        int result = fstat64 (fd, &st);
 #endif
-		return result ? -1 : st.st_size;
-	}
+        return result ? -1 : st.st_size;
+    }
 
-	int fd;
+    int fd;
 
 #if 0 // C++11
-	explicit operator bool () { return valid (); } // C++11
+    explicit operator bool () { return valid (); } // C++11
 #else
-	operator explicit_operator_bool::T () const
-	{
-	return valid () ? &explicit_operator_bool::True : NULL;
-	}
+    operator explicit_operator_bool::T () const
+    {
+    return valid () ? &explicit_operator_bool::True : NULL;
+    }
 #endif
 
-	bool operator ! ()
-	{
-		return !valid ();
-	}
+    bool operator ! ()
+    {
+        return !valid ();
+    }
 
-	operator int ()
-	{
-		return get ();
-	}
+    operator int ()
+    {
+        return get ();
+    }
 
-	static bool static_valid (int fd)
-	{
-		return fd > -1;
-	}
+    int detach ()
+    {
+        int f = fd;
+        fd = -1;
+        return f;
+    }
 
-	int get () const { return fd; }
+    static bool static_valid (int fd)
+    {
+        return fd > -1;
+    }
 
-	bool valid () const { return static_valid (fd); }
+    int get () const { return fd; }
 
-	static void static_cleanup (int fd)
-	{
-		if (fd >= 0)
+    bool valid () const { return static_valid (fd); }
+
+    int cleanup ()
+    {
+        int h = detach ();
+        static_cleanup (h);
+        return h;
+    }
+
+    static void static_cleanup (int fd)
+    {
+        if (fd >= 0)
 #if _WIN32
-		_close (fd);
+            _close (fd);
 #else
-		close (fd);
+            close (fd);
 #endif
-	}
+    }
 };
-
 
 struct Handle
 {
-	Handle () : handle (0) { }
+    Handle () : handle (0) { }
 
 #if 0 // C++11
-	explicit operator bool () { return valid (); } // C++11
+    explicit operator bool () { return valid (); } // C++11
 #else
-	operator explicit_operator_bool::T () const
-	{
-	return valid () ? &explicit_operator_bool::True : NULL;
-	}
+    operator explicit_operator_bool::T () const
+    {
+        return valid () ? &explicit_operator_bool::True : NULL;
+    }
 #endif
-	~Handle ()
-	{
-		cleanup ();
-	}
+    ~Handle ()
+    {
+        cleanup ();
+    }
 
     Handle (void* h) : handle (h) { }
 
@@ -133,32 +152,32 @@ struct Handle
 
     operator void* () { return handle; }
 
-	void* detach ()
-	{
-		void* h = handle;
-		handle = h;
-		return h;
-	}
+    void* detach ()
+    {
+        void* h = handle;
+        handle = 0;
+        return h;
+    }
 
-	void* cleanup ()
-	{
-		void* h = detach ();
+    void* cleanup ()
+    {
+        void* h = detach ();
 #if _WIN32
-		// FIXME templatize
-		if (static_valid (h))
-			CloseHandle (h);
+        // FIXME templatize
+        if (static_valid (h))
+            CloseHandle (h);
 #endif
-		return h;
-	}
+        return h;
+    }
 
-	bool valid () const { return static_valid (handle); }
+    bool valid () const { return static_valid (handle); }
 
-	static bool static_valid (void* handle)
-	{
-		return handle && handle != INVALID_HANDLE_VALUE;
-	}
+    static bool static_valid (void* handle)
+    {
+        return handle && handle != INVALID_HANDLE_VALUE;
+    }
 
-	void* handle;
+    void* handle;
 };
 
 #if _WIN32
@@ -168,23 +187,23 @@ struct File : Fd
 #endif
 {
 #if _WIN32
-	// TODO return error
-	int64_t size ()
-	{
-		BY_HANDLE_FILE_INFORMATION info = { 0 };
-		if (GetFileInformationByHandle (handle, &info))
-			return (((int64_t)info.nFileSizeHigh) << 32) | info.nFileSizeLow;
-		return -1;
-	}
+    // TODO return error
+    int64_t size ()
+    {
+        BY_HANDLE_FILE_INFORMATION info = { 0 };
+        if (GetFileInformationByHandle (handle, &info))
+            return (((int64_t)info.nFileSizeHigh) << 32) | info.nFileSizeLow;
+        return -1;
+    }
 #else
-	// inheritance
+    // inheritance
 #endif
 };
 
 // TODO return error
 int64_t File_size (File* file)
 {
-	return file->size ();
+    return file->size ();
 }
 
 void File_cleanup (File* file)
@@ -250,12 +269,12 @@ struct MemoryMappedFile
             //throw_GetLastError (StringFormat ("MapViewOfFile (%s)", a).c_str ());
             return Error ();
 #else
-        file = open (a, O_RDONLY);
+        file.fd = open (a, O_RDONLY);
         if (!file)
             //ThrowErrno (StringFormat ("open (%s)", a).c_str ());
             return Error ();
         // FIXME check for size==0 and >4GB.
-        size = (size_t)file.get_file_size (a);
+        size = (size_t)file.size ();
         base = mmap (0, size, PROT_READ, MAP_PRIVATE, file, 0);
         if (base == MAP_FAILED)
             //ThrowErrno (StringFormat ("mmap (%s)", a).c_str ());
