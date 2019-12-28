@@ -425,7 +425,7 @@ union int64 {
     double alignment;
     struct {
         int32 hi;
-        uint32 low;
+        uint32 lo;
     };
 };
 
@@ -433,7 +433,7 @@ union uint64 {
     double alignment;
     struct {
         uint32 hi;
-        uint32 low;
+        uint32 lo;
     };
 };
 

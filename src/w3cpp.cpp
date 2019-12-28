@@ -255,8 +255,8 @@ struct MemoryMappedFile
 #endif
         file.handle = CreateFileA (a, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
         if (!file)
-        //throw_GetLastError (StringFormat ("CreateFileA (%s)", a).c_str ());
-        return Error ();
+            //throw_GetLastError (StringFormat ("CreateFileA (%s)", a).c_str ());
+            return Error ();
 
         // FIXME check for size==0 and >4GB.
         size = (size_t)file.size ();
@@ -283,6 +283,5 @@ struct MemoryMappedFile
         return 0;
     }
 };
-
 
 }
