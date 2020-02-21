@@ -89,16 +89,16 @@
 #if BYTE_ORDER == LITTLE_ENDIAN
 
 typedef struct ieee_single_le {
-    uint32	sng_frac:23;
-    uint32	sng_exp:8;
-    uint32	sng_sign:1;
+    uint32_t	sng_frac:23;
+    uint32_t	sng_exp:8;
+    uint32_t	sng_sign:1;
 } ieee_single_le;
 
 typedef struct ieee_double_le {
-    uint32	dbl_fracl;
-    uint32	dbl_frach:20;
-    uint32	dbl_exp:11;
-    uint32	dbl_sign:1;
+    uint32_t	dbl_fracl;
+    uint32_t	dbl_frach:20;
+    uint32_t	dbl_exp:11;
+    uint32_t	dbl_sign:1;
 } ieee_double_le;
 
 typedef ieee_single_le ieee_single;
@@ -107,16 +107,16 @@ typedef ieee_double_le ieee_double;
 #else
 
 typedef struct ieee_single_be {
-    uint32	sng_sign:1;
-    uint32	sng_exp:8;
-    uint32	sng_frac:23;
+    uint32_t	sng_sign:1;
+    uint32_t	sng_exp:8;
+    uint32_t	sng_frac:23;
 } ieee_single_be;
 
 typedef struct ieee_double_be {
-    uint32	dbl_sign:1;
-    uint32	dbl_exp:11;
-    uint32	dbl_frach:20;
-    uint32	dbl_fracl;
+    uint32_t	dbl_sign:1;
+    uint32_t	dbl_exp:11;
+    uint32_t	dbl_frach:20;
+    uint32_t	dbl_fracl;
 } ieee_double_be;
 
 typedef ieee_single_be ieee_single;

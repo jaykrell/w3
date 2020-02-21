@@ -24,7 +24,7 @@ float
 wasm_truncf (float x)
 {
 	int32_t i0,jj0;
-	u_int32_t i;
+	uint32_t i;
 
     GET_FLOAT_WORD(i0,x);
 	jj0 = ((i0>>23)&0xff)-0x7f;

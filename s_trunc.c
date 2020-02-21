@@ -24,7 +24,7 @@ double
 wasm_truncd (double x)
 {
 	int32_t i0,i1,jj0;
-	u_int32_t i;
+	uint32_t i;
 	EXTRACT_WORDS(i0,i1,x);
 	jj0 = ((i0>>20)&0x7ff)-0x3ff;
 	if(jj0<20) {
@@ -44,7 +44,7 @@ wasm_truncd (double x)
 	    if(jj0==0x400) return x+x;	/* inf or NaN */
 	    else return x;		/* x is integral */
 	} else {
-	    i = ((u_int32_t)(0xffffffff))>>(jj0-20);
+	    i = ((uint32_t)(0xffffffff))>>(jj0-20);
 	    if((i1&i)==0) return x;	/* x is integral */
 	    if(wasm_huged+x>0.0)		/* raise inexact flag */
 		i1 &= (~i);
