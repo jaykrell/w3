@@ -676,24 +676,29 @@ template <> struct uintLEn_to_native_fast<64> { typedef uint64_t T; };
 template <uint32_t N>
 struct uintLEn // unsigned little endian integer, size n bits
 {
-    union {
-        typename uintLEn_to_native_exact<N>::T debug_n;
+    union
+    {
+        typename uintLEn_to_native_exact<N>::T native;
         unsigned char data [N / 8];
     };
 
     operator typename uintLEn_to_native_fast<N>::T ()
     {
+#if BYTE_ORDER == LITTLE_ENDIAN
+	return native;
+#else
         typename uintLEn_to_native_fast<N>::T a = 0;
         for (uint32_t i = N / 8; i; )
             a = (a << 8) | data [--i];
         return a;
+#endif
     }
     void operator= (uint32_t);
 };
 
-typedef uintLEn<16> uintLE16;
-typedef uintLEn<32> uintLE;
-typedef uintLEn<64> uintLE64;
+//typedef uintLEn<16> uintLE16;
+typedef uintLEn<32> uintLE32;
+//typedef uintLEn<64> uintLE64;
 
 #if _WIN32
 struct Handle
@@ -3085,8 +3090,8 @@ void Module::read_module (const char* file_name)
     if (file_size < 8)
         ThrowString (StringFormat ("too small %s", file_name));
 
-    uintLE& magic = (uintLE&)*base;
-    uintLE& version = (uintLE&)*(base + 4);
+    uintLE32& magic = (uintLE32&)*base;
+    uintLE32& version = (uintLE32&)*(base + 4);
     printf ("magic: %X\n", (uint32_t)magic);
     printf ("version: %X\n", (uint32_t)version);
 
