@@ -508,9 +508,6 @@ throw_GetLastError (const char* a = "")
 
 #if _MSC_VER
 #pragma warning (disable:4777) // printf maybe wrong for other platforms
-#endif
-
-#if _MSC_VER >= 1200
 #pragma warning (push)
 #pragma warning (disable:4996) // _vsnprintf dangerous
 #endif
@@ -645,82 +642,6 @@ StringFormatVa (const char* format, va_list va)
 #endif
     return &s [0];
 }
-
-// This originally exists to ease unsigned/signed mismatches,
-// but we have cleaned up and use size_t, and Visual C++ 2.0 does not
-// support default template parameters.
-template <class T>
-struct WasmVector : std::vector <T>
-{
-    typedef size_t SizeT;
-
-    typedef std::vector <T> base;
-
-    typedef typename base::iterator iterator;
-
-    T& operator [](SizeT i) { return base::operator []((size_t)i); }
-
-    SizeT size () const { return (SizeT)base::size (); }
-
-    void resize (SizeT i) { base::resize ((size_t)i); }
-
-    void resize (SizeT i, const T& t) { base::resize ((size_t)i, t); }
-
-    bool operator == (const WasmVector& other) const
-    {
-        return (const base&)*this == (const base&)other;
-    }
-
-#if 0 // !STL
-    struct iterator
-    {
-        typename base::iterator i;
-
-        T& operator [ ] (SizeT a)
-        {
-            return i [(ptrdiff_t)a];
-        }
-
-//        T& operator [ ] (SizeT) const;
-
-        typename base::iterator operator -> ()
-        {
-            return i; //.operator -> ();
-        }
-//        T* operator -> () const;
-
-        T& operator * ()
-        {
-            return *i;
-        }
-//        T& operator * () const;
-
-        iterator operator - (SizeT j)
-        {
-            iterator a = i - (ptrdiff_t)j;
-            return a;
-        }
-
-        iterator operator + (SizeT j)
-        {
-            iterator a = i + (ptrdiff_t)j;
-            return a;
-        }
-    };
-#endif
-
-    iterator begin ()
-    {
-        iterator a = base::begin ();
-        return a;
-    }
-
-    iterator end()
-    {
-        iterator a = base::end ();
-        return a;
-    }
-};
 
 const uint32_t PageSize = (1UL << 16);
 const uint32_t PageShift = 16;
@@ -1210,11 +1131,6 @@ read_byte (uint8_t** cursor, const uint8_t* end)
     return *(*cursor)++;
 }
 
-#if _MSC_VER >= 1200
-#pragma warning (push)
-#pragma warning (disable : 4127) // conditional expression is constant
-#endif
-
 static
 uint64_t
 read_varuint64 (uint8_t** cursor, const uint8_t* end)
@@ -1246,10 +1162,6 @@ read_varuint32 (uint8_t** cursor, const uint8_t* end)
         shift += 7;
     }
 }
-
-#if _MSC_VER >= 1200
-#pragma warning (pop)
-#endif
 
 static
 uint8_t
@@ -1438,60 +1350,6 @@ struct Section;
 // StackValue* stack = initial_stack;
 // StackValue* min_stack = initial_stack;
 
-#if 0 // probably will not do it this way, std::stack and loop instead
-// FIXME for grow up stack
-#define ALLOC_STACK(n)                                                                  \
-do {                                                                                    \
-    if (stack - n < min_stack)                                                          \
-        min_stack = (StackValue*)alloca((min_stack - (stack - n)) * sizeof (*stack)); \
-    stack -= n;                                                                         \
-} while (0)
-
-// probably will not do it this way, std::stack and loop instead
-#define STACK_POP_CHECK(n) \
-do {                                                                                    \
-    Assert (n <= stack_depth);  \
-} while (0)
-
-#define STACK_POP_UNSAFE(n) \
-do {                                                                                    \
-    stack_depth -= n;           \
-    stack += n;                 \
-} while (0)
-
-// probably will not do it this way, std::stack and loop instead
-// FIXME for grow up stack
-#define STACK_POP(n) \
-do {                                                                                    \
-    Assert (n <= stack_depth);  \
-    stack_depth -= n;           \
-    stack += n;                 \
-} while (0)
-
-// probably will not do it this way, std::stack and loop instead
-#define STACK_PUSH(v)           \
-do {                            \                                                       \
-    ALLOC_STACK (1);            \
-    stack [0] = (v);            \
-} while (0)                     \
-
-// probably will not do it this way, std::stack and loop instead
-#define FRAME_PUSH(callee)                      \
-do {                                            \
-    ALLOC_STACK (function->locals_size + 1);    \
-    stack [0].frame = frame;                    \
-} while (0)                                     \
-
-// probably will not do it this way, std::stack and loop instead
-#define FRAME_POP()                         \
-do {                                        \
-    STACK_POP (function->locals_size);      \
-    frame = stack [0].frame;                \
-    STACK_POP (1);                          \
-} while (0)                                 \
-
-#endif
-
 typedef struct FunctionType FunctionType;
 typedef struct Function Function;
 typedef struct Code Code;
@@ -1589,7 +1447,7 @@ struct StackValue
 
 // TODO consider a vector instead, but it affects frame.locals staying valid across push/pop
 //typedef std::deque <StackValue> StackBaseBase;
-typedef WasmVector <StackValue> StackBaseBase;
+typedef std::vector <StackValue> StackBaseBase;
 
 struct StackBase : private StackBaseBase
 {
@@ -2182,7 +2040,7 @@ struct DecodedInstruction : DecodedInstructionZeroInit
         return (blockType == ResultType_empty) ? 0u : 1u; // FUTURE
     }
 
-    WasmVector <uint32_t> vecLabel;
+    std::vector <uint32_t> vecLabel;
 };
 
 #undef INSTRUCTION
@@ -2338,12 +2196,12 @@ struct ModuleInstance // work in progress
     ModuleInstance (Module* mod);
 
     Module* module;
-    WasmVector <uint8_t> memory;
-    WasmVector <FuncAddr*> funcs;
-    WasmVector <TableAddr*> tables;
-    //WasmVector <NenAddr*> mem; // mem [0] => memory for now
-    WasmVector <StackValue> globals;
-    WasmVector <ExportInstance> exports;
+    std::vector <uint8_t> memory;
+    std::vector <FuncAddr*> funcs;
+    std::vector <TableAddr*> tables;
+    //std::vector <NenAddr*> mem; // mem [0] => memory for now
+    std::vector <StackValue> globals;
+    std::vector <ExportInstance> exports;
 };
 
 struct FunctionInstance // work in progress
@@ -2372,15 +2230,15 @@ struct Function // section3
 struct Global
 {
     GlobalType global_type;
-    WasmVector <DecodedInstruction> init;
+    std::vector <DecodedInstruction> init;
 };
 
 struct Element
 {
     uint32_t table;
-    WasmVector <DecodedInstruction> offset_instructions;
+    std::vector <DecodedInstruction> offset_instructions;
     uint32_t offset;
-    WasmVector <uint32_t> functions;
+    std::vector <uint32_t> functions;
 };
 
 struct Export
@@ -2416,7 +2274,7 @@ struct Data // section11
     Data () : memory (0), bytes (0) { }
 
     uint32_t memory;
-    WasmVector <DecodedInstruction> expr;
+    std::vector <DecodedInstruction> expr;
     void* bytes;
 };
 
@@ -2428,8 +2286,8 @@ struct Code // section3 and section10
 
     size_t size;
     uint8_t* cursor;
-    WasmVector <ValueType> locals; // params in FunctionType
-    WasmVector <DecodedInstruction> decoded_instructions; // section10
+    std::vector <ValueType> locals; // params in FunctionType
+    std::vector <DecodedInstruction> decoded_instructions; // section10
     bool import;
 };
 
@@ -2440,8 +2298,8 @@ struct Code // section3 and section10
 struct FunctionType
 {
     // CONSIDER pointer into mmf
-    WasmVector <ValueType> parameters;
-    WasmVector <ValueType> results;
+    std::vector <ValueType> parameters;
+    std::vector <ValueType> results;
 
     bool operator == (const FunctionType& other) const
     {
@@ -2467,20 +2325,20 @@ struct Module : ModuleBase
     uint64_t file_size;
     uint8_t* end;
     Section sections [12];
-    //WasmVector <std::shared_ptr<Section>> custom_sections; // FIXME
+    //std::vector <std::shared_ptr<Section>> custom_sections; // FIXME
 
     // The order can be take advantage of.
     // For example global is read before any code,
     // so the index of any global.get/set can be validated right away.
-    WasmVector <FunctionType> function_types; // section1 function signatures
-    WasmVector <Import> imports; // section2
-    WasmVector <Function> functions; // section3 and section10 function declarations
-    WasmVector <TableType> tables; // section4 indirect tables
-    WasmVector <Global> globals; // section6
-    WasmVector <Export> exports; // section7
-    WasmVector <Element> elements; // section9 table initialization
-    WasmVector <Code> code; // section10
-    WasmVector <Data> data; // section11 memory initialization
+    std::vector <FunctionType> function_types; // section1 function signatures
+    std::vector <Import> imports; // section2
+    std::vector <Function> functions; // section3 and section10 function declarations
+    std::vector <TableType> tables; // section4 indirect tables
+    std::vector <Global> globals; // section6
+    std::vector <Export> exports; // section7
+    std::vector <Element> elements; // section9 table initialization
+    std::vector <Code> code; // section10
+    std::vector <Data> data; // section11 memory initialization
     Limits memory_limits;
 
     Export* start;
@@ -2502,7 +2360,7 @@ struct Module : ModuleBase
     uint8_t read_varuint7 (uint8_t** cursor);
     uint32_t read_varuint32 (uint8_t** cursor);
 
-    void read_vector_varuint32 (WasmVector <uint32_t>&, uint8_t** cursor);
+    void read_vector_varuint32 (std::vector <uint32_t>&, uint8_t** cursor);
     Limits read_limits (uint8_t** cursor);
     MemoryType read_memorytype (uint8_t** cursor);
     GlobalType read_globaltype (uint8_t** cursor);
@@ -2513,7 +2371,7 @@ struct Module : ModuleBase
     bool read_mutable (uint8_t** cursor);
     void read_section (uint8_t** cursor);
     void read_module (const char* file_name);
-    void read_vector_ValueType (WasmVector <ValueType>& result, uint8_t** cursor);
+    void read_vector_ValueType (std::vector <ValueType>& result, uint8_t** cursor);
     void read_function_type (FunctionType& functionType, uint8_t** cursor);
 
     virtual void read_types (uint8_t** cursor);
@@ -2534,7 +2392,7 @@ struct Module : ModuleBase
 
 static
 InstructionEnum
-DecodeInstructions (Module* module, WasmVector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code);
+DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code);
 
 void Module::read_data (uint8_t** cursor)
 {
@@ -2723,7 +2581,7 @@ void Module::read_imports (uint8_t** cursor)
     code.resize (import_function_count, imported_code);
 }
 
-void Module::read_vector_ValueType (WasmVector <ValueType>& result, uint8_t** cursor)
+void Module::read_vector_ValueType (std::vector <ValueType>& result, uint8_t** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     result.resize (size);
@@ -2754,7 +2612,7 @@ void Module::read_types (uint8_t** cursor)
 
 static
 InstructionEnum
-DecodeInstructions (Module* module, WasmVector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code)
+DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code)
 {
     uint32_t b0 = (uint32_t)Block;
     size_t index = 0;
@@ -3025,7 +2883,7 @@ WasmString Module::read_string (uint8_t** cursor)
     return a;
 }
 
-void Module::read_vector_varuint32 (WasmVector <uint32_t>& result, uint8_t** cursor)
+void Module::read_vector_varuint32 (std::vector <uint32_t>& result, uint8_t** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     result.resize (size);
