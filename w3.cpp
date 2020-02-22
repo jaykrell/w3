@@ -298,7 +298,13 @@ RESERVED (FF)
 #define _CRT_SECURE_NO_WARNINGS 1
 
 #if _MSC_VER
+#pragma warning (disable:4127) // conditional expression is constant
+#pragma warning (disable:4365) // integer type mixups
+#pragma warning (disable:4480) // non-standard extension
 #pragma warning (disable:4571) // catch(...)
+#pragma warning (disable:4616) // disable unknown warning (for older compiler)
+#pragma warning (disable:4619) // disable unknown warning (for older compiler)
+#pragma warning (disable:4820) // padding added
 #pragma warning (disable:5045) // compiler will/did insert Spectre mitigation
 #endif
 
@@ -322,11 +328,19 @@ RESERVED (FF)
 // Win32 ZeroMemory
 #define ZeroMem(p, n) memset((p), 0, (n))
 
-#include <stdint.h>
-
 #if _MSC_VER
-#pragma warning (disable:4127) // conditional expression is constant
-#pragma warning (disable:4365) // integer type mixups
+// Older compiler.
+typedef signed __int8     int8_t;
+typedef signed __int16    int16_t;
+typedef signed __int32    int32_t;
+typedef signed __int64    int64_t;
+typedef unsigned __int8  uint8_t;
+typedef unsigned __int16 uint16_t;
+typedef unsigned __int32 uint32_t;
+typedef unsigned __int64 uint64_t;
+#define __func__ __FUNCTION__
+#else
+#include <stdint.h>
 #endif
 
 #include "ieee.h"
@@ -700,6 +714,16 @@ struct uintLEn // unsigned little endian integer, size n bits
 typedef uintLEn<32> uintLE32;
 //typedef uintLEn<64> uintLE64;
 
+// C++98 workaround for what C++11 offers.
+struct explicit_operator_bool
+{
+	typedef void (explicit_operator_bool::*T) () const;
+    void True () const;
+};
+
+typedef void (explicit_operator_bool::*bool_type) () const;
+
+
 #if _WIN32
 struct Handle
 {
@@ -757,7 +781,14 @@ struct Handle
         return *this;
     }
 
-    explicit operator bool () { return valid (); }
+#if 0 // C++11
+    explicit operator bool () { return valid (); } // C++11
+#else
+    operator explicit_operator_bool::T () const
+    {
+        return valid () ? &explicit_operator_bool::True : NULL;
+    }
+#endif
 
     bool operator ! () { return !valid (); }
 
@@ -788,7 +819,14 @@ struct Fd
     }
 #endif
 
-    explicit operator bool () { return valid (); }
+#if 0 // C++11
+    explicit operator bool () { return valid (); } // C++11
+#else
+    operator explicit_operator_bool::T () const
+    {
+        return valid () ? &explicit_operator_bool::True : NULL;
+    }
+#endif
 
     bool operator ! () { return !valid (); }
 
@@ -1955,6 +1993,10 @@ constexpr int bits_for_uint (uint32_t a)
     32;
 }
 
+#endif
+
+#if defined (_WIN32) && defined (C_ASSERT) // older compiler
+#define static_assert(x, y) C_ASSERT (x)
 #endif
 
 static_assert (BITS_FOR_UINT (0) == 1, "0");
