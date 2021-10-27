@@ -107,11 +107,17 @@ clean:
 
 # TODO /Qspectre
 
-$(win): w3.cpp
+$(win): w3.cpp vec.obj str.obj
 	@-del $(@R).pdb $(@R).ilk
 	@rem TODO /GX on old, /EHsc on new
 	rem cl -MD -Gy -Z7 /O2s $(Wall) $(Qspectre) -W4 -GX $** /link /out:$@ /incremental:no /opt:ref,icf
 	cl -MD -Gy -Z7 $(Wall) $(Qspectre) -W4 /GX $** /link /out:$@ /incremental:no /opt:ref /pdb:$(@B).pdb
+
+vec.obj: vec.c
+	cl -MD -Gy -Z7 -c vec.c
+
+str.obj: str.c
+	cl -MD -Gy -Z7 -c str.c
 
 !else
 else
@@ -156,7 +162,7 @@ cyg: w3.cpp
 lin: w3.cpp
 	g++ -Wall -g w3.cpp -o $@ -Bsymbolic -znow -zrelro
 
-win32.exe: w3.cpp
+win32.exe: w3.cpp vec.obj str.obj
 	i686-w64-mingw32-g++ -g w3.cpp -o $@ -Bsymbolic
 
 win64.exe: w3.cpp

@@ -3,8 +3,297 @@
 // simple? Always striving for the right level of complexity -- not too simple.
 // efficient? (not yet)
 
-// https://webassembly.github.io/spec/core/binary/index.html
-// https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
+#ifdef INSTRUCTION
+
+INSTRUCTION (0x00, 1, 0, Unreach,   Imm_none,     0, 0, Type_none, Type_none, Type_none, Type_none)
+INSTRUCTION (0x01, 1, 0, Nop,       Imm_none,     0, 0, Type_none, Type_none, Type_none, Type_none)
+INSTRUCTION (0x02, 1, 0, Block,     Imm_sequence, 0, 0, Type_none, Type_none, Type_none, Type_none)
+INSTRUCTION (0x03, 1, 0, Loop,      Imm_sequence, 0, 0, Type_none, Type_none, Type_none, Type_none)
+INSTRUCTION (0x04, 1, 0, If,        Imm_sequence, 0, 0, Type_none, Type_none, Type_none, Type_none)
+/* Else is kind of Imm_sequence but treated custom along with if. */
+INSTRUCTION (0x05, 1, 0, Else,      Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none)
+
+RESERVED (06)
+RESERVED (07)
+RESERVED (08)
+RESERVED (09)
+RESERVED (0A)
+
+INSTRUCTION (0x0B, 1, 0, BlockEnd,  Imm_none,       0, 0, Type_none, Type_none, Type_none, Type_none)
+INSTRUCTION (0x0C, 1, 0, Br,        Imm_label,      0, 0, Type_none, Type_none, Type_none, Type_none)
+INSTRUCTION (0x0D, 1, 0, BrIf,      Imm_label,      0, 0, Type_none, Type_none, Type_none, Type_none)
+INSTRUCTION (0x0E, 1, 0, BrTable,   Imm_vecLabel,   0, 0, Type_none, Type_none, Type_none, Type_none)
+INSTRUCTION (0x0F, 1, 0, Ret,       Imm_none,       0, 0, Type_none, Type_none, Type_none, Type_none)
+INSTRUCTION (0x10, 1, 0, Call,      Imm_function,   0, 0, Type_none, Type_none, Type_none, Type_none)
+INSTRUCTION (0x11, 1, 0, Calli,     Imm_type,       0, 0, Type_none, Type_none, Type_none, Type_none)
+
+RESERVED (12)
+RESERVED (13)
+RESERVED (14)
+RESERVED (15)
+RESERVED (16)
+RESERVED (17)
+RESERVED (18)
+RESERVED (19)
+
+INSTRUCTION (0x1A, 1, 0, Drop,       Imm_none, 1, 0, Type_any, Type_none, Type_none, Type_none)
+INSTRUCTION (0x1B, 1, 0, Select,     Imm_none, 3, 1, Type_any, Type_any, Type_bool, Type_any)
+
+RESERVED (1C)
+RESERVED (1D)
+RESERVED (1E)
+RESERVED (1F)
+
+INSTRUCTION (0x20, 1, 0, Local_get,  Imm_local,  0, 1, Type_none, Type_none, Type_none, Type_any)
+INSTRUCTION (0x21, 1, 0, Local_set,  Imm_local,  1, 0, Type_any,  Type_none, Type_none, Type_none)
+INSTRUCTION (0x22, 1, 0, Local_tee,  Imm_local,  1, 1, Type_any,  Type_none, Type_none, Type_any)
+INSTRUCTION (0x23, 1, 0, Global_get, Imm_global, 0, 1, Type_none, Type_none, Type_none, Type_any)
+INSTRUCTION (0x24, 1, 0, Global_set, Imm_global, 1, 0, Type_any,  Type_none, Type_none, Type_none)
+
+RESERVED (25)
+RESERVED (26)
+RESERVED (27)
+
+LOAD (0x28, i32, _)
+LOAD (0x29, i64, _)
+LOAD (0x2A, f32, _)
+LOAD (0x2B, f64, _)
+
+/* zero or sign extending load from memory to register */
+LOAD (0x2C, i32, 8s)
+LOAD (0x2D, i32, 8u)
+LOAD (0x2E, i32, 16s)
+LOAD (0x2F, i32, 16u)
+LOAD (0x30, i64, 8s)
+LOAD (0x31, i64, 8u)
+LOAD (0x32, i64, 16s)
+LOAD (0x33, i64, 16u)
+LOAD (0x34, i64, 32s)
+LOAD (0x35, i64, 32u)
+
+STORE (0x36, i32, _)
+STORE (0x37, i64, _)
+STORE (0x38, f32, _)
+STORE (0x39, f64, _)
+
+/* truncating store from register to memory */
+STORE (0x3A, i32, 8)
+STORE (0x3B, i32, 16)
+STORE (0x3C, i64, 8)
+STORE (0x3D, i64, 16)
+STORE (0x3E, i64, 32)
+
+INSTRUCTION (0x3F, 2, 0, MemSize, Imm_none, 1, 0, Type_none, Type_none, Type_none, Type_i32)
+INSTRUCTION (0x40, 2, 0, MemGrow, Imm_none, 1, 1, Type_i32,  Type_none, Type_none, Type_i32)
+
+CONST (0x41, i32)
+CONST (0x42, i64)
+CONST (0x43, f32)
+CONST (0x44, f64)
+
+ITESTOP (0x45, Eqz, 32)
+IRELOP (0x46, Eq, 32, _)
+IRELOP (0x47, Ne, 32, _)
+IRELOP (0x48, Lt, 32, s)
+IRELOP (0x49, Lt, 32, u)
+IRELOP (0x4A, Gt, 32, s)
+IRELOP (0x4B, Gt, 32, u)
+IRELOP (0x4C, Le, 32, s)
+IRELOP (0x4D, Le, 32, u)
+IRELOP (0x4E, Ge, 32, s)
+IRELOP (0x4F, Ge, 32, u)
+
+ITESTOP (0x50, Eqz, 64)
+IRELOP (0x51, Eq, 64, _)
+IRELOP (0x52, Ne, 64, _)
+IRELOP (0x53, Lt, 64, s)
+IRELOP (0x54, Lt, 64, u)
+IRELOP (0x55, Gt, 64, s)
+IRELOP (0x56, Gt, 64, u)
+IRELOP (0x57, Le, 64, s)
+IRELOP (0x58, Le, 64, u)
+IRELOP (0x59, Ge, 64, s)
+IRELOP (0x5A, Ge, 64, u)
+
+FRELOP (0x5B, Eq, 32)
+FRELOP (0x5C, Ne, 32)
+FRELOP (0x5D, Lt, 32)
+FRELOP (0x5E, Gt, 32)
+FRELOP (0x5F, Le, 32)
+FRELOP (0x60, Ge, 32)
+
+FRELOP (0x61, Eq, 64)
+FRELOP (0x62, Ne, 64)
+FRELOP (0x63, Lt, 64)
+FRELOP (0x64, Gt, 64)
+FRELOP (0x65, Le, 64)
+FRELOP (0x66, Ge, 64)
+
+ IUNOP (0x67, Clz,     32)
+ IUNOP (0x68, Ctz,     32)
+ IUNOP (0x69, Popcnt,  32)
+IBINOP (0x6A, Add,     32)
+IBINOP (0x6B, Sub,     32)
+IBINOP (0x6C, Mul,     32)
+IBINOP (0x6D, Div_s,   32)
+IBINOP (0x6E, Div_u,   32)
+IBINOP (0x6F, Rem_s,   32)
+IBINOP (0x70, Rem_u,   32)
+IBINOP (0x71, And,     32)
+IBINOP (0x72, Or,      32)
+IBINOP (0x73, Xor,     32)
+IBINOP (0x74, Shl,     32)
+IBINOP (0x75, Shr_s,   32)
+IBINOP (0x76, Shr_u,   32)
+IBINOP (0x77, Rotl,    32)
+IBINOP (0x78, Rotr,    32)
+
+ IUNOP (0x79, Clz,     64)
+ IUNOP (0x7A, Ctz,     64)
+ IUNOP (0x7B, Popcnt,  64)
+IBINOP (0x7C, Add,     64)
+IBINOP (0x7D, Sub,     64)
+IBINOP (0x7E, Mul,     64)
+IBINOP (0x7F, Div_s,   64)
+IBINOP (0x80, Div_u,   64)
+IBINOP (0x81, Rem_s,   64)
+IBINOP (0x82, Rem_u,   64)
+IBINOP (0x83, And,     64)
+IBINOP (0x84, Or,      64)
+IBINOP (0x85, Xor,     64)
+IBINOP (0x86, Shl,     64)
+IBINOP (0x87, Shr_s,   64)
+IBINOP (0x88, Shr_u,   64)
+IBINOP (0x89, Rotl,    64)
+IBINOP (0x8A, Rotr,    64)
+
+ FUNOP (0x8B, Abs,      32)
+ FUNOP (0x8C, Neg,      32)
+ FUNOP (0x8D, Ceil,     32)
+ FUNOP (0x8E, Floor,    32)
+ FUNOP (0x8F, Trunc,    32)
+ FUNOP (0x90, Nearest,  32)
+ FUNOP (0x91, Sqrt,     32)
+FBINOP (0x92, Add,      32)
+FBINOP (0x93, Sub,      32)
+FBINOP (0x94, Mul,      32)
+FBINOP (0x95, Div,      32)
+FBINOP (0x96, Min,      32)
+FBINOP (0x97, Max,      32)
+FBINOP (0x98, Copysign, 32)
+
+ FUNOP (0x99, Abs,      64)
+ FUNOP (0x9A, Neg,      64)
+ FUNOP (0x9B, Ceil,     64)
+ FUNOP (0x9C, Floor,    64)
+ FUNOP (0x9D, Trunc,    64)
+ FUNOP (0x9E, Nearest,  64)
+ FUNOP (0x9F, Sqrt,     64)
+FBINOP (0xA0, Add,      64)
+FBINOP (0xA1, Sub,      64)
+FBINOP (0xA2, Mul,      64)
+FBINOP (0xA3, Div,      64)
+FBINOP (0xA4, Min,      64)
+FBINOP (0xA5, Max,      64)
+FBINOP (0xA6, Copysign, 64)
+
+CVTOP (0xA7,  Wrap, i32, i64, _)
+CVTOP (0xA8, Trunc, i32, f32, s)
+CVTOP (0xA9, Trunc, i32, f32, u)
+CVTOP (0xAA, Trunc, i32, f64, s)
+CVTOP (0xAB, Trunc, i32, f64, u)
+CVTOP (0xAC, Extend, i64, i32, s)
+CVTOP (0xAD, Extend, i64, i32, u)
+CVTOP (0xAE, Trunc, i64, f32, s)
+CVTOP (0xAF, Trunc, i64, f32, u)
+CVTOP (0xB0, Trunc, i64, f64, s)
+CVTOP (0xB1, Trunc, i64, f64, u)
+
+CVTOP (0xB2, Convert, f32, i32, u)
+CVTOP (0xB3, Convert, f32, i32, s)
+CVTOP (0xB4, Convert, f32, i64, u)
+CVTOP (0xB5, Convert, f32, i64, s)
+CVTOP (0xB6, Demote,  f32, f64, _)
+CVTOP (0xB7, Convert, f64, i32, s)
+CVTOP (0xB8, Convert, f64, i32, u)
+CVTOP (0xB9, Convert, f64, i64, s)
+CVTOP (0xBA, Convert, f64, i64, u)
+CVTOP (0xBB, Promote, f64, f32, _)
+
+CVTOP (0xBC, Reinterpret, i32, f32, _)
+CVTOP (0xBD, Reinterpret, i64, f64, _)
+CVTOP (0xBE, Reinterpret, f32, i32, _)
+CVTOP (0xBF, Reinterpret, f64, i64, _)
+
+RESERVED (C0)
+RESERVED (C1)
+RESERVED (C2)
+RESERVED (C3)
+RESERVED (C4)
+RESERVED (C5)
+RESERVED (C6)
+RESERVED (C7)
+RESERVED (C8)
+RESERVED (C9)
+RESERVED (CA)
+RESERVED (CB)
+RESERVED (CC)
+RESERVED (CD)
+RESERVED (CE)
+RESERVED (CF)
+
+RESERVED (D0)
+RESERVED (D1)
+RESERVED (D2)
+RESERVED (D3)
+RESERVED (D4)
+RESERVED (D5)
+RESERVED (D6)
+RESERVED (D7)
+RESERVED (D8)
+RESERVED (D9)
+RESERVED (DA)
+RESERVED (DB)
+RESERVED (DC)
+RESERVED (DD)
+RESERVED (DE)
+RESERVED (DF)
+
+RESERVED (E0)
+RESERVED (E1)
+RESERVED (E2)
+RESERVED (E3)
+RESERVED (E4)
+RESERVED (E5)
+RESERVED (E6)
+RESERVED (E7)
+RESERVED (E8)
+RESERVED (E9)
+RESERVED (EA)
+RESERVED (EB)
+RESERVED (EC)
+RESERVED (ED)
+RESERVED (EE)
+RESERVED (EF)
+
+RESERVED (F0)
+RESERVED (F1)
+RESERVED (F2)
+RESERVED (F3)
+RESERVED (F4)
+RESERVED (F5)
+RESERVED (F6)
+RESERVED (F7)
+RESERVED (F8)
+RESERVED (F9)
+RESERVED (FA)
+RESERVED (FB)
+RESERVED (FC)
+RESERVED (FD)
+RESERVED (FE)
+RESERVED (FF)
+
+#else
 
 #define _CRT_SECURE_NO_WARNINGS 1
 
@@ -117,7 +406,6 @@ typedef ptrdiff_t ssize_t;
 #include <string.h>
 #include <stdlib.h>
 
-#include <stack>
 #include <string>
 #include <vector>
 #include <memory>
@@ -226,10 +514,10 @@ throw_GetLastError (const char* a = "")
 
 #ifdef _WIN64
 #define FORMAT_SIZE "I64"
-#define long_t __int64 // aka ptrdiff, aka Unix long but not Windows long
+#define long_t __int64 // aka ptrdiff
 #else
 #define FORMAT_SIZE "l"
-#define long_t long // aka ptrdiff, aka Unix long but not Windows long
+#define long_t long // aka ptrdiff
 #endif
 
 #if _MSC_VER
@@ -334,82 +622,14 @@ struct GlobalAddr // TODO
 {
 };
 
-// TODO: Maybe use this for all interpreter values
-// For now it is only for the newer SourceGen.
-//
-enum struct TypeTag : uint8_t
-{
-    none = 0, // zero-init
-    Bool = 1, // i32
-    any  = 2, // often has some constraints
-
-    empty = 0x40, // defined by wasm in some contexts
-    i32 = 0x7F, // defined by wasm
-    i64 = 0x7E, // defined by wasm
-    f32 = 0x7D, // defined by wasm
-    f64 = 0x7C, // defined by wasm
-    string = 0x80, // sourcegen extension
-    label  = 0x81, // sourcegen extension, needed?
-};
-
-struct Label
-{
-    size_t arity;
-    size_t continuation;
-};
-
-// TODO templatize on existance of string and possibly label
-// so that SourceGen and Interp can share.
-struct SourceGenValue
-{
-    TypeTag tag;
-    /* TODO constant
-    union
-    {
-        int32_t i32;
-        int32_t Bool;
-        uint32_t u32;
-        uint64_t u64;
-        int64_t i64;
-        float f32;
-        double f64;
-        Label label; // probably remove this and use separate label stack
-    };
-    */
-    std::string str;
-    const char* cstr() { return str.c_str(); }
-};
-
-struct SourceGenStack : std::stack<SourceGenValue>
-{
-    void clear()
-    {
-        while (size()) pop();
-    }
-
-    SourceGenValue& top()
-    {
-        return stack.top();
-    }
-
-    const char* cstr() { return top().str.c_str(); }
-
-    std::string pop()
-    {
-        std::string str = stack.top().str;
-        stack.pop();
-        return str;
-    }
-};
-
 // This should probabably be combined with ResultType, and called Tag.
-enum ValueType : uint8_t
+typedef enum ValueType : uint8_t
 {
     ValueType_i32 = 0x7F,
     ValueType_i64 = 0x7E,
     ValueType_f32 = 0x7D,
     ValueType_f64 = 0x7C,
-};
+} ValueType;
 
 static
 std::string
@@ -1071,20 +1291,27 @@ union Value
 struct TaggedValue
 {
     ValueType tag;
-    Value value;
+    union
+    {
+        int32_t i32;
+        uint32_t u32;
+        uint64_t u64;
+        int64_t i64;
+        float f32;
+        double f64;
+        Value value;
+    };
 };
 
 // This should probabably be combined with ValueType, and called Tag.
-enum ResultType : uint8_t
+typedef enum ResultType : uint8_t
 {
     ResultType_i32 = 0x7F,
     ResultType_i64 = 0x7E,
     ResultType_f32 = 0x7D,
     ResultType_f64 = 0x7C,
     ResultType_empty = 0x40
-};
-
-typedef ResultType BlockType;
+} ResultType, BlockType;
 
 static
 const char*
@@ -1191,18 +1418,18 @@ struct Section;
 // StackValue* stack = initial_stack;
 // StackValue* min_stack = initial_stack;
 
-struct FunctionType;
-struct Function;
-struct Code;
-struct Frame; // work in progress
-struct DecodedInstruction;
+typedef struct FunctionType FunctionType;
+typedef struct Function Function;
+typedef struct Code Code;
+typedef struct Frame Frame; // work in progress
+typedef struct DecodedInstruction DecodedInstruction;
 
-enum StackTag : uint8_t
+typedef enum StackTag
 {
     StackTag_Value = 1, // i32, i64, f32, f64
     StackTag_Label,     // branch target
     StackTag_Frame,     // return address + locals + params
-};
+} StackTag;
 
 static
 const char*
@@ -1217,14 +1444,24 @@ StackTagToString (StackTag tag)
     return "unknown";
 }
 
+typedef struct LabelValue
+{
+    size_t arity;
+    size_t continuation;
+} LabelValue;
+
 // work in progress
 struct StackValueZeroInit
 {
-    StackTag tag {}; //TODO move to end for alignment
+//  union
+//  {
+//      StackTag type : 8; // TODO change to tag
+        StackTag tag  : 8;
+//  };
     union
     {
-        TaggedValue value; // TODO: change to Value or otherwise remove redundant tag
-        Label label;
+        TaggedValue value;
+        LabelValue label;
         struct
         {
             Frame* frame; // TODO by value? Probably not. This was changed
@@ -1286,7 +1523,7 @@ typedef std::vector <StackValue> StackBaseBase;
 struct StackBase : private StackBaseBase
 {
     typedef StackBaseBase base;
-    typedef base::iterator iterator;
+    typedef StackBaseBase::iterator iterator;
     StackValue& back () { return base::back (); }
     StackValue& front () { return base::front (); }
     iterator begin () { return base::begin (); }
@@ -1295,6 +1532,7 @@ struct StackBase : private StackBaseBase
     void resize (size_t newsize) { base::resize (newsize); }
     size_t size () { return base::size (); }
     StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
+
 
     void push (const StackValue& a)
     {   // While ultimately a stack of values, labels, and frames, values dominate,
@@ -1714,21 +1952,21 @@ INTERP (FBinOp)
 
 enum InstructionEnum : uint16_t
 {
-#include "w3instructions.h"
+#include __FILE__
 };
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) char name [ sizeof (#name) ];
 typedef struct InstructionNames
 {
-#include "w3instructions.h"
+#include __FILE__
 } InstructionNames;
 
 #if 0 // Split string up for old compiler.
 const char instructionNames [ ] =
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) #name "\0"
-#include "w3instructions.h"
+#include __FILE__
 ;
 #else
 
@@ -1736,13 +1974,13 @@ union {
     struct {
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) char name [sizeof (#name)];
-#include "w3instructions.h"
+#include __FILE__
     } x;
     char data [1];
 } instructionNames = { {
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) #name,
-#include "w3instructions.h"
+#include __FILE__
 } };
 
 #endif
@@ -1815,7 +2053,7 @@ struct InstructionEncoding
     Immediate immediate;
     uint8_t pop           : 2;    // required minimum stack in
     uint8_t push          : 1;
-    InstructionEnum name;
+    InstructionEnum name : 16;
     uint32_t string_offset : bits_for_uint (sizeof (instructionNames));
     Type stack_in0  ; // type of stack [0] upon input, if pop >= 1
     Type stack_in1  ; // type of stack [1] upon input, if pop >= 2
@@ -1868,14 +2106,13 @@ struct DecodedInstruction : DecodedInstructionZeroInit
         return (blockType == ResultType_empty) ? 0u : 1u; // FUTURE
     }
 
-    int id {}; //sourcegen
     std::vector <uint32_t> vecLabel;
 };
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) { byte0, fixed_size, imm, pop, push, name, offsetof (InstructionNames, name), in0, in1, in2, out0 },
 const InstructionEncoding instructionEncode [ ] = {
-#include "w3instructions.h"
+#include __FILE__
 };
 
 static_assert (sizeof (instructionEncode) / sizeof (instructionEncode [0]) == 256, "not 256 instructions");
@@ -1927,7 +2164,6 @@ struct Section
 
 struct ModuleBase // workaround old compiler (?)
 {
-    std::string name = "wasm_";
     virtual ~ModuleBase() { }
     virtual void read_types (uint8_t** cursor) = 0;
     virtual void read_imports (uint8_t** cursor) = 0;
@@ -2021,7 +2257,7 @@ struct ModuleInstance // work in progress
 {
     ModuleInstance (Module* mod);
 
-    Module* module {};
+    Module* module;
     std::vector <uint8_t> memory;
     std::vector <FuncAddr*> funcs;
     std::vector <TableAddr*> tables;
@@ -2162,8 +2398,6 @@ struct Module : ModuleBase
     std::vector <Code> code; // section10
     std::vector <Data> data; // section11 memory initialization
     Limits memory_limits;
-
-    int instructionId {}; //sourcegen
 
     Export* start;
     Export* main;
@@ -2439,16 +2673,15 @@ InstructionEnum
 DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code)
 {
     uint32_t b0 = (uint32_t)Block;
-    size_t index {};
-    uint32_t b1 {};
+    size_t index = 0;
+    uint32_t b1 = 0;
     size_t pc = ~(size_t)0;
 
     while (b0 != (uint32_t)BlockEnd && b0 != (uint32_t)Else)
     {
         ++pc;
-        InstructionEncoding e {};
-        DecodedInstruction i {};
-        i.id = ++(module->instructionId);
+        InstructionEncoding e;
+        DecodedInstruction i;
         b0 = module->read_byte (cursor); // TODO multi-byte instructions
         e = instructionEncode [b0];
         if (e.fixed_size == 0)
@@ -2936,18 +3169,18 @@ void Module::read_module (const char* file_name)
 // we might invert this structure and have a class per instruction with those 4 virtual functions.
 // Or we will token-paste those names on to the instruction names,
 // in order to avoid virtual function call cost. Let's get Interp working first.
-struct Wasm
+struct IWasm
 {
     DecodedInstruction* instr; // TODO make local variable
 
-    Wasm () : instr (0) { }
+    IWasm () : instr (0) { }
 
-    virtual ~Wasm () { }
+    virtual ~IWasm () { }
 
     virtual void Reserved () = 0;
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name () { abort (); }
-#include "w3instructions.h"
+#include __FILE__
 };
 
 static
@@ -2957,7 +3190,7 @@ Overflow (void)
     Assert (!"Overflow");
 }
 
-struct Interp : Stack, Wasm
+struct Interp : Stack, IWasm
 {
 private:
     Interp(const Interp&);
@@ -3004,78 +3237,23 @@ public:
 #define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none) { Reserved (); }
 
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) ; void name ()
-#include "w3instructions.h"
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) virtual void name ();
+#include __FILE__
     ;
 };
 
-struct SourceGen : Wasm
+struct RustGen : IWasm
 {
-    long temp{};
-
-    SourceGenStack stack; // TODO? std::stack<std::string>
-    std::stack<Label> labels;
-    FunctionType* function_type {};
-
-    // The value stack is the central data structure so assume it.
-
-    const char* cstr() { stack.top().c_str(); }
-
-    void push_i32 (int i)
-    {
-        char s[99];
-        sprintf(s, "%d", i); // TODO C vs. Rust TODO perf
-        stack.push(SourceGenValue{TypeTag::i32, s});
-    }
-
-    void push_i32 (const char* s)
-    {
-        stack.push(SourceGenValue{TypeTag::i32, s});
-    }
-
-    void pop()
-    {
-        stack.pop();
-    }
-
-    static std::string string_format(const char*, ...)
-    {
-        return "todo";
-    }
-
-    void printf(const char*, ...)
-    {
-    }
-
-    void push(const std::string& s)
-    {
-        SourceGenValue value;
-        value.str = s;
-        stack.push(value);
-    }
-
-    SourceGenValue& top() { return stack.top(); }
-};
-
-struct RustGen : SourceGen //TODO
-{
-};
-
-struct CGen : SourceGen
-{
+private:
+    RustGen(const RustGen&);
+    void operator =(const RustGen&);
 public:
 
-    void flush() { }
-    void print(...) { }
-
-    virtual ~CGen()
+    virtual ~RustGen()
     {
     }
 
-    CGen(const CGen&) = delete;
-    void operator=(const CGen&) = delete;
-
-    CGen() : module (0)
+    RustGen() : module (0)
     {
     }
 
@@ -3105,7 +3283,7 @@ public:
             printf("%d\n", (int)function_type_index);
 
             Assert (function_type_index < module->function_types.size ());
-            function_type = &module->function_types [function_type_index];
+            FunctionType* function_type = &module->function_types [function_type_index];
 
             Code* code = &module->code [function.function_index];
             const size_t param_count = function_type->parameters.size ();
@@ -3124,27 +3302,24 @@ public:
 
             printf(" function%d ( \n", (int)i);
 
-            // args are the first locals
-            // join them here and elsewhere does not care
-
             if (param_count == 0)
                 printf("void");
-            else
+            else for (size_t j = 0; j < param_count; ++j)
             {
-                for (size_t j = 0; j < param_count; ++j)
-                {
-                    if (j)
-                        printf(",");
-                    printf("%s local%" FORMAT_SIZE "d", TypeToStringCxx(function_type->parameters[j]), (long_t)j);
-                }
+                if (j)
+                    printf(",\n");
+                printf("%s arg%" FORMAT_SIZE "d", TypeToStringCxx(function_type->parameters[j]), (long_t)j);
             }
 
             printf(") {");
-            // Declare locals, merged with parameters.
+
+#if 0
+
+            // Declare locals; maybe eventually merge locals and args.
             const size_t local_count = code->locals.size();
             for (size_t k = 0; k < local_count; ++k)
             {
-                printf("%s local%" FORMAT_SIZE "d;\n", TypeToStringCxx(code->locals[k]), (long_t)k + param_count);
+                printf("%s local%" FORMAT_SIZE "d;\n", TypeToStringCxx(code->locals[k]), (long_t)k);
             }
 
             instr = &code->decoded_instructions [0];
@@ -3161,26 +3336,1152 @@ public:
                 case w3::name:                                                                   \
                 printf ("gen%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); \
                 this->name ();
-#include "w3instructions.h"
+#include __FILE__
                 }
             }
-            printf("\n}\n");
         }
+        // TODO handle ret
+        //__debugbreak ();
+#endif
+        printf("\n}\n");
     }
 
     void Reserved ()
     {
+        printf("//reserved\n");
     }
 
 #undef RESERVED
-#define RESERVED(b0) void Reserved ## b0 () { Reserved (); }
+#define RESERVED(b0) void Reserved ## b0 ( ) ; 
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name ();
-#include "w3instructions.h"
-};
+//#include __FILE__
 
-#include "w3cgen.cpp"
+#if 0
+
+INTERP (Block)
+{
+    printf("//block\n");
+}
+
+INTERP (Loop)
+{
+    printf("//loop\n");
+}
+
+INTERP (MemGrow)
+{
+    printf("//\n");
+}
+
+INTERP (MemSize)
+{
+    __debugbreak (); // not yet tested
+    printf("//\n");
+}
+
+INTERP (Global_set)
+{
+    printf("//\n");
+}
+
+INTERP (Global_get)
+{
+    printf("//\n");
+}
+
+INTERP (Local_set)
+{
+    printf("//\n");
+}
+
+INTERP (Local_tee)
+{
+    printf("//\n");
+}
+
+INTERP (Local_get)
+{
+    printf("//\n");
+}
+
+INTERP (If)
+{
+    printf("//\n");
+}
+
+INTERP (Else)
+{
+    printf("//\n");
+}
+
+INTERP (BlockEnd)
+{
+    printf("//\n");
+}
+
+INTERP (BrIf)
+{
+    printf("//\n");
+}
+
+INTERP (BrTable)
+{
+    printf("//\n");
+}
+
+INTERP (Ret)
+{
+    printf("//\n");
+}
+
+INTERP (Br)
+{
+    printf("//\n");
+}
+
+INTERP (Select)
+{
+    printf("//\n");
+}
+
+INTERP (Calli)
+{
+    printf("//\n");
+}
+
+INTERP (Unreach)
+{
+    printf("//\n");
+}
+
+INTERP (i32_Const)
+{
+    printf("//\n");
+}
+
+INTERP (i64_Const)
+{
+    printf("//\n");
+}
+
+INTERP (f32_Const)
+{
+    printf("//\n");
+}
+
+INTERP (f64_Const)
+{
+    printf("//\n");
+}
+
+INTERP (i32_Load_)
+{
+    printf("//\n");
+}
+
+INTERP (i32_Load8s)
+{
+    printf("//\n");
+}
+
+INTERP (i32_Load16s)
+{
+    printf("//\n");
+}
+
+INTERP (i32_Load8u)
+{
+    printf("//\n");
+}
+
+INTERP (i32_Load16u)
+{
+    printf("//\n");
+}
+
+INTERP (i64_Load_)
+{
+    printf("//\n");
+}
+
+INTERP (i64_Load8s)
+{
+    printf("//\n");
+}
+
+INTERP (i64_Load16s)
+{
+    printf("//\n");
+}
+
+INTERP (i64_Load8u)
+{
+    push_i64 (*(uint8_t*)LoadStore (1));
+}
+
+INTERP (i64_Load16u)
+{
+    push_i64 (*(uint16_t*)LoadStore (2));
+}
+
+INTERP (i64_Load32s)
+{
+    push_i64 (*(int32_t*)LoadStore (4));
+}
+
+INTERP (i64_Load32u)
+{
+    push_i64 (*(uint32_t*)LoadStore (4));
+}
+
+INTERP (f32_Load_)
+{
+    push_f32 (*(float*)LoadStore (4));
+}
+
+INTERP (f64_Load_)
+{
+    push_f64 (*(double*)LoadStore (8));
+}
+
+INTERP (i32_Store_)
+{
+    const uint32_t a = pop_u32 ();
+    *(uint32_t*)LoadStore (4) = a;
+}
+
+INTERP (i32_Store8)
+{
+    const uint32_t a = pop_u32 ();
+    *(uint8_t*)LoadStore (1) = (uint8_t)(a & 0xFF);
+}
+
+INTERP (i32_Store16)
+{
+    const uint32_t a = pop_u32 ();
+    *(uint16_t*)LoadStore (1) = (uint16_t)(a & 0xFFFF);
+}
+
+INTERP (i64_Store8)
+{
+    const uint64_t a = pop_u64 ();
+    *(uint8_t*)LoadStore (1) = (uint8_t)(a & 0xFF);
+}
+
+INTERP (i64_Store16)
+{
+    const uint64_t a = pop_u64 ();
+    *(uint16_t*)LoadStore (2) = (uint16_t)(a & 0xFFFF);
+}
+
+INTERP (i64_Store32)
+{
+    const uint64_t a = pop_u64 ();
+    *(uint32_t*)LoadStore (4) = (uint32_t)(a & 0xFFFFFFFF);
+}
+
+INTERP (i64_Store_)
+{
+    const uint64_t a = pop_u64 ();
+    *(uint64_t*)LoadStore (8) = a;
+}
+
+INTERP (f32_Store_)
+{
+    float a = pop_f32 ();
+    *(float*)LoadStore (4) = a;
+}
+
+INTERP (f64_Store_)
+{
+    double a = pop_f64 ();
+    *(double*)LoadStore (8) = a;
+}
+
+INTERP (Nop)
+{
+}
+
+INTERP (Drop)
+{
+    pop_value ();
+}
+
+void Interp:: Reserved ()
+{
+#if _WIN32
+    if (IsDebuggerPresent ()) DebugBreak();
+#endif
+    static const char reserved [] = "reserved\n";
+#if _WIN32
+    if (IsDebuggerPresent())
+    {
+        OutputDebugStringA (reserved);
+        DebugBreak();
+    }
+    _write (1, reserved, sizeof (reserved) - 1);
+#else
+    write (1, reserved, sizeof (reserved) - 1);
+#endif
+    abort ();
+}
+
+INTERP (Eqz_i32)
+{
+    push_bool (pop_i32 () == 0);
+}
+
+INTERP (Eqz_i64)
+{
+    push_bool (pop_i64 () == 0);
+}
+
+INTERP (Eq_i32_)
+{
+    push_bool (pop_i32 () == pop_i32 ());
+}
+
+INTERP (Eq_i64_)
+{
+    push_bool (pop_i64 () == pop_i64 ());
+}
+
+INTERP (Eq_f32)
+{
+    push_bool (pop_f32 () == pop_f32 ());
+}
+
+INTERP (Eq_f64)
+{
+    push_bool (pop_f64 () == pop_f64 ());
+}
+
+INTERP (Ne_i32_)
+{
+    push_bool (pop_i32 () != pop_i32 ());
+}
+
+INTERP (Ne_i64_)
+{
+    push_bool (pop_i64 () != pop_i64 ());
+}
+
+INTERP (Ne_f32)
+{
+    push_bool (pop_f32 () != pop_f32 ());
+}
+
+INTERP (Ne_f64)
+{
+    push_bool (pop_f64 () != pop_f64 ());
+}
+
+// Lt
+
+INTERP (Lt_i32s)
+{
+    const int32_t b = pop_i32 ();
+    const int32_t a = pop_i32 ();
+    push_bool (a < b);
+}
+
+INTERP (Lt_i32u)
+{
+    const uint32_t b = pop_u32 ();
+    const uint32_t a = pop_u32 ();
+    push_bool (a < b);
+}
+
+INTERP (Lt_i64s)
+{
+    const int64_t b = pop_i64 ();
+    const int64_t a = pop_i64 ();
+    push_bool (a < b);
+}
+
+INTERP (Lt_i64u)
+{
+    const uint64_t b = pop_u32 ();
+    const uint64_t a = pop_u32 ();
+    push_bool (a < b);
+}
+
+INTERP (Lt_f32)
+{
+    const float b = pop_f32 ();
+    const float a = pop_f32 ();
+    push_bool (a < b);
+}
+
+INTERP (Lt_f64)
+{
+    const double b = pop_f64 ();
+    const double a = pop_f64 ();
+    push_bool (a < b);
+}
+
+// Gt
+
+INTERP (Gt_i32s)
+{
+    const int32_t b = pop_i32 ();
+    const int32_t a = pop_i32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_i32u)
+{
+    const uint32_t b = pop_u32 ();
+    const uint32_t a = pop_u32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_i64s)
+{
+    const int64_t b = pop_i64 ();
+    const int64_t a = pop_i64 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_i64u)
+{
+    const uint64_t b = pop_u32 ();
+    const uint64_t a = pop_u32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_f32)
+{
+    const float b = pop_f32 ();
+    const float a = pop_f32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_f64)
+{
+    const double b = pop_f64 ();
+    const double a = pop_f64 ();
+    push_bool (a > b);
+}
+
+// Le
+
+INTERP (Le_i32s)
+{
+    const int32_t b = pop_i32 ();
+    push_bool (pop_i32 () <= b);
+}
+
+INTERP (Le_i64s)
+{
+    const int64_t b = pop_i64 ();
+    push_bool (pop_i64 () <= b);
+
+}
+
+INTERP (Le_i32u)
+{
+    const uint32_t b = pop_u32 ();
+    push_bool (pop_u32 () <= b);
+}
+
+INTERP (Le_i64u)
+{
+    const uint64_t b = pop_u64 ();
+    push_bool (pop_u64 () <= b);
+
+}
+
+INTERP (Le_f32)
+{
+    const float z2 = pop_f32 ();
+    const float z1 = pop_f32 ();
+    push_bool (z1 <= z2);
+}
+
+INTERP (Le_f64)
+{
+    const double z2 = pop_f64 ();
+    const double z1 = pop_f64 ();
+    push_bool (z1 <= z2);
+}
+
+// Ge
+
+INTERP (Ge_i32u)
+{
+    const uint32_t b = pop_u32 ();
+    const uint32_t a = pop_u32 ();
+    push_bool (a >= b);
+}
+
+INTERP (Ge_i64u)
+{
+    const uint64_t b = pop_u64 ();
+    const uint64_t a = pop_u64 ();
+    push_bool (a >= b);
+}
+
+INTERP (Ge_i32s)
+{
+    const int32_t b = pop_i32 ();
+    const int32_t a = pop_i32 ();
+    push_bool (a >= b);
+}
+
+INTERP (Ge_i64s)
+{
+    const int64_t b = pop_i64 ();
+    const int64_t a = pop_i64 ();
+    push_bool (a >= b);
+}
+
+INTERP (Ge_f32)
+{
+    const float b = pop_f32 ();
+    const float a = pop_f32 ();
+    push_bool (a >= b);
+}
+
+INTERP (Ge_f64)
+{
+    const double b = pop_f64 ();
+    const double a = pop_f64 ();
+    push_bool (a >= b);
+}
+
+template <class T>
+#if !_MSC_VER || _MSC_VER > 900
+static
+#endif
+uint32_t
+count_set_bits (T a)
+{
+    uint32_t n = 0;
+    while (a)
+    {
+        n += (a & 1);
+        a >>= 1;
+    }
+    return n;
+}
+
+template <class T>
+#if !_MSC_VER || _MSC_VER > 900
+static
+#endif
+uint32_t
+count_trailing_zeros (T a)
+{
+    uint32_t n = 0;
+    while (!(a & 1))
+    {
+        ++n;
+        a >>= 1;
+    }
+    return n;
+}
+
+template <class T>
+#if !_MSC_VER || _MSC_VER > 900
+static
+#endif
+uint32_t
+count_leading_zeros (T a)
+{
+    uint32_t n = 0;
+    while (!(a & (((T)1) << ((sizeof (T) * 8) - 1))))
+    {
+        ++n;
+        a <<= 1;
+    }
+    return n;
+}
+
+INTERP (Popcnt_i32)
+{
+    uint32_t& a = u32 ();
+#if (_M_AMD64 || _M_IX86) && _MSC_VER > 1100 // TODO which version
+    a = __popcnt (a);
+#else
+    a = count_set_bits (a);
+#endif
+}
+
+INTERP (Popcnt_i64)
+{
+    uint64_t& a = u64 ();
+#if _MSC_VER && _M_AMD64
+    a = __popcnt64 (a);
+#else
+    a = count_set_bits (a);
+#endif
+}
+
+INTERP (Ctz_i32)
+{
+    uint32_t& a = u32 ();
+    a = count_trailing_zeros (a);
+}
+
+INTERP (Ctz_i64)
+{
+    uint64_t& a = u64 ();
+    a = count_trailing_zeros (a);
+}
+
+INTERP (Clz_i32)
+{
+    uint32_t& a = u32 ();
+    a = count_leading_zeros (a);
+}
+
+INTERP (Clz_i64)
+{
+    uint64_t& a = u64 ();
+    a = count_leading_zeros (a);
+}
+
+INTERP (Add_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () += a;
+}
+
+INTERP (Add_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () += a;
+}
+
+INTERP (Sub_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () -= a;
+}
+
+INTERP (Sub_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () -= a;
+}
+
+INTERP (Mul_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () *= a;
+}
+
+INTERP (Mul_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () *= a;
+}
+
+INTERP (Div_s_i32)
+{
+    const int32_t a = pop_i32 ();
+    i32 () /= a;
+}
+
+INTERP (Div_u_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () /= a;
+}
+
+INTERP (Rem_s_i32)
+{
+    const int32_t a = pop_i32 ();
+    i32 () %= a;
+}
+
+INTERP (Rem_u_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () %= a;
+}
+
+INTERP (Div_s_i64)
+{
+    const int64_t a = pop_i64 ();
+    i64 () /= a;
+}
+
+INTERP (Div_u_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () /= a;
+}
+
+INTERP (Rem_s_i64)
+{
+    const int64_t a = pop_i64 ();
+    i64 () %= a;
+}
+
+INTERP (Rem_u_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () %= a;
+}
+
+INTERP (And_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () &= a;
+}
+
+INTERP (And_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () &= a;
+}
+
+INTERP (Or_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () |= a;
+}
+
+INTERP (Or_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () |= a;
+}
+
+INTERP (Xor_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () ^= a;
+}
+
+INTERP (Xor_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () ^= a;
+}
+
+INTERP (Shl_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () <<= (a & 31);
+}
+
+INTERP (Shl_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () <<= (a & 63);
+}
+
+INTERP (Shr_s_i32)
+{
+    const int32_t b = pop_i32 ();
+    i32 () <<= (b & 31);
+}
+
+INTERP (Shr_s_i64)
+{
+    const int64_t b = pop_i64 ();
+    i64 () <<= (b & 63);
+}
+
+INTERP (Shr_u_i32)
+{
+    const uint32_t b = pop_u32 ();
+    u32 () >>= (b & 31);
+}
+
+INTERP (Shr_u_i64)
+{
+    const uint64_t b = pop_u64 ();
+    u64 () >>= (b & 63);
+}
+
+INTERP (Rotl_i32)
+{
+    const int n = 32;
+    const int32_t b = (pop_i32 () & (n - 1));
+    uint32_t& r = u32 ();
+    uint32_t a = r;
+#if _MSC_VER
+    r = _rotl (a, b);
+#else
+    r = ((a << b) | (a >> (n - b)));
+#endif
+}
+
+INTERP (Rotl_i64)
+{
+    const uint32_t n = 64;
+    const uint32_t b = (uint32_t)(pop_u64 () & (n - 1));
+    uint64_t& r = u64 ();
+    uint64_t a = r;
+#if _MSC_VER > 1100 // TODO which version
+    r = _rotl64 (a, (int)b);
+#else
+    r = (a << b) | (a >> (n - b));
+#endif
+}
+
+INTERP (Rotr_i32)
+{
+    const uint32_t n = 32;
+    const uint32_t b = (uint32_t)(pop_u32 () & (n - 1));
+    uint32_t& r = u32 ();
+    uint32_t a = r;
+#if _MSC_VER
+    r = _rotr (a, (int)b);
+#else
+    r = (a >> b) | (a << (n - b));
+#endif
+}
+
+INTERP (Rotr_i64)
+{
+    const uint32_t n = 64;
+    const uint32_t b = (uint32_t)(pop_u64 () & (n - 1));
+    uint64_t& r = u64 ();
+    uint64_t a = r;
+#if _MSC_VER > 1100 // TODO which version
+    r = _rotr64 (a, (int)b);
+#else
+    r = (a >> b) | (a << (n - b));
+#endif
+}
+
+INTERP (Abs_f32)
+{
+    float& z = f32 ();
+    z = fabsf (z);
+}
+
+INTERP (Abs_f64)
+{
+    double& z = f64 ();
+    z = fabs (z);
+}
+
+INTERP (Neg_f32)
+{
+    f32 () *= -1;
+}
+
+INTERP (Neg_f64)
+{
+    f64 () *= -1;
+}
+
+INTERP (Ceil_f32)
+{
+    float& z = f32 ();
+    z = ceilf (z);
+}
+
+INTERP (Ceil_f64)
+{
+    double& z = f64 ();
+    z = ceil (z);
+}
+
+INTERP (Floor_f32)
+{
+    float& z = f32 ();
+    z = wasm_floorf (z);
+}
+
+INTERP (Floor_f64)
+{
+    double& z = f64 ();
+    z = floor (z);
+}
+
+INTERP (Trunc_f32)
+{
+    float& z = f32 ();
+    z = wasm_truncf (z); // TODO C99
+}
+
+INTERP (Trunc_f64)
+{
+    double& z = f64 ();
+    z = wasm_truncd (z);
+}
+
+INTERP (Nearest_f32)
+{
+    float& z = f32 ();
+    z = wasm_roundf (z);
+}
+
+INTERP (Nearest_f64)
+{
+    double& z = f64 ();
+    z = wasm_roundd (z);
+}
+
+INTERP (Sqrt_f32)
+{
+    float& z = f32 ();
+    z = sqrtf (z);
+}
+
+INTERP (Sqrt_f64)
+{
+    double& z = f64 ();
+    z = sqrt (z);
+}
+
+INTERP (Add_f32)
+{
+    const float a = pop_f32 ();
+    f32 () += a;
+}
+
+INTERP (Add_f64)
+{
+    const double a = pop_f64 ();
+    f64 () += a;
+}
+
+INTERP (Sub_f32)
+{
+    const float a = pop_f32 ();
+    f32 () -= a;
+}
+
+INTERP (Sub_f64)
+{
+    const double a = pop_f64 ();
+    f64 () -= a;
+}
+
+INTERP (Mul_f32)
+{
+    const float a = pop_f32 ();
+    f32 () *= a;
+}
+
+INTERP (Mul_f64)
+{
+    const double a = pop_f64 ();
+    f64 () *= a;
+}
+
+INTERP (Div_f32)
+{
+    const float a = pop_f32 ();
+    f32 () /= a;
+}
+
+INTERP (Div_f64)
+{
+    const double a = pop_f64 ();
+    f64 () /= a;
+}
+
+INTERP (Min_f32)
+{
+    const float z2 = pop_f32 ();
+    float& z1 = f32 ();
+    z1 = Min (z1, z2);
+}
+
+INTERP (Min_f64)
+{
+    const double z2 = pop_f64 ();
+    double& z1 = f64 ();
+    z1 = Min (z1, z2);
+}
+
+INTERP (Max_f32)
+{
+    const float z2 = pop_f32 ();
+    float& z1 = f32 ();
+    z1 = Max (z1, z2);
+}
+
+INTERP (Max_f64)
+{
+    const double z2 = pop_f64 ();
+    double& z1 = f64 ();
+    z1 = Max (z1, z2);
+}
+
+INTERP (Copysign_f32)
+{
+    const float z2 = pop_f32 ();
+    float& z1 = f32 ();
+    z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
+}
+
+INTERP (Copysign_f64)
+{
+    const double z2 = pop_f64 ();
+    double& z1 = f64 ();
+    z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
+}
+
+// Various lossless and lossy conversions.
+
+INTERP (i32_Wrap_i64_)
+{
+    set_i32 ((int32_t)(i64 () & 0xFFFFFFFF));
+}
+
+INTERP (i32_Trunc_f32s)
+{
+    set_i32 ((int32_t)f32 ());
+}
+
+INTERP (i32_Trunc_f32u)
+{
+    set_u32 ((uint32_t)f32 ());
+}
+
+INTERP (i32_Trunc_f64s)
+{
+    set_i32 ((int32_t)f64 ());
+}
+
+INTERP (i32_Trunc_f64u)
+{
+    set_u32 ((uint32_t)f64 ());
+}
+
+INTERP (i64_Extend_i32s)
+{
+    set_i64 ((int64_t)i32 ());
+}
+
+INTERP (i64_Extend_i32u)
+{
+    set_u64 ((uint64_t)u32 ());
+}
+
+INTERP (i64_Trunc_f32s)
+{
+    set_i64 ((int64_t)f32 ());
+}
+
+INTERP (i64_Trunc_f32u)
+{
+    set_u64 ((uint64_t)f32 ());
+}
+
+INTERP (i64_Trunc_f64s)
+{
+    set_i64 ((int64_t)f64 ());
+}
+
+INTERP (i64_Trunc_f64u)
+{
+    set_u64 ((uint64_t)f64 ());
+}
+
+INTERP (f32_Convert_i32u)
+{
+    set_f32 ((float)(uint32_t)u32 ());
+}
+
+INTERP (f32_Convert_i32s)
+{
+    set_f32 ((float)i32 ());
+}
+
+template <class T>
+T uint64_to_float (uint64_t ui64, T * unused = 0 /* old compiler bug workaround */)
+{
+#if _MSC_VER && _MSC_VER <= 1100 // error C2520: conversion from unsigned __int64 to double not implemented, use signed __int64
+    __int64 i64 = (__int64)ui64;
+    if (i64 >= 0)
+    {
+        return (T)(__int64)ui64;
+    }
+    __int64 low_bit = (__int64)(ui64 & 1);
+    unsigned __int64 uhalf = ui64 >> 1;
+    __int64 half = (__int64)uhalf;
+    Assert (half >= 0);
+    T f = (T)half;
+    f *= 2;
+    f += low_bit;
+    return f;
+#else
+    return (T)ui64;
+#endif
+}
+
+INTERP (f32_Convert_i64u)
+{
+    set_f32 (uint64_to_float (u64 (), (float*)0));
+}
+
+INTERP (f32_Convert_i64s)
+{
+    set_f32 ((float)i64 ());
+}
+
+INTERP (f32_Demote_f64_)
+{
+    set_f32 ((float)f64 ());
+}
+
+INTERP (f64_Convert_i32s)
+{
+    set_f64 ((double)i32 ());
+}
+
+INTERP (f64_Convert_i32u)
+{
+    set_f64 ((double)u32 ());
+}
+
+INTERP (f64_Convert_i64s)
+{
+    set_f64 ((double)i64 ());
+}
+
+INTERP (f64_Convert_i64u)
+{
+    set_f64 (uint64_to_float (u64 (), (double*)0));
+}
+
+INTERP (f64_Promote_f32_)
+{
+    set_f64 ((double)f32 ());
+}
+
+// reinterpret; these could be more automated
+
+INTERP (i32_Reinterpret_f32_)
+{
+    tag (ValueType_f32) = ValueType_i32;
+}
+
+INTERP (f32_Reinterpret_i32_)
+{
+    tag (ValueType_i32) = ValueType_f32;
+}
+
+INTERP (i64_Reinterpret_f64_)
+{
+    // casting requires values, so call a function
+    // future: temporaries
+    top() = "i64_Reinterpret_f64_(" + top() + ")";
+}
+
+INTERP (f64_Reinterpret_i64_)
+{
+    // casting requires values, so call a function
+    // future: temporaries
+    top() = "f64_Reinterpret_i64_(" + top() + ")";
+}
+
+#endif
+
+};
 
 StackValue& Frame::Local (size_t index)
 {
@@ -3196,7 +4497,7 @@ void* Interp::LoadStore (size_t size)
     // TODO Not clear from spec and paper what to do here, despite
     // focused discussion on it.
     // Why is the operand signed??
-    size_t effective_address {};
+    size_t effective_address;
     const int32_t i = pop_i32 ();
     const size_t offset = instr->offset;
     if (i >= 0)
@@ -3222,6 +4523,16 @@ void* Interp::LoadStore (size_t size)
 
 #undef INTERP
 #define INTERP(x) void Interp::x ()
+
+INTERP (Call)
+{
+    // FIXME In the instruction table
+    const size_t function_index = instr->u32;
+    Assert (function_index < module->functions.size ());
+    Function* function = &module->functions [function_index];
+    function->function_index = function_index; // TODO remove this
+    Invoke (module->functions [function_index]);
+}
 
 void Interp::Invoke (Function& function)
 {
@@ -3331,16 +4642,13 @@ void Interp::Invoke (Function& function)
         switch (instr->name)
         {
             // break before instead of after to avoid unreachable code warning
-#undef RESERVED
-#define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none) { Reserved (); }
-
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0)     \
             break;                                                                           \
             case w3::name:                                                                   \
             printf ("interp%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); \
             this->name ();
-#include "w3instructions.h"
+#include __FILE__
         }
         // special handling
         if (instr->name == w3::Ret) // gross but most choices are
@@ -3360,7 +4668,1368 @@ void Interp::Invoke (Function& function)
     //__debugbreak ();
 }
 
-#include "w3interp.cpp"
+INTERP (Block)
+{
+    // Label is end.
+    StackValue stack_value (StackTag_Label);
+    stack_value.label.arity = instr->Arity ();
+    stack_value.label.continuation = instr->label;
+    push_label (stack_value);
+}
+
+INTERP (Loop)
+{
+    // Loop and Block are almost the same, esp. after decoding.
+    // Loop continuation is start, block continuation is end.
+    Block ();
+    back ().label.arity = 0;
+}
+
+INTERP (MemGrow)
+{
+    //__debugbreak ();
+    int32_t result = -1;
+    const size_t previous_size = module_instance->memory.size ();
+    const size_t page_growth = pop_u32 ();
+    if (page_growth == 0)
+    {
+        result = (int32_t)(previous_size >> PageShift);
+    }
+    else
+    {
+        const size_t new_size = previous_size + (page_growth << PageShift);
+        try
+        {
+            module_instance->memory.resize (new_size, 0);
+            result = (int32_t)(previous_size >> PageShift);
+        }
+        catch (...)
+        {
+        }
+    }
+    push_i32 (result);
+}
+
+INTERP (MemSize)
+{
+    __debugbreak (); // not yet tested
+    push_i32 ((int32_t)(module_instance->memory.size () >> PageShift));
+}
+
+INTERP (Global_set)
+{
+    const size_t i = instr->u32;
+    AssertFormat (i < module->globals.size (), ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, module->globals.size ()));
+    // TODO assert mutable
+    AssertFormat (tag () == module->globals [i].global_type.value_type, ("%X %X", tag (), module->globals [i].global_type.value_type));
+    module_instance->globals [i].value.value = value ();
+    pop_value ();
+}
+
+INTERP (Global_get)
+{
+    const size_t i = instr->u32;
+    AssertFormat (i < module->globals.size (), ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, module->globals.size ()));
+    push_value (StackValue (module_instance->globals [i].value));
+    AssertFormat (tag () == module->globals [i].global_type.value_type, ("%X %X", tag (), module->globals [i].global_type.value_type));
+}
+
+INTERP (Local_set)
+{
+    Local_tee ();
+    pop_value ();
+}
+
+INTERP (Local_tee)
+{
+    //__debugbreak ();
+    const size_t i = instr->u32;
+    AssertFormat (i < frame->param_and_local_count, ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, frame->param_and_local_count));
+    if (i < frame->param_count)
+        AssertFormat (tag () == frame->param_types [i], ("%X %" FORMAT_SIZE "X", tag (), frame->param_types [i]));
+    else
+        AssertFormat (tag () == frame->local_only_types [i - frame->param_count], ("%X %X", tag (), frame->local_only_types [i - frame->param_count]));
+    AssertFormat (tag () == frame->Local (i).value.tag, ("%X %X", tag (), frame->Local (i).value.tag));
+    frame->Local (i).value.value = value ();
+}
+
+INTERP (Local_get)
+{
+    const size_t i = instr->u32;
+    AssertFormat (i < frame->param_and_local_count, ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, frame->param_and_local_count));
+    push_value (StackValue (frame->Local (i)));
+    if (i < frame->param_count)
+        AssertFormat (tag () == frame->param_types [i], ("%X %X", tag (), frame->param_types [i]));
+    else
+        AssertFormat (tag () == frame->local_only_types [i - frame->param_count], ("%X %X", tag (), frame->local_only_types [i - frame->param_count]));
+}
+
+INTERP (If)
+{
+     __debugbreak ();
+
+    const uint32_t condition = pop_u32 ();
+
+    // Push the same label either way.
+    StackValue stack_value (StackTag_Label);
+    stack_value.label.arity = instr->Arity ();
+    stack_value.label.continuation = instr->if_end;
+    push_label (stack_value);
+
+    // If condition is false, skip ahead, to just past the Else.
+    // The Else actually marks the end of If, more than the start of Else.
+    if (!condition)
+    {
+        // Branch to one before target, because interpreter loop will increment.
+        instr = &frame->code->decoded_instructions [instr->if_false] - 1;
+    }
+}
+
+INTERP (Else)
+{
+     __debugbreak ();
+
+    // Else marks the end of If is like BlockEnd, but also
+    // skips the Else block.
+    //.
+    // If we are actually running the else case,
+    // the If will have branched past the else instruction.
+
+    BlockEnd ();
+    // Branch to one before target, because interpreter loop will increment.
+    instr = &frame->code->decoded_instructions [instr->if_end] - 1;
+}
+
+INTERP (BlockEnd)
+{
+    // Pop values until label is found.
+    // Pop label.
+    // Repush values.
+    //
+    // Alternatively, look for label,
+    // and shift values down.
+    //
+    // Alternatively, something much faster.
+
+    const size_t s = size ();
+    size_t j = s;
+
+    AssertFormat (s > 0, ("%" FORMAT_SIZE "X", s));
+
+    // Skip any number of values until one label is found,
+
+    StackValue* p = &front ();
+
+    while (j > 0 && p [j - 1].tag == StackTag_Value)
+        --j;
+
+    // FIXME mark earlier if end of block or function
+    // FIXME And then assert?
+
+    Assert (j > 0 && (p [j - 1].tag == StackTag_Label || p [j - 1].tag == StackTag_Frame));
+
+    for (size_t i = j - 1; i < s; ++i)
+        p [i] = p [i + 1];
+
+    resize (s - 1);
+}
+
+INTERP (BrIf)
+{
+    //DumpStack ("brIfStart");
+
+    const uint32_t condition = pop_u32 ();
+
+    if (condition)
+    {
+        printf ("BrIfTaken condition:%X label:%X\n", condition, instr->u32);
+        Br ();
+    }
+    else
+    {
+        printf ("BrIfNotTaken condition:%X label:%X\n", condition, instr->u32);
+    }
+    //DumpStack ("brIfEnd");
+}
+
+INTERP (BrTable)
+{
+    Assert (!"BrTable"); // not yet implemented
+}
+
+INTERP (Ret)
+{
+    //__debugbreak ();
+
+    Assert (!empty ());
+    Assert (frame);
+
+    FunctionType* function_type = frame->function_type;
+    size_t arity = function_type->results.size ();
+    Assert (arity == 0 || arity == 1);
+    Assert (size () > arity);
+
+    StackValue result;
+    if (arity)
+    {
+        result = top ();
+        pop_value ();
+    }
+    while (!empty () && top ().tag != StackTag_Frame)
+        pop ();
+
+    Assert (!empty ());
+    Assert (top ().tag == StackTag_Frame);
+//    frame = top ().frame; // TODO Why this is not working?
+    pop ();
+
+    if (arity)
+        push_value (result);
+}
+
+INTERP (Br)
+{
+    DumpStack ("brStart");
+
+    // This is confusing.
+
+    // Walk the stack.
+    // Label + 1 times.
+    // Skipping values.
+    // Checking for labels.
+    // When arrive at the label + 1'th label, find the arity.
+    // There must be at least arity values before the first label.
+
+    const size_t label = instr->u32 + 1;
+
+    //printf ("Br label:%" FORMAT_SIZE "X\n", label - 1);
+
+    Assert (label);
+    Assert (size () >= label);
+
+    StackValue* p = &front ();
+    size_t initial_values = 0;
+    size_t j = size ();
+    size_t arity = 0;
+
+    // Iterate to find the arity.
+
+    for (size_t i = 0; i != label; ++i)
+    {
+        while (j > 0 && p [j - 1].tag == StackTag_Value)
+        {
+            initial_values += (i == 0);
+            --j; // Pop_values.
+        }
+        Assert (j > 0 && p [j - 1].tag == StackTag_Label);
+        arity = p [j - 1].label.arity;
+        Assert (arity == 0 || arity == 1); // FUTURE
+        --j; // pop_label
+    }
+
+    Assert (initial_values >= arity);
+    Assert (j >= arity);
+
+    // Get the result.
+    StackValue result;
+    if (arity)
+    {
+        result = top ();
+        pop_value ();
+        --j;
+    }
+
+    // Branch to one before target, because interpreter loop will increment.
+    instr = &frame->code->decoded_instructions [p [j].label.continuation] - 1;
+
+    // Bulk pop.
+    //printf ("Br resize %" FORMAT_SIZE "X => %" FORMAT_SIZE "X\n", size (), j);
+    resize (j);
+
+    // Repush result.
+    if (arity)
+        push_value (result);
+
+    //DumpStack ("brEnd");
+}
+
+INTERP (Select)
+{
+    if (pop_i32 ())
+    {
+        pop_value ();
+        Assert (size () >= 1);
+        AssertTopIsValue ();
+    }
+    else
+    {
+        const StackValue val2 = top ();
+        pop_value ();
+        pop_value ();
+        push_value (val2);
+    }
+}
+
+INTERP (Calli)
+{
+    // TODO signed or unsigned
+    // call is unsigned
+    const size_t function_index = pop_u32 ();
+
+    const size_t type_index1 = instr->u32;
+
+    // This seems like it could be validated earlier.
+    Assert (function_index < module->functions.size ());
+
+    Function& function = module->functions [function_index];
+
+    const size_t type_index2 = function.function_type_index;
+
+    Assert (type_index1 < module->function_types.size ());
+    Assert (type_index2 < module->function_types.size ());
+
+    const FunctionType* type1 = &module->function_types [type_index1];
+    const FunctionType* type2 = &module->function_types [type_index2];
+
+    Assert (type_index2 == type_index1 || *type1 == *type2);
+
+    Assert (type1->results.size () <= 1); // future
+
+    Invoke (function);
+}
+
+ModuleInstance::ModuleInstance (Module* mod) : module (mod)
+{
+    // size memory
+    memory.resize (module->memory_limits.min << PageShift, 0);
+
+    // initialize memory TODO
+    globals.resize (mod->globals.size (), StackValue ()); // TODO intialize
+}
+
+INTERP (Unreach)
+{
+    Assert (!"unreach");
+}
+
+INTERP (i32_Const)
+{
+    push_i32 (instr->i32);
+}
+
+INTERP (i64_Const)
+{
+    push_i64 (instr->i64);
+}
+
+INTERP (f32_Const)
+{
+    push_f32 (instr->f32);
+}
+
+INTERP (f64_Const)
+{
+    push_f64 (instr->f64);
+}
+
+INTERP (i32_Load_)
+{
+    push_i32 (*(int32_t*)LoadStore (4));
+}
+
+INTERP (i32_Load8s)
+{
+    push_i32 (*(int8_t*)LoadStore (1));
+}
+
+INTERP (i32_Load16s)
+{
+    push_i32 (*(int16_t*)LoadStore (2));
+}
+
+INTERP (i32_Load8u)
+{
+    push_i32 (*(uint8_t*)LoadStore (1));
+}
+
+INTERP (i32_Load16u)
+{
+    push_i32 (*(uint16_t*)LoadStore (2));
+}
+
+INTERP (i64_Load_)
+{
+    push_i64 (*(int64_t*)LoadStore (8));
+}
+
+INTERP (i64_Load8s)
+{
+    push_i64 (*(int8_t*)LoadStore (1));
+}
+
+INTERP (i64_Load16s)
+{
+    push_i64 (*(int16_t*)LoadStore (2));
+}
+
+INTERP (i64_Load8u)
+{
+    push_i64 (*(uint8_t*)LoadStore (1));
+}
+
+INTERP (i64_Load16u)
+{
+    push_i64 (*(uint16_t*)LoadStore (2));
+}
+
+INTERP (i64_Load32s)
+{
+    push_i64 (*(int32_t*)LoadStore (4));
+}
+
+INTERP (i64_Load32u)
+{
+    push_i64 (*(uint32_t*)LoadStore (4));
+}
+
+INTERP (f32_Load_)
+{
+    push_f32 (*(float*)LoadStore (4));
+}
+
+INTERP (f64_Load_)
+{
+    push_f64 (*(double*)LoadStore (8));
+}
+
+INTERP (i32_Store_)
+{
+    const uint32_t a = pop_u32 ();
+    *(uint32_t*)LoadStore (4) = a;
+}
+
+INTERP (i32_Store8)
+{
+    const uint32_t a = pop_u32 ();
+    *(uint8_t*)LoadStore (1) = (uint8_t)(a & 0xFF);
+}
+
+INTERP (i32_Store16)
+{
+    const uint32_t a = pop_u32 ();
+    *(uint16_t*)LoadStore (1) = (uint16_t)(a & 0xFFFF);
+}
+
+INTERP (i64_Store8)
+{
+    const uint64_t a = pop_u64 ();
+    *(uint8_t*)LoadStore (1) = (uint8_t)(a & 0xFF);
+}
+
+INTERP (i64_Store16)
+{
+    const uint64_t a = pop_u64 ();
+    *(uint16_t*)LoadStore (2) = (uint16_t)(a & 0xFFFF);
+}
+
+INTERP (i64_Store32)
+{
+    const uint64_t a = pop_u64 ();
+    *(uint32_t*)LoadStore (4) = (uint32_t)(a & 0xFFFFFFFF);
+}
+
+INTERP (i64_Store_)
+{
+    const uint64_t a = pop_u64 ();
+    *(uint64_t*)LoadStore (8) = a;
+}
+
+INTERP (f32_Store_)
+{
+    float a = pop_f32 ();
+    *(float*)LoadStore (4) = a;
+}
+
+INTERP (f64_Store_)
+{
+    double a = pop_f64 ();
+    *(double*)LoadStore (8) = a;
+}
+
+INTERP (Nop)
+{
+}
+
+INTERP (Drop)
+{
+    pop_value ();
+}
+
+void Interp:: Reserved ()
+{
+#if _WIN32
+    if (IsDebuggerPresent ()) DebugBreak();
+#endif
+    static const char reserved [] = "reserved\n";
+#if _WIN32
+    if (IsDebuggerPresent())
+    {
+        OutputDebugStringA (reserved);
+        DebugBreak();
+    }
+    _write (1, reserved, sizeof (reserved) - 1);
+#else
+    write (1, reserved, sizeof (reserved) - 1);
+#endif
+    abort ();
+}
+
+INTERP (Eqz_i32)
+{
+    push_bool (pop_i32 () == 0);
+}
+
+INTERP (Eqz_i64)
+{
+    push_bool (pop_i64 () == 0);
+}
+
+INTERP (Eq_i32_)
+{
+    push_bool (pop_i32 () == pop_i32 ());
+}
+
+INTERP (Eq_i64_)
+{
+    push_bool (pop_i64 () == pop_i64 ());
+}
+
+INTERP (Eq_f32)
+{
+    push_bool (pop_f32 () == pop_f32 ());
+}
+
+INTERP (Eq_f64)
+{
+    push_bool (pop_f64 () == pop_f64 ());
+}
+
+INTERP (Ne_i32_)
+{
+    push_bool (pop_i32 () != pop_i32 ());
+}
+
+INTERP (Ne_i64_)
+{
+    push_bool (pop_i64 () != pop_i64 ());
+}
+
+INTERP (Ne_f32)
+{
+    push_bool (pop_f32 () != pop_f32 ());
+}
+
+INTERP (Ne_f64)
+{
+    push_bool (pop_f64 () != pop_f64 ());
+}
+
+// Lt
+
+INTERP (Lt_i32s)
+{
+    const int32_t b = pop_i32 ();
+    const int32_t a = pop_i32 ();
+    push_bool (a < b);
+}
+
+INTERP (Lt_i32u)
+{
+    const uint32_t b = pop_u32 ();
+    const uint32_t a = pop_u32 ();
+    push_bool (a < b);
+}
+
+INTERP (Lt_i64s)
+{
+    const int64_t b = pop_i64 ();
+    const int64_t a = pop_i64 ();
+    push_bool (a < b);
+}
+
+INTERP (Lt_i64u)
+{
+    const uint64_t b = pop_u32 ();
+    const uint64_t a = pop_u32 ();
+    push_bool (a < b);
+}
+
+INTERP (Lt_f32)
+{
+    const float b = pop_f32 ();
+    const float a = pop_f32 ();
+    push_bool (a < b);
+}
+
+INTERP (Lt_f64)
+{
+    const double b = pop_f64 ();
+    const double a = pop_f64 ();
+    push_bool (a < b);
+}
+
+// Gt
+
+INTERP (Gt_i32s)
+{
+    const int32_t b = pop_i32 ();
+    const int32_t a = pop_i32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_i32u)
+{
+    const uint32_t b = pop_u32 ();
+    const uint32_t a = pop_u32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_i64s)
+{
+    const int64_t b = pop_i64 ();
+    const int64_t a = pop_i64 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_i64u)
+{
+    const uint64_t b = pop_u32 ();
+    const uint64_t a = pop_u32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_f32)
+{
+    const float b = pop_f32 ();
+    const float a = pop_f32 ();
+    push_bool (a > b);
+}
+
+INTERP (Gt_f64)
+{
+    const double b = pop_f64 ();
+    const double a = pop_f64 ();
+    push_bool (a > b);
+}
+
+// Le
+
+INTERP (Le_i32s)
+{
+    const int32_t b = pop_i32 ();
+    push_bool (pop_i32 () <= b);
+}
+
+INTERP (Le_i64s)
+{
+    const int64_t b = pop_i64 ();
+    push_bool (pop_i64 () <= b);
+
+}
+
+INTERP (Le_i32u)
+{
+    const uint32_t b = pop_u32 ();
+    push_bool (pop_u32 () <= b);
+}
+
+INTERP (Le_i64u)
+{
+    const uint64_t b = pop_u64 ();
+    push_bool (pop_u64 () <= b);
+
+}
+
+INTERP (Le_f32)
+{
+    const float z2 = pop_f32 ();
+    const float z1 = pop_f32 ();
+    push_bool (z1 <= z2);
+}
+
+INTERP (Le_f64)
+{
+    const double z2 = pop_f64 ();
+    const double z1 = pop_f64 ();
+    push_bool (z1 <= z2);
+}
+
+// Ge
+
+INTERP (Ge_i32u)
+{
+    const uint32_t b = pop_u32 ();
+    const uint32_t a = pop_u32 ();
+    push_bool (a >= b);
+}
+
+INTERP (Ge_i64u)
+{
+    const uint64_t b = pop_u64 ();
+    const uint64_t a = pop_u64 ();
+    push_bool (a >= b);
+}
+
+INTERP (Ge_i32s)
+{
+    const int32_t b = pop_i32 ();
+    const int32_t a = pop_i32 ();
+    push_bool (a >= b);
+}
+
+INTERP (Ge_i64s)
+{
+    const int64_t b = pop_i64 ();
+    const int64_t a = pop_i64 ();
+    push_bool (a >= b);
+}
+
+INTERP (Ge_f32)
+{
+    const float b = pop_f32 ();
+    const float a = pop_f32 ();
+    push_bool (a >= b);
+}
+
+INTERP (Ge_f64)
+{
+    const double b = pop_f64 ();
+    const double a = pop_f64 ();
+    push_bool (a >= b);
+}
+
+template <class T>
+#if !_MSC_VER || _MSC_VER > 900
+static
+#endif
+uint32_t
+count_set_bits (T a)
+{
+    uint32_t n = 0;
+    while (a)
+    {
+        n += (a & 1);
+        a >>= 1;
+    }
+    return n;
+}
+
+template <class T>
+#if !_MSC_VER || _MSC_VER > 900
+static
+#endif
+uint32_t
+count_trailing_zeros (T a)
+{
+    uint32_t n = 0;
+    while (!(a & 1))
+    {
+        ++n;
+        a >>= 1;
+    }
+    return n;
+}
+
+template <class T>
+#if !_MSC_VER || _MSC_VER > 900
+static
+#endif
+uint32_t
+count_leading_zeros (T a)
+{
+    uint32_t n = 0;
+    while (!(a & (((T)1) << ((sizeof (T) * 8) - 1))))
+    {
+        ++n;
+        a <<= 1;
+    }
+    return n;
+}
+
+INTERP (Popcnt_i32)
+{
+    uint32_t& a = u32 ();
+#if (_M_AMD64 || _M_IX86) && _MSC_VER > 1100 // TODO which version
+    a = __popcnt (a);
+#else
+    a = count_set_bits (a);
+#endif
+}
+
+INTERP (Popcnt_i64)
+{
+    uint64_t& a = u64 ();
+#if _MSC_VER && _M_AMD64
+    a = __popcnt64 (a);
+#else
+    a = count_set_bits (a);
+#endif
+}
+
+INTERP (Ctz_i32)
+{
+    uint32_t& a = u32 ();
+    a = count_trailing_zeros (a);
+}
+
+INTERP (Ctz_i64)
+{
+    uint64_t& a = u64 ();
+    a = count_trailing_zeros (a);
+}
+
+INTERP (Clz_i32)
+{
+    uint32_t& a = u32 ();
+    a = count_leading_zeros (a);
+}
+
+INTERP (Clz_i64)
+{
+    uint64_t& a = u64 ();
+    a = count_leading_zeros (a);
+}
+
+INTERP (Add_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () += a;
+}
+
+INTERP (Add_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () += a;
+}
+
+INTERP (Sub_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () -= a;
+}
+
+INTERP (Sub_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () -= a;
+}
+
+INTERP (Mul_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () *= a;
+}
+
+INTERP (Mul_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () *= a;
+}
+
+INTERP (Div_s_i32)
+{
+    const int32_t a = pop_i32 ();
+    i32 () /= a;
+}
+
+INTERP (Div_u_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () /= a;
+}
+
+INTERP (Rem_s_i32)
+{
+    const int32_t a = pop_i32 ();
+    i32 () %= a;
+}
+
+INTERP (Rem_u_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () %= a;
+}
+
+INTERP (Div_s_i64)
+{
+    const int64_t a = pop_i64 ();
+    i64 () /= a;
+}
+
+INTERP (Div_u_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () /= a;
+}
+
+INTERP (Rem_s_i64)
+{
+    const int64_t a = pop_i64 ();
+    i64 () %= a;
+}
+
+INTERP (Rem_u_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () %= a;
+}
+
+INTERP (And_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () &= a;
+}
+
+INTERP (And_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () &= a;
+}
+
+INTERP (Or_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () |= a;
+}
+
+INTERP (Or_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () |= a;
+}
+
+INTERP (Xor_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () ^= a;
+}
+
+INTERP (Xor_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () ^= a;
+}
+
+INTERP (Shl_i32)
+{
+    const uint32_t a = pop_u32 ();
+    u32 () <<= (a & 31);
+}
+
+INTERP (Shl_i64)
+{
+    const uint64_t a = pop_u64 ();
+    u64 () <<= (a & 63);
+}
+
+INTERP (Shr_s_i32)
+{
+    const int32_t b = pop_i32 ();
+    i32 () <<= (b & 31);
+}
+
+INTERP (Shr_s_i64)
+{
+    const int64_t b = pop_i64 ();
+    i64 () <<= (b & 63);
+}
+
+INTERP (Shr_u_i32)
+{
+    const uint32_t b = pop_u32 ();
+    u32 () >>= (b & 31);
+}
+
+INTERP (Shr_u_i64)
+{
+    const uint64_t b = pop_u64 ();
+    u64 () >>= (b & 63);
+}
+
+INTERP (Rotl_i32)
+{
+    const int n = 32;
+    const int32_t b = (pop_i32 () & (n - 1));
+    uint32_t& r = u32 ();
+    uint32_t a = r;
+#if _MSC_VER
+    r = _rotl (a, b);
+#else
+    r = ((a << b) | (a >> (n - b)));
+#endif
+}
+
+INTERP (Rotl_i64)
+{
+    const uint32_t n = 64;
+    const uint32_t b = (uint32_t)(pop_u64 () & (n - 1));
+    uint64_t& r = u64 ();
+    uint64_t a = r;
+#if _MSC_VER > 1100 // TODO which version
+    r = _rotl64 (a, (int)b);
+#else
+    r = (a << b) | (a >> (n - b));
+#endif
+}
+
+INTERP (Rotr_i32)
+{
+    const uint32_t n = 32;
+    const uint32_t b = (uint32_t)(pop_u32 () & (n - 1));
+    uint32_t& r = u32 ();
+    uint32_t a = r;
+#if _MSC_VER
+    r = _rotr (a, (int)b);
+#else
+    r = (a >> b) | (a << (n - b));
+#endif
+}
+
+INTERP (Rotr_i64)
+{
+    const uint32_t n = 64;
+    const uint32_t b = (uint32_t)(pop_u64 () & (n - 1));
+    uint64_t& r = u64 ();
+    uint64_t a = r;
+#if _MSC_VER > 1100 // TODO which version
+    r = _rotr64 (a, (int)b);
+#else
+    r = (a >> b) | (a << (n - b));
+#endif
+}
+
+INTERP (Abs_f32)
+{
+    float& z = f32 ();
+    z = fabsf (z);
+}
+
+INTERP (Abs_f64)
+{
+    double& z = f64 ();
+    z = fabs (z);
+}
+
+INTERP (Neg_f32)
+{
+    f32 () *= -1;
+}
+
+INTERP (Neg_f64)
+{
+    f64 () *= -1;
+}
+
+INTERP (Ceil_f32)
+{
+    float& z = f32 ();
+    z = ceilf (z);
+}
+
+INTERP (Ceil_f64)
+{
+    double& z = f64 ();
+    z = ceil (z);
+}
+
+INTERP (Floor_f32)
+{
+    float& z = f32 ();
+    z = wasm_floorf (z);
+}
+
+INTERP (Floor_f64)
+{
+    double& z = f64 ();
+    z = floor (z);
+}
+
+INTERP (Trunc_f32)
+{
+    float& z = f32 ();
+    z = wasm_truncf (z); // TODO C99
+}
+
+INTERP (Trunc_f64)
+{
+    double& z = f64 ();
+    z = wasm_truncd (z);
+}
+
+INTERP (Nearest_f32)
+{
+    float& z = f32 ();
+    z = wasm_roundf (z);
+}
+
+INTERP (Nearest_f64)
+{
+    double& z = f64 ();
+    z = wasm_roundd (z);
+}
+
+INTERP (Sqrt_f32)
+{
+    float& z = f32 ();
+    z = sqrtf (z);
+}
+
+INTERP (Sqrt_f64)
+{
+    double& z = f64 ();
+    z = sqrt (z);
+}
+
+INTERP (Add_f32)
+{
+    const float a = pop_f32 ();
+    f32 () += a;
+}
+
+INTERP (Add_f64)
+{
+    const double a = pop_f64 ();
+    f64 () += a;
+}
+
+INTERP (Sub_f32)
+{
+    const float a = pop_f32 ();
+    f32 () -= a;
+}
+
+INTERP (Sub_f64)
+{
+    const double a = pop_f64 ();
+    f64 () -= a;
+}
+
+INTERP (Mul_f32)
+{
+    const float a = pop_f32 ();
+    f32 () *= a;
+}
+
+INTERP (Mul_f64)
+{
+    const double a = pop_f64 ();
+    f64 () *= a;
+}
+
+INTERP (Div_f32)
+{
+    const float a = pop_f32 ();
+    f32 () /= a;
+}
+
+INTERP (Div_f64)
+{
+    const double a = pop_f64 ();
+    f64 () /= a;
+}
+
+INTERP (Min_f32)
+{
+    const float z2 = pop_f32 ();
+    float& z1 = f32 ();
+    z1 = Min (z1, z2);
+}
+
+INTERP (Min_f64)
+{
+    const double z2 = pop_f64 ();
+    double& z1 = f64 ();
+    z1 = Min (z1, z2);
+}
+
+INTERP (Max_f32)
+{
+    const float z2 = pop_f32 ();
+    float& z1 = f32 ();
+    z1 = Max (z1, z2);
+}
+
+INTERP (Max_f64)
+{
+    const double z2 = pop_f64 ();
+    double& z1 = f64 ();
+    z1 = Max (z1, z2);
+}
+
+INTERP (Copysign_f32)
+{
+    const float z2 = pop_f32 ();
+    float& z1 = f32 ();
+    z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
+}
+
+INTERP (Copysign_f64)
+{
+    const double z2 = pop_f64 ();
+    double& z1 = f64 ();
+    z1 = ((z2 < 0) != (z1 < 0)) ? -z1 : z1;
+}
+
+// Various lossless and lossy conversions.
+
+INTERP (i32_Wrap_i64_)
+{
+    set_i32 ((int32_t)(i64 () & 0xFFFFFFFF));
+}
+
+INTERP (i32_Trunc_f32s)
+{
+    set_i32 ((int32_t)f32 ());
+}
+
+INTERP (i32_Trunc_f32u)
+{
+    set_u32 ((uint32_t)f32 ());
+}
+
+INTERP (i32_Trunc_f64s)
+{
+    set_i32 ((int32_t)f64 ());
+}
+
+INTERP (i32_Trunc_f64u)
+{
+    set_u32 ((uint32_t)f64 ());
+}
+
+INTERP (i64_Extend_i32s)
+{
+    set_i64 ((int64_t)i32 ());
+}
+
+INTERP (i64_Extend_i32u)
+{
+    set_u64 ((uint64_t)u32 ());
+}
+
+INTERP (i64_Trunc_f32s)
+{
+    set_i64 ((int64_t)f32 ());
+}
+
+INTERP (i64_Trunc_f32u)
+{
+    set_u64 ((uint64_t)f32 ());
+}
+
+INTERP (i64_Trunc_f64s)
+{
+    set_i64 ((int64_t)f64 ());
+}
+
+INTERP (i64_Trunc_f64u)
+{
+    set_u64 ((uint64_t)f64 ());
+}
+
+INTERP (f32_Convert_i32u)
+{
+    set_f32 ((float)(uint32_t)u32 ());
+}
+
+INTERP (f32_Convert_i32s)
+{
+    set_f32 ((float)i32 ());
+}
+
+template <class T>
+T uint64_to_float (uint64_t ui64, T * unused = 0 /* old compiler bug workaround */)
+{
+#if _MSC_VER && _MSC_VER <= 1100 // error C2520: conversion from unsigned __int64 to double not implemented, use signed __int64
+    __int64 i64 = (__int64)ui64;
+    if (i64 >= 0)
+    {
+        return (T)(__int64)ui64;
+    }
+    __int64 low_bit = (__int64)(ui64 & 1);
+    unsigned __int64 uhalf = ui64 >> 1;
+    __int64 half = (__int64)uhalf;
+    Assert (half >= 0);
+    T f = (T)half;
+    f *= 2;
+    f += low_bit;
+    return f;
+#else
+    return (T)ui64;
+#endif
+}
+
+INTERP (f32_Convert_i64u)
+{
+    set_f32 (uint64_to_float (u64 (), (float*)0));
+}
+
+INTERP (f32_Convert_i64s)
+{
+    set_f32 ((float)i64 ());
+}
+
+INTERP (f32_Demote_f64_)
+{
+    set_f32 ((float)f64 ());
+}
+
+INTERP (f64_Convert_i32s)
+{
+    set_f64 ((double)i32 ());
+}
+
+INTERP (f64_Convert_i32u)
+{
+    set_f64 ((double)u32 ());
+}
+
+INTERP (f64_Convert_i64s)
+{
+    set_f64 ((double)i64 ());
+}
+
+INTERP (f64_Convert_i64u)
+{
+    set_f64 (uint64_to_float (u64 (), (double*)0));
+}
+
+INTERP (f64_Promote_f32_)
+{
+    set_f64 ((double)f32 ());
+}
+
+// reinterpret; these could be more automated
+
+INTERP (i32_Reinterpret_f32_)
+{
+    tag (ValueType_f32) = ValueType_i32;
+}
+
+INTERP (f32_Reinterpret_i32_)
+{
+    tag (ValueType_i32) = ValueType_f32;
+}
+
+INTERP (i64_Reinterpret_f64_)
+{
+    tag (ValueType_f64) = ValueType_i64;
+}
+
+INTERP (f64_Reinterpret_i64_)
+{
+    tag (ValueType_i64) = ValueType_f64;
+}
 
 }
 
@@ -3486,7 +6155,7 @@ main (int argc, char** argv)
 
         if (rust_gen)
         {
-            CGen().interp (&module);
+            RustGen().interp (&module);
         }
     }
 #if 1
@@ -3501,3 +6170,5 @@ main (int argc, char** argv)
 #endif
     return 0;
 }
+
+#endif
