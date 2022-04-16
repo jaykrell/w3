@@ -334,35 +334,59 @@ struct GlobalAddr // TODO
 {
 };
 
-// TODO: Maybe use this for all interpreter values
-// For now it is only for the newer SourceGen.
-//
-enum struct TypeTag : uint8_t
-{
-    none = 0, // zero-init
-    Bool = 1, // i32
-    any  = 2, // often has some constraints
-
-    empty = 0x40, // defined by wasm in some contexts
-    i32 = 0x7F, // defined by wasm
-    i64 = 0x7E, // defined by wasm
-    f32 = 0x7D, // defined by wasm
-    f64 = 0x7C, // defined by wasm
-    string = 0x80, // sourcegen extension
-    label  = 0x81, // sourcegen extension, needed?
-};
-
 struct Label
 {
+    Label() : arity(0), continuation(0)
+    {
+    }
+
     size_t arity;
     size_t continuation;
 };
+
+// Wasm has several notions of type tags.
+// Some are in the file format, some are useful
+// to interpreters or codegenerators (probably
+// none are useful to generated code).
+//
+// Since there are not all that many, and there should
+// be contradictory requirements on their values,
+// unify them for a sort of simplicity (sort of complexity,
+// since it is confusing which to deal with).
+//
+// WebAssembly file format defines at least the values 0x7C-0x7F.
+// We desire simplicity and clarity, so we shall endeavor
+// to not do much translation or compression.
+
+typedef enum Tag : uint8_t
+{
+    Tag_none = 0,   // allow for zero-init
+    Tag_bool = 1,   // aka i32
+    Tag_any  = 2,    // often has constraints
+
+    // These are from the file format.
+    Tag_i32 = 0x7F,
+    Tag_i64 = 0x7E,
+    Tag_f32 = 0x7D,
+    Tag_f64 = 0x7C,
+
+    Tag_empty = 0x40, // ResultType, void
+
+    //internal, any value works..not clearly needed
+    Tag_Value = 0x80, // i32, i64, f32, f64
+    Tag_Label = 0x81, // branch target
+    Tag_Frame = 0x82,  // return address + locals + params
+    Tag_string = 0x83, // sourcegen extension
+    Tag_label  = 0x84, // sourcegen extension, needed?
+
+    Tag_FuncRef = 0x70,
+} Tag;
 
 // TODO templatize on existance of string and possibly label
 // so that SourceGen and Interp can share.
 struct SourceGenValue
 {
-    TypeTag tag;
+    Tag tag;
     /* TODO constant
     union
     {
@@ -382,33 +406,42 @@ struct SourceGenValue
 
 struct SourceGenStack : std::stack<SourceGenValue>
 {
+    using base = std::stack<SourceGenValue>;
+
     void clear()
     {
         while (size()) pop();
-    }
-
-    SourceGenValue& top()
-    {
-        return stack.top();
     }
 
     const char* cstr() { return top().str.c_str(); }
 
     std::string pop()
     {
-        std::string str = stack.top().str;
-        stack.pop();
+        std::string str = top().str;
+        base::pop();
         return str;
     }
-};
 
-// This should probabably be combined with ResultType, and called Tag.
-enum ValueType : uint8_t
-{
-    ValueType_i32 = 0x7F,
-    ValueType_i64 = 0x7E,
-    ValueType_f32 = 0x7D,
-    ValueType_f64 = 0x7C,
+    void pushf(const char*, ...) //printf todo
+    {
+    }
+
+    void flush_stack()
+    {
+        //todo
+    }
+
+    void printf(const char*, ...) //printf todo
+    {
+        flush_stack();
+        //todo
+    }
+
+    void pushf(const std::string&) // todo
+    {
+    }
+
+    void push_label(...) { } //todo
 };
 
 static
@@ -1047,17 +1080,6 @@ read_varint32 (uint8_t** cursor, const uint8_t* end)
     return result;
 }
 
-typedef enum Type : uint8_t
-{
-    Type_none,
-    Type_bool, // i32
-    Type_any, // often has some constraints
-    Type_i32 = 0x7F,
-    Type_i64 = 0x7E,
-    Type_f32 = 0x7D,
-    Type_f64 = 0x7C,
-} Type;
-
 union Value
 {
     int32_t i32;
@@ -1074,32 +1096,24 @@ struct TaggedValue
     Value value;
 };
 
-// This should probabably be combined with ValueType, and called Tag.
-enum ResultType : uint8_t
-{
-    ResultType_i32 = 0x7F,
-    ResultType_i64 = 0x7E,
-    ResultType_f32 = 0x7D,
-    ResultType_f64 = 0x7C,
-    ResultType_empty = 0x40
-};
 
-typedef ResultType BlockType;
+typedef Tag BlockType;
 
 static
 const char*
 TypeToStringCxx (int tag)
 {
-    switch (tag)
+    switch ((Tag)tag)
     {
-    case Type_none:     return "void";
-    case Type_bool:     return "bool";
-    case Type_any:      return "void*"; // union?
-    case ResultType_i32: return "int";
-    case ResultType_i64: return "int64_t";
-    case ResultType_f32: return "float";
-    case ResultType_f64: return "double";
-    case ResultType_empty: return "void";
+    default:break;
+    case Tag_none:     return "void";
+    case Tag_bool:     return "bool";
+    case Tag_any:      return "void*"; // union?
+    case Tag_i32:      return "int";
+    case Tag_i64:      return "int64_t";
+    case Tag_f32:      return "float";
+    case Tag_f64:      return "double";
+    case Tag_empty:    return "void";
     }
     return "unknown";
 }
@@ -1108,23 +1122,24 @@ static
 const char*
 TypeToString (int tag)
 {
-    switch (tag)
+    switch ((Tag)tag)
     {
-    case Type_none:     return "none(0)";
-    case Type_bool:     return "bool(1)";
-    case Type_any:      return "any(2)";
-    case ResultType_i32: return "i32(7F)";
-    case ResultType_i64: return "i64(7E)";
-    case ResultType_f32: return "f32(7D)";
-    case ResultType_f64: return "f64(7C)";
-    case ResultType_empty: return "empty(40)";
+    default:break;
+    case Tag_none:     return "none(0)";
+    case Tag_bool:     return "bool(1)";
+    case Tag_any:      return "any(2)";
+    case Tag_i32:      return "i32(7F)";
+    case Tag_i64:      return "i64(7E)";
+    case Tag_f32:      return "f32(7D)";
+    case Tag_f64:      return "f64(7C)";
+    case Tag_empty:    return "empty(40)";
     }
     return "unknown";
 }
 
 typedef enum TableElementType : uint32_t
 {
-    TableElementType_funcRef = 0x70,
+    Tag_FuncRef = 0x70,
 } TableElementType;
 
 typedef enum LimitsTag // specific to tabletype?
@@ -1197,30 +1212,22 @@ struct Code;
 struct Frame; // work in progress
 struct DecodedInstruction;
 
-enum StackTag : uint8_t
-{
-    StackTag_Value = 1, // i32, i64, f32, f64
-    StackTag_Label,     // branch target
-    StackTag_Frame,     // return address + locals + params
-};
-
 static
 const char*
-StackTagToString (StackTag tag)
+TagToString (Tag tag)
 {
     switch (tag)
     {
-    case StackTag_Value: return "Value(1)";
-    case StackTag_Label: return "Label(2)";
-    case StackTag_Frame: return "Frame(3)";
+    case Tag_Value: return "Value(1)";
+    case Tag_Label: return "Label(2)";
+    case Tag_Frame: return "Frame(3)";
     }
     return "unknown";
 }
 
-// work in progress
-struct StackValueZeroInit
+struct StackValue
 {
-    StackTag tag {}; //TODO move to end for alignment
+    Tag tag;
     union
     {
         TaggedValue value; // TODO: change to Value or otherwise remove redundant tag
@@ -1233,21 +1240,16 @@ struct StackValueZeroInit
             //DecodedInstruction* instr;
         };
     };
-};
-
-struct StackValue : StackValueZeroInit
-{
-    void Init ()
-    {
-        ZeroMem (static_cast<StackValueZeroInit*>(this), sizeof (StackValueZeroInit));
-    }
 
     StackValue()
     {
-        Init ();
+        ZeroMem(&tag, sizeof(tag));
+        ZeroMem(&value, sizeof(value));
+        ZeroMem(&label, sizeof(label));
+        frame = 0;
     }
 
-    StackValue (StackTag t)
+    StackValue (Tag t)
     {
         Init ();
         tag = t;
@@ -1256,21 +1258,21 @@ struct StackValue : StackValueZeroInit
     StackValue (ValueType t)
     {
         Init ();
-        tag = StackTag_Value;
+        tag = Tag_Value;
         value.tag = t;
     }
 
     StackValue (TaggedValue t)
     {
         Init ();
-        tag = StackTag_Value;
+        tag = Tag_Value;
         value = t;
     }
 
     StackValue (Frame* f)
     {
         Init ();
-        tag = StackTag_Frame;
+        tag = Tag_Frame;
  //     frame = f;
     }
 
@@ -1300,6 +1302,22 @@ struct StackBase : private StackBaseBase
     {   // While ultimately a stack of values, labels, and frames, values dominate,
         // so the usage is made convenient for them.
         push_back (a);
+    }
+
+    void push_i32(...) // todo
+    {
+    }
+
+    void push_i64(...) // todo
+    {
+    }
+
+    void push_f32(...) // todo
+    {
+    }
+
+    void push_f64(...) // todo
+    {
     }
 
     void pop ()
@@ -1398,10 +1416,10 @@ struct Stack : private StackBase
 
     void pop_label ()
     {
-        if (size () < 1 || top ().tag != StackTag_Label)
+        if (size () < 1 || top ().tag != Tag_Label)
             DumpStack ("AssertTopIsValue");
         AssertFormat (size () >= 1, ("%" FORMAT_SIZE "X", size ()));
-        AssertFormat (top ().tag == StackTag_Label, ("%X %X", top ().tag, StackTag_Label));
+        AssertFormat (top ().tag == Tag_Label, ("%X %X", top ().tag, Tag_Label));
         pop ();
     }
 
@@ -1415,21 +1433,21 @@ struct Stack : private StackBase
 
     void push_value (const StackValue& value)
     {
-        AssertFormat (value.tag == StackTag_Value, ("%X %X", value.tag, StackTag_Value));
+        AssertFormat (value.tag == Tag_Value, ("%X %X", value.tag, Tag_Value));
         push (value);
         //printf ("push_value tag:%s value:%X depth:%" FORMAT_SIZE "X\n", TypeToString (value.value.tag), value.value.value.i32, size ());
     }
 
     void push_label (const StackValue& value)
     {
-        AssertFormat (value.tag == StackTag_Label, ("%X %X", value.tag, StackTag_Label));
+        AssertFormat (value.tag == Tag_Label, ("%X %X", value.tag, Tag_Label));
         push (value);
         //printf ("push_label depth:%" FORMAT_SIZE "X\n", size ());
     }
 
     void push_frame (const StackValue& value)
     {
-        AssertFormat (value.tag == StackTag_Frame, ("%X %X", value.tag, StackTag_Frame));
+        AssertFormat (value.tag == Tag_Frame, ("%X %X", value.tag, Tag_Frame));
         push (value);
         //printf ("push_frame depth:%" FORMAT_SIZE "X\n", size ());
     }
@@ -1438,14 +1456,14 @@ struct Stack : private StackBase
 
     void push_i32 (int32_t i)
     {
-        StackValue value (ValueType_i32);
+        StackValue value (Tag_i32);
         value.value.value.i32 = i;
         push_value (value);
     }
 
     void push_i64 (int64_t i)
     {
-        StackValue value (ValueType_i64);
+        StackValue value (Tag_i64);
         value.value.value.i64 = i;
         push_value (value);
     }
@@ -1462,14 +1480,14 @@ struct Stack : private StackBase
 
     void push_f32 (float i)
     {
-        StackValue value (ValueType_f32);
+        StackValue value (Tag_f32);
         value.value.value.f32 = i;
         push_value (value);
     }
 
     void push_f64 (double i)
     {
-        StackValue value (ValueType_f64);
+        StackValue value (Tag_f64);
         value.value.value.f64 = i;
         push_value (value);
     }
@@ -1483,32 +1501,32 @@ struct Stack : private StackBase
 
     int32_t& i32 ()
     {
-        return value (ValueType_i32).i32;
+        return value (Tag_i32).i32;
     }
 
     int64_t& i64 ()
     {
-        return value (ValueType_i64).i64;
+        return value (Tag_i64).i64;
     }
 
     uint32_t& u32 ()
     {
-        return value (ValueType_i32).u32;
+        return value (Tag_i32).u32;
     }
 
     uint64_t& u64 ()
     {
-        return value (ValueType_i64).u64;
+        return value (Tag_i64).u64;
     }
 
     float& f32 ()
     {
-        return value (ValueType_f32).f32;
+        return value (Tag_f32).f32;
     }
 
     double& f64 ()
     {
-        return value (ValueType_f64).f64;
+        return value (Tag_f64).f64;
     }
 
     void DumpStack (const char* prefix)
@@ -1517,14 +1535,14 @@ struct Stack : private StackBase
         printf ("stack@%s: %" FORMAT_SIZE "X ", prefix, n);
         for (size_t i = 0; i != n; ++i)
         {
-            printf ("%s:", StackTagToString (begin () [(ptrdiff_t)i].tag));
+            printf ("%s:", TagToString (begin () [(ptrdiff_t)i].tag));
             switch (begin () [(ptrdiff_t)i].tag)
             {
-            case StackTag_Label:
+            case Tag_Label:
                 break;
-            case StackTag_Frame:
+            case Tag_Frame:
                 break;
-            case StackTag_Value:
+            case Tag_Value:
                 printf ("%s", TypeToString (begin () [(ptrdiff_t)i].value.tag));
                 break;
             }
@@ -1535,10 +1553,10 @@ struct Stack : private StackBase
 
     void AssertTopIsValue ()
     {
-        if (size () < 1 || top ().tag != StackTag_Value)
+        if (size () < 1 || top ().tag != Tag_Value)
             DumpStack ("AssertTopIsValue");
         AssertFormat (size () >= 1, ("%" FORMAT_SIZE "X", size ()));
-        AssertFormat (top ().tag == StackTag_Value, ("%X %X", top ().tag, StackTag_Value));
+        AssertFormat (top ().tag == Tag_Value, ("%X %X", top ().tag, Tag_Value));
     }
 
     // setter, changes tag, returns ref
@@ -1556,12 +1574,12 @@ struct Stack : private StackBase
 
     void set_i32 (int32_t a)
     {
-        set (ValueType_i32).i32 = a;
+        set (Tag_i32).i32 = a;
     }
 
     void set_u32 (uint32_t a)
     {
-        set (ValueType_i32).u32 = a;
+        set (Tag_i32).u32 = a;
     }
 
     void set_bool (bool a)
@@ -1571,22 +1589,22 @@ struct Stack : private StackBase
 
     void set_i64 (int64_t a)
     {
-        set (ValueType_i64).i64 = a;
+        set (Tag_i64).i64 = a;
     }
 
     void set_u64 (uint64_t a)
     {
-        set (ValueType_i64).u64 = a;
+        set (Tag_i64).u64 = a;
     }
 
     void set_f32 (float a)
     {
-        set (ValueType_f32).f32 = a;
+        set (Tag_f32).f32 = a;
     }
 
     void set_f64 (double a)
     {
-        set (ValueType_f64).f64 = a;
+        set (Tag_f64).f64 = a;
     }
 
     // type specific poppers
@@ -1690,24 +1708,24 @@ INTERP (FUnOp)
 INTERP (FBinOp)
 
 // integer | float, unary | binary | test | relation
-#define IUNOP(b0, name, size)   INSTRUCTION (b0, 1, 0, name ## _i ## size, Imm_none, 1, 1, Type_i ## size, Type_none, Type_none, Type_i ## size)
-#define FUNOP(b0, name, size)   INSTRUCTION (b0, 1, 0, name ## _f ## size, Imm_none, 1, 1, Type_f ## size, Type_none, Type_none, Type_f ## size)
-#define IBINOP(b0, name, size)  INSTRUCTION (b0, 1, 0, name ## _i ## size, Imm_none, 2, 1, Type_i ## size, Type_i ## size, Type_none, Type_i ## size)
-#define FBINOP(b0, name, size)  INSTRUCTION (b0, 1, 0, name ## _f ## size, Imm_none, 2, 1, Type_f ## size, Type_f ## size, Type_none, Type_f ## size)
-#define ITESTOP(b0, name, size) INSTRUCTION (b0, 1, 0, name ## _i ## size, Imm_none, 1, 1, Type_i ## size, Type_none,     Type_none, Type_bool)
-#define FRELOP(b0, name, size)  INSTRUCTION (b0, 1, 0, name ## _f ## size, Imm_none, 2, 1, Type_f ## size, Type_f ## size, Type_none, Type_bool)
-#define IRELOP(b0, name, size, sign)  INSTRUCTION (b0, 1, 0, name ## _i ## size ## sign, Imm_none, 2, 1, Type_i ## size, Type_i ## size, Type_none, Type_bool)
+#define IUNOP(b0, name, size)   INSTRUCTION (b0, 1, 0, name ## _i ## size, Imm_none, 1, 1, Tag_i ## size, Tag_none, Tag_none, Tag_i ## size)
+#define FUNOP(b0, name, size)   INSTRUCTION (b0, 1, 0, name ## _f ## size, Imm_none, 1, 1, Tag_f ## size, Tag_none, Tag_none, Tag_f ## size)
+#define IBINOP(b0, name, size)  INSTRUCTION (b0, 1, 0, name ## _i ## size, Imm_none, 2, 1, Tag_i ## size, Tag_i ## size, Tag_none, Tag_i ## size)
+#define FBINOP(b0, name, size)  INSTRUCTION (b0, 1, 0, name ## _f ## size, Imm_none, 2, 1, Tag_f ## size, Tag_f ## size, Tag_none, Tag_f ## size)
+#define ITESTOP(b0, name, size) INSTRUCTION (b0, 1, 0, name ## _i ## size, Imm_none, 1, 1, Tag_i ## size, Tag_none,     Tag_none, Tag_bool)
+#define FRELOP(b0, name, size)  INSTRUCTION (b0, 1, 0, name ## _f ## size, Imm_none, 2, 1, Tag_f ## size, Tag_f ## size, Tag_none, Tag_bool)
+#define IRELOP(b0, name, size, sign)  INSTRUCTION (b0, 1, 0, name ## _i ## size ## sign, Imm_none, 2, 1, Tag_i ## size, Tag_i ## size, Tag_none, Tag_bool)
 
 // convert; TODO make ordering more sensible?
-#define CVTOP(b0, name, to, from, sign) INSTRUCTION (b0, 1, 0, to ## _ ## name ## _ ## from ## sign, Imm_none, 1, 1, Type_ ## from, Type_none, Type_none, Type_ ## to)
+#define CVTOP(b0, name, to, from, sign) INSTRUCTION (b0, 1, 0, to ## _ ## name ## _ ## from ## sign, Imm_none, 1, 1, Tag_ ## from, Tag_none, Tag_none, Tag_ ## to)
 
-#define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none)
+#define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Tag_none, Tag_none, Tag_none, Tag_none)
 
 #undef CONST
-#define CONST(b0, type) INSTRUCTION (b0, 1, 0, type ## _Const, Imm_ ## type, 0, 1, Type_none, Type_none, Type_none, Type_ ## type)
+#define CONST(b0, type) INSTRUCTION (b0, 1, 0, type ## _Const, Imm_ ## type, 0, 1, Tag_none, Tag_none, Tag_none, Tag_ ## type)
 
-#define LOAD(b0, to, from)  INSTRUCTION (b0, 1, 0, to ## _Load ## from,  Imm_memory, 0, 1, Type_none,     Type_none, Type_none, Type_ ## to)
-#define STORE(b0, from, to) INSTRUCTION (b0, 1, 0, from ## _Store ## to, Imm_memory, 1, 0, Type_ ## from, Type_none, Type_none, Type_none)
+#define LOAD(b0, to, from)  INSTRUCTION (b0, 1, 0, to ## _Load ## from,  Imm_memory, 0, 1, Tag_none,     Tag_none, Tag_none, Tag_ ## to)
+#define STORE(b0, from, to) INSTRUCTION (b0, 1, 0, from ## _Store ## to, Imm_memory, 1, 0, Tag_ ## from, Tag_none, Tag_none, Tag_none)
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) name,
@@ -1817,10 +1835,10 @@ struct InstructionEncoding
     uint8_t push          : 1;
     InstructionEnum name;
     uint32_t string_offset : bits_for_uint (sizeof (instructionNames));
-    Type stack_in0  ; // type of stack [0] upon input, if pop >= 1
-    Type stack_in1  ; // type of stack [1] upon input, if pop >= 2
-    Type stack_in2  ; // type of stack [2] upon input, if pop == 3
-    Type stack_out0 ; // type of stack [1] upon input, if push == 1
+    Tag stack_in0  ; // type of stack [0] upon input, if pop >= 1
+    Tag stack_in1  ; // type of stack [1] upon input, if pop >= 2
+    Tag stack_in2  ; // type of stack [2] upon input, if pop == 3
+    Tag stack_out0 ; // type of stack [1] upon input, if push == 1
     void (*interp) (Module*); // Module* wrong
 };
 
@@ -1865,7 +1883,7 @@ struct DecodedInstruction : DecodedInstructionZeroInit
 
     size_t Arity() const
     {
-        return (blockType == ResultType_empty) ? 0u : 1u; // FUTURE
+        return (blockType == Tag_empty) ? 0u : 1u; // FUTURE
     }
 
     int id {}; //sourcegen
@@ -2659,7 +2677,8 @@ double Module::read_f64 (uint8_t** cursor)
 // floats are not variably sized? Spec is unclear due to fancy notation
 // getting in the way.
 {
-    union {
+    union
+    {
         uint8_t bytes [8];
         double f64;
     } u;
@@ -2773,10 +2792,10 @@ ValueType Module::read_valuetype (uint8_t** cursor)
     default:
         ThrowString (StringFormat ("invalid ValueType:%X", value_type));
         break;
-    case ValueType_i32:
-    case ValueType_i64:
-    case ValueType_f32:
-    case ValueType_f64:
+    case Tag_i32:
+    case Tag_i64:
+    case Tag_f32:
+    case Tag_f64:
         break;
     }
     return (ValueType)value_type;
@@ -2790,11 +2809,11 @@ BlockType Module::read_blocktype(uint8_t** cursor)
     default:
         ThrowString (StringFormat ("invalid BlockType:%X", block_type));
         break;
-    case ValueType_i32:
-    case ValueType_i64:
-    case ValueType_f32:
-    case ValueType_f64:
-    case ResultType_empty:
+    case Tag_i32:
+    case Tag_i64:
+    case Tag_f32:
+    case Tag_f64:
+    case Tag_empty:
         break;
     }
     return (BlockType)block_type;
@@ -2811,7 +2830,7 @@ GlobalType Module::read_globaltype (uint8_t** cursor)
 TableElementType Module::read_elementtype (uint8_t** cursor)
 {
     TableElementType elementType = (TableElementType)read_byte (cursor);
-    if (elementType != TableElementType_funcRef)
+    if (elementType != Tag_FuncRef)
         ThrowString ("invalid elementType");
     return elementType;
 }
@@ -3001,7 +3020,7 @@ public:
     void Reserved ();
 
 #undef RESERVED
-#define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none) { Reserved (); }
+#define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Tag_none, Tag_none, Tag_none, Tag_none) { Reserved (); }
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) ; void name ()
@@ -3019,18 +3038,30 @@ struct SourceGen : Wasm
 
     // The value stack is the central data structure so assume it.
 
-    const char* cstr() { stack.top().c_str(); }
+    const char* cstr() { return stack.top().cstr(); }
 
     void push_i32 (int i)
     {
         char s[99];
         sprintf(s, "%d", i); // TODO C vs. Rust TODO perf
-        stack.push(SourceGenValue{TypeTag::i32, s});
+        stack.push(SourceGenValue{Tag_i32, s});
     }
 
     void push_i32 (const char* s)
     {
-        stack.push(SourceGenValue{TypeTag::i32, s});
+        stack.push(SourceGenValue{Tag_i32, s});
+    }
+
+    void push_i64 (...) //todo
+    {
+    }
+
+    void push_f32(...) // todo
+    {
+    }
+
+    void push_f64(...) // todo
+    {
     }
 
     void pop()
@@ -3300,7 +3331,7 @@ void Interp::Invoke (Function& function)
 
     // place return frame/address (frame is just a marker now, the data is on the native stack)
 
-    (end () - 1 - (ptrdiff_t)param_count)->tag = StackTag_Frame;
+    (end () - 1 - (ptrdiff_t)param_count)->tag = Tag_Frame;
     //(end () - 1 - param_count)->frame = frame;
     //(end () - 1 - param_count)->instr = instr + !!instr;
 
@@ -3332,7 +3363,7 @@ void Interp::Invoke (Function& function)
         {
             // break before instead of after to avoid unreachable code warning
 #undef RESERVED
-#define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Type_none, Type_none, Type_none, Type_none) { Reserved (); }
+#define RESERVED(b0) INSTRUCTION (0x ## b0, 0, 0, Reserved ## b0, Imm_none, 0, 0, Tag_none, Tag_none, Tag_none, Tag_none) { Reserved (); }
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0)     \

@@ -21,7 +21,7 @@ CGEN (Block)
     Label label {};
     label.arity = instr->Arity ();
     label.continuation = instr->label;
-    push_label (label);
+    stack.push_label (label);
 }
 
 CGEN (Loop)
@@ -42,12 +42,12 @@ CGEN (MemSize)
 
 CGEN (Global_set)
 {
-    print("%sglobal%u = (%s)\n", module->name.c_str(), instr->u32, pop().cstr());
+    this->printf("%sglobal%u = (%s)\n", module->name.c_str(), instr->u32, stack.pop().c_str());
 }
 
 CGEN (Global_get)
 {
-    push("%sglobal%u", module->name.c_str(), instr->u32);
+    stack.pushf("%sglobal%u", module->name.c_str(), instr->u32);
 }
 
 CGEN (Local_set)
@@ -64,10 +64,7 @@ CGEN (Local_tee)
 
 CGEN (If)
 {
-    // If condition is false, skip ahead, to just past the Else.
-    // The Else actually marks the end of If, more than the start of Else.
-
-    print("if (%s) {\n", pop().cstr());
+    print("if (%s) {\n", stack.pop().c_str());
 }
 
 CGEN (Else)
@@ -143,6 +140,7 @@ CGEN (f64_Const)
     push_f64 (instr->f64);
 }
 
+#if 0 //todo
 void CGen::Load (const char* push_type, const char* load_type, unsigned size)
 {
     char* offset = TEMP();
@@ -170,7 +168,9 @@ void CGen::Load (const char* push_type, const char* load_type, unsigned size)
 
     push(result);
 }
+#endif
 
+#if 0 //todo
 CGEN (i32_Load_)
 {
     Load("int32_t", "int32_t", 4);
@@ -230,6 +230,8 @@ CGEN (i64_Load32u)
 {
     Load("int64_t", "uint32_t", 4);
 }
+
+#endif
 
 CGEN (f32_Load_)
 {
