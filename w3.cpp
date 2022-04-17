@@ -144,6 +144,7 @@ typedef ptrdiff_t ssize_t;
 #if _MSC_VER
 #include <malloc.h> // for _alloca
 #pragma warning (pop)
+#define alloca _alloca
 #endif
 
 namespace w3
@@ -362,27 +363,59 @@ typedef enum Tag : uint8_t
 {
     Tag_none = 0,   // allow for zero-init
     Tag_bool = 1,   // aka i32
-    Tag_any  = 2,	// often has constraints
+    Tag_any  = 2,   // often has constraints
 
     // These are from the file format. These are the primary
-	// types in WebAssembly, prior to the addition of SIMD.
+    // types in WebAssembly, prior to the addition of SIMD.
     Tag_i32 = 0x7F,
     Tag_i64 = 0x7E,
     Tag_f32 = 0x7D,
     Tag_f64 = 0x7C,
 
-	//todo: comment
+    //todo: comment
     Tag_empty = 0x40, // ResultType, void
 
     //internal, any value works..not clearly needed
-	// A heterogenous conceptual WebAssembly stack contains Values, Frames, and Labels.
-    Tag_Value = 0x80, // i32, i64, f32, f64
-    Tag_Label = 0x81, // branch target
-    Tag_Frame = 0x82,  // return address + locals + params
+    // A heterogenous conceptual WebAssembly stack contains Values, Frames, and Labels.
+    Tag_Value = 0x80,   // i32, i64, f32, f64
+    Tag_Label = 0x81,   // branch target
+    Tag_Frame = 0x82,   // return address + locals + params
 
-	//todo: comment
+    //todo: comment
     Tag_FuncRef = 0x70,
+
+    //codegen temp
+    //Tag_intptr = 3,
+    //Tag_uintptr = 4,
+    //Tag_pch = 5,
 } Tag;
+
+char TagChar(Tag t) //todo: short string?
+{
+    switch (t)
+    {
+    case Tag_none: return 'n';
+    case Tag_bool: return 'b';
+    case Tag_any: return 'a';
+    //case Tag_i8: return 'c';
+    //case Tag_u8: return 'd';
+    //case Tag_i16: return 's';
+    //case Tag_u16: return 't';
+    case Tag_i32: return 'i';
+    case Tag_i64: return 'j';
+    case Tag_f32: return 'f';
+    case Tag_f64: return 'g';
+    case Tag_empty: return 'e';
+    case Tag_Value: return 'v';
+    case Tag_Label: return 'L';
+    case Tag_Frame: return 'r';
+    case Tag_FuncRef: return 'u';
+    //case Tag_intptr: return 'k';
+    //case Tag_uintptr: return 'u';
+    //case Tag_pch:     return 'p';
+    }
+    return '$';
+}
 
 // TODO templatize on existance of string and possibly label
 // so that SourceGen and Interp can share.
@@ -1115,10 +1148,9 @@ TagToStringCxx (int tag)
     case Tag_f32:      return "float";
     case Tag_f64:      return "double";
     case Tag_empty:    return "void";
-
-    case Tag_Value:    return "Value(1)";
-    case Tag_Label:    return "Label(2)";
-    case Tag_Frame:    return "Frame(3)";
+    case Tag_Value:    return "Value";
+    case Tag_Label:    return "Label";
+    case Tag_Frame:    return "Frame";
     }
     return "unknown";
 }
@@ -1183,6 +1215,7 @@ struct StackValue;
 struct ModuleInstance;
 struct Module;
 struct Section;
+struct Variable; //local, global, temp
 
 // The stack shall use _alloca in a non-recursive interpreter loop.
 // This requires some care and macros. Macros that reference locals.
@@ -1206,6 +1239,33 @@ struct Function;
 struct Code;
 struct Frame; // work in progress
 struct DecodedInstruction;
+
+struct String
+{
+    char* buf;
+    size_t len;
+};
+
+struct Variable
+{
+#if 0
+    Tag tag;
+    bool temp : 1;
+    bool global : 1;
+    bool local : 1;
+    long id; // in lieue of name
+    char* name;
+    char namebuf[64];
+#endif
+};
+
+char* VarName(Variable* var)
+{
+//    if (var->name)
+//        return var->name;
+//    sprintf("
+    return 0;
+}
 
 struct StackValue
 {
@@ -1531,7 +1591,7 @@ struct Stack : private StackBase
             case Tag_Value:
                 printf ("%s", TagToString (begin () [(ptrdiff_t)i].value.tag));
                 break;
-			default:; //todo
+            default:; //todo
             }
             printf (" ");
         }
@@ -1859,7 +1919,7 @@ struct DecodedInstructionZeroInit // ZeroMem-compatible part
 
     uint64_t file_offset; // to match up with disasm output, unsigned for hex
     InstructionEnum name;
-    BlockType blockType;
+    Tag blockType;
 };
 
 struct DecodedInstruction : DecodedInstructionZeroInit
@@ -1928,29 +1988,6 @@ struct Section
     WasmString name;
     size_t payload_size;
     uint8_t* payload;
-};
-
-struct ModuleBase // workaround old compiler (?)
-{
-    std::string name = "wasm_";
-    virtual ~ModuleBase() { }
-    virtual void read_types (uint8_t** cursor) = 0;
-    virtual void read_imports (uint8_t** cursor) = 0;
-    virtual void read_functions (uint8_t** cursor) = 0;
-    virtual void read_tables (uint8_t** cursor) = 0;
-    virtual void read_memory (uint8_t** cursor) = 0;
-    virtual void read_globals (uint8_t** cursor) = 0;
-    virtual void read_exports (uint8_t** cursor) = 0;
-    virtual void read_start (uint8_t** cursor) = 0;
-    virtual void read_elements (uint8_t** cursor) = 0;
-    virtual void read_code (uint8_t** cursor) = 0;
-    virtual void read_data (uint8_t** cursor) = 0;
-};
-
-struct SectionTraits
-{
-    void (ModuleBase::*read)(uint8_t** cursor);
-    const char* name;
 };
 
 typedef enum ImportTag { // aka desc
@@ -2135,8 +2172,10 @@ struct FunctionType
     }
 };
 
-struct Module : ModuleBase
+struct Module
 {
+    std::string name;
+
     virtual ~Module() { }
 
     Module () : base (0), file_size (0), end (0), start (0), main (0),
@@ -2195,7 +2234,7 @@ struct Module : ModuleBase
     GlobalType read_globaltype (uint8_t** cursor);
     TableType read_tabletype (uint8_t** cursor);
     Tag read_valuetype (uint8_t** cursor);
-    BlockType read_blocktype(uint8_t** cursor);
+    Tag read_blocktype(uint8_t** cursor);
     Tag read_elementtype (uint8_t** cursor);
     bool read_mutable (uint8_t** cursor);
     void read_section (uint8_t** cursor);
@@ -2607,6 +2646,12 @@ DecodeFunction (Module* module, Code* code, uint8_t** cursor)
     DecodeInstructions (module, code->decoded_instructions, cursor, code);
 }
 
+struct SectionTraits
+{
+    void (Module::*read)(uint8_t** cursor);
+    const char* name;
+};
+
 const
 SectionTraits section_traits [ ] =
 {
@@ -2625,7 +2670,7 @@ SectionTraits section_traits [ ] =
     SECTION (DataSection, read_data) \
 
 #undef SECTION
-#define SECTION(x, read) {&ModuleBase::read, #x},
+#define SECTION(x, read) {&Module::read, #x},
 SECTIONS
 
 };
@@ -2788,7 +2833,7 @@ Tag Module::read_valuetype (uint8_t** cursor)
     return (Tag)value_type;
 }
 
-BlockType Module::read_blocktype(uint8_t** cursor)
+Tag Module::read_blocktype(uint8_t** cursor)
 {
     const uint32_t block_type = read_byte (cursor);
     switch (block_type)
@@ -2803,7 +2848,7 @@ BlockType Module::read_blocktype(uint8_t** cursor)
     case Tag_empty:
         break;
     }
-    return (BlockType)block_type;
+    return (Tag)block_type;
 }
 
 GlobalType Module::read_globaltype (uint8_t** cursor)
@@ -3015,9 +3060,22 @@ public:
     ;
 };
 
+struct SourceGenFunction
+{
+    //std::vector<Variable> locals;
+    //std::vector<Variable> temps;
+
+    //void reset()
+    //{
+    //    locals.clear();
+    //    temps.clear();
+    //}
+};
+
 struct SourceGen : Wasm
 {
     long temp{};
+    std::vector<Variable> globals;
 
     SourceGenStack stack; // TODO? std::stack<std::string>
     std::stack<Label> labels;
@@ -3096,6 +3154,8 @@ public:
     CGen() : module (0)
     {
     }
+
+    void Load (const char* push_type, const char* load_type, unsigned size);
 
     void* LoadStore (size_t size);
 

@@ -1,12 +1,12 @@
 #define CGEN(x) void CGen::x ()
 
-char* temp(char* buf, long id)
+char* Temp(char* buf, long id)
 {
     sprintf(buf, "temp%ld", id);
     return buf;
 }
 
-#define TEMP() temp((char*)_alloca(99, ++(this->temp)))
+#define TEMP() Temp((char*)alloca(99), ++(this->temp))
 
 CGEN (Call)
 {
@@ -140,7 +140,6 @@ CGEN (f64_Const)
     push_f64 (instr->f64);
 }
 
-#if 0 //todo
 void CGen::Load (const char* push_type, const char* load_type, unsigned size)
 {
     char* offset = TEMP();
@@ -150,7 +149,7 @@ void CGen::Load (const char* push_type, const char* load_type, unsigned size)
     char* u = TEMP();
 
     printf("const long %s = %ld\n", offset, instr->offset);
-    printf("const long %s = %s\n", i, pop().cstr());
+    printf("const long %s = %s\n", i, stack.pop().c_str());
     printf("long %s;\n", effective_address);
     printf("%s %s;\n", push_type, result);
 
@@ -164,11 +163,10 @@ void CGen::Load (const char* push_type, const char* load_type, unsigned size)
     printf("\n}\n");
 
     printf("if (%s > UINT_MAX - %u) Overflow();\n", effective_address, size);
-    printf("%s = *(%s*)(%s + (char*)%s_mem;\n", result, load_type, effecitve_address, module->name);
+    printf("%s = *(%s*)(%s + (char*)%s_mem;\n", result, load_type, effective_address, module->name.c_str());
 
     push(result);
 }
-#endif
 
 #if 0 //todo
 CGEN (i32_Load_)

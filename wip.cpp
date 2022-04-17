@@ -1772,7 +1772,7 @@ struct DecodedInstructionZeroInit // ZeroMem-compatible part
 
     uint64_t file_offset; // to match up with disasm output, unsigned for hex
     InstructionEnum name;
-    BlockType blockType;
+    Tag blockType;
 };
 
 struct DecodedInstruction : DecodedInstructionZeroInit
@@ -2104,7 +2104,7 @@ struct Module : ModuleBase
     GlobalType read_globaltype (uint8_t** cursor);
     TableType read_tabletype (uint8_t** cursor);
     ValueType read_valuetype (uint8_t** cursor);
-    BlockType read_blocktype(uint8_t** cursor);
+    Tag read_blocktype(uint8_t** cursor);
     TableElementType read_elementtype (uint8_t** cursor);
     bool read_mutable (uint8_t** cursor);
     void read_section (uint8_t** cursor);
@@ -2695,7 +2695,7 @@ ValueType Module::read_valuetype (uint8_t** cursor)
     return (ValueType)value_type;
 }
 
-BlockType Module::read_blocktype(uint8_t** cursor)
+Tag Module::read_blocktype(uint8_t** cursor)
 {
     const uint32_t block_type = read_byte (cursor);
     switch (block_type)
@@ -2710,7 +2710,7 @@ BlockType Module::read_blocktype(uint8_t** cursor)
     case ResultType_empty:
         break;
     }
-    return (BlockType)block_type;
+    return (Tag)block_type;
 }
 
 GlobalType Module::read_globaltype (uint8_t** cursor)
