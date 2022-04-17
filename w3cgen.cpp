@@ -168,7 +168,6 @@ void CGen::Load (const char* push_type, const char* load_type, unsigned size)
     push(result);
 }
 
-#if 0 //todo
 CGEN (i32_Load_)
 {
     Load("int32_t", "int32_t", 4);
@@ -228,8 +227,6 @@ CGEN (i64_Load32u)
 {
     Load("int64_t", "uint32_t", 4);
 }
-
-#endif
 
 CGEN (f32_Load_)
 {

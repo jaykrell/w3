@@ -2910,12 +2910,12 @@ void Module::read_section (uint8_t** cursor)
     printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, (long_t)payload_size);
     payload = *cursor;
     uint32_t name_size = 0;
-    char* name = 0;
+    char* local_name = 0;
     if (id == 0)
     {
         name_size = read_varuint32 (cursor);
-        name = (char*)*cursor;
-        if (name + name_size > (char*)end)
+        local_name = (char*)*cursor;
+        if (local_name + name_size > (char*)end)
             ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     }
     if (payload + payload_size > end)
@@ -2928,7 +2928,7 @@ void Module::read_section (uint8_t** cursor)
     if (id == 0)
     {
         if (name_size < INT_MAX)
-            printf ("skipping custom section:.%.*s\n", (int)name_size, name);
+            printf ("skipping custom section:.%.*s\n", (int)name_size, local_name);
         // UNDONE custom sections
         return;
     }
@@ -2937,7 +2937,7 @@ void Module::read_section (uint8_t** cursor)
 
     Section& section = sections [id];
     section.id = id;
-    section.name.data = name;
+    section.name.data = local_name;
     section.name.size = name_size;
     section.payload_size = payload_size;
     section.payload = payload;
