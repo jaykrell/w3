@@ -2983,7 +2983,6 @@ public:
             printf(") {");
 
 #if 0
-
             // Declare locals; maybe eventually merge locals and args.
             const size_t local_count = code->locals.size();
             for (size_t k = 0; k < local_count; ++k)

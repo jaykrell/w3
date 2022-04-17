@@ -12,17 +12,39 @@ char* WasmCGenTemp(char* buf, long id)
 
 CGEN (Call)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
+
+    // FIXME In the instruction table
+    const size_t function_index = instr->u32;
+    Assert (function_index < module->functions.size ());
+    Function* function = &module->functions [function_index];
+    function->function_index = function_index; // TODO remove this
+
+    size_t param_count = function->param_count;
+
+    string call = StringFormat("function%d(", (int)function_index);
+
+    // todo of course this might be backwards
+
+    for (size_t i = 0; i < param_count; ++i)
+    {
+        if (i != param_count - 1)
+            call += ",";
+        call += pop ();
+    }
+    call += ")";
+    push (call);
 }
 
 CGEN (Local_get)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
+    push (StringFormat("local%d", (int)instr->u32));
 }
 
 CGEN (Block)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     Label label {};
     label.arity = instr->Arity ();
     label.continuation = instr->label;
@@ -31,82 +53,82 @@ CGEN (Block)
 
 CGEN (Loop)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     Block ();
     labels.top ().arity = 0;
 }
 
 CGEN (MemGrow)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     top ().str = "memgrow(" + top ().str + ")";
 }
 
 CGEN (MemSize)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     push ("memsize()");
 }
 
 CGEN (Global_set)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     printf ("%sglobal%u = (%s)\n", module->name.c_str(), instr->u32, pop().c_str());
 }
 
 CGEN (Global_get)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     push (StringFormat("%sglobal%u", module->name.c_str(), instr->u32));
 }
 
 CGEN (Local_set)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     Local_tee ();
-    pop();
+    pop ();
 }
 
 CGEN (Local_tee)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     printf ("local%u = (%s)\n", instr->u32, top ().cstr());
     top ().str = string_format("local%u", instr->u32);
 }
 
 CGEN (If)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     printf ("if (%s) {\n", pop().c_str());
 }
 
 CGEN (Else)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     printf ("\n} else {\n");
 }
 
 CGEN (BlockEnd)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     printf ("\n}\n");
 }
 
 CGEN (BrIf)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     printf ("if (%s) goto label%u;\n", cstr(), instr->u32);
     pop();
 }
 
 CGEN (BrTable)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Ret)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     if (function_type->results.size ())
     {
         printf ("return (%s);\n", top ().cstr());
@@ -120,7 +142,7 @@ CGEN (Ret)
 
 CGEN (Br)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     // This is specified oddly, and presumably for execution.
     // Let's make a simple guess and see how it goes.
     printf ("goto label%u;\n", instr->u32 + 1);
@@ -129,46 +151,46 @@ CGEN (Br)
 CGEN (Select)
 {
     // presently like ternary but might be extended
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Calli)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Unreach)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i32_Const)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     push_i32 (instr->i32);
 }
 
 CGEN (i64_Const)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     push_i64 (instr->i64);
 }
 
 CGEN (f32_Const)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     push_f32 (instr->f32);
 }
 
 CGEN (f64_Const)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     push_f64 (instr->f64);
 }
 
 void WasmCGen::LoadStore (PCSTR stack_type, PCSTR mem_type, bool loadOrStore)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     PCSTR offset = TEMP();
     PCSTR i = TEMP();
     PCSTR result = loadOrStore ? TEMP() : 0;
@@ -363,7 +385,7 @@ CGEN (f64_Store_)
 
 CGEN (Nop)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Drop)
@@ -383,19 +405,19 @@ string WasmCGenCast (PCSTR type, const string& value)
 
 void WasmCGenUnary (WasmCGen* cgen, PCSTR function)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     cgen->push (string (function) + "(" + cgen->pop () + ")");
 }
 
 void WasmCGenBinary (WasmCGen* cgen, PCSTR function)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     cgen->push (string (function) + "(" + cgen->pop () + "," + cgen->pop () + ")");
 }
 
 void WasmCGenCompare (WasmCGen* cgen, PCSTR type, PCSTR cmp, PCSTR b = 0)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
     cgen->push (string ("(") + WasmCGenCast (type, cgen->pop ()) + cmp + WasmCGenCast (type, b ? b : cgen->pop ()) + ")");
 }
 
@@ -458,435 +480,435 @@ CGEN (CountSetBits_i64)
 
 CGEN (CountTrailingZeros_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (CountTrailingZeros_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (CountLeadingZeros_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (CountLeadingZeros_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Add_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Add_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Sub_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Sub_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Mul_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Mul_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Div_s_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Div_u_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Rem_s_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Rem_u_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Div_s_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Div_u_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Rem_s_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Rem_u_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (And_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (And_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Or_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Or_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Xor_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Xor_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Shl_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Shl_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Shr_s_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Shr_s_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Shr_u_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Shr_u_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Rotl_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Rotl_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Rotr_i32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Rotr_i64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Abs_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Abs_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Neg_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Neg_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Ceil_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Ceil_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Floor_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Floor_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Trunc_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Trunc_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Nearest_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Nearest_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Sqrt_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Sqrt_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Add_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Add_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Sub_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Sub_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Mul_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Mul_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Div_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Div_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Min_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Min_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Max_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Max_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Copysign_f32)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (Copysign_f64)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i32_Wrap_i64_)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i32_Trunc_f32s)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i32_Trunc_f32u)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i32_Trunc_f64s)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i32_Trunc_f64u)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i64_Extend_i32s)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i64_Extend_i32u)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i64_Trunc_f32s)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i64_Trunc_f32u)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i64_Trunc_f64s)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i64_Trunc_f64u)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f32_Convert_i32u)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f32_Convert_i32s)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f32_Convert_i64u)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f32_Convert_i64s)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f32_Demote_f64_)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f64_Convert_i32s)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f64_Convert_i32u)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f64_Convert_i64s)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f64_Convert_i64u)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f64_Promote_f32_)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i32_Reinterpret_f32_)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f32_Reinterpret_i32_)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (i64_Reinterpret_f64_)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }
 
 CGEN (f64_Reinterpret_i64_)
 {
-    printf("/*%s*/\n", __func__);
+    printf ("/*%s*/\n", __func__);
 }

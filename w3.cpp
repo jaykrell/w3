@@ -9,7 +9,6 @@
 // ongoing: Spit this file up.
 // ongoing: Port to C++98 or earlier (no namespaces, maybe no STL, maybe no C++)
 //
-
 #include "w3.h"
 
 #include <stack>
@@ -942,6 +941,11 @@ struct TaggedValue
 {
     Tag tag;
     Value value;
+
+    TaggedValue()
+    {
+        memset (this, 0, sizeof(*this));
+    }
 };
 
 PCSTR TagToStringCxx (int tag)
@@ -1078,36 +1082,21 @@ struct StackValue
 {
     // TODO remove two level tagging
     Tag tag;
-    union
-    {
+    //union {
         TaggedValue value; // TODO: change to Value or otherwise remove redundant tag
-        struct
-        {
-            Frame* frame; // TODO by value? Probably not. This was changed
-            // to resolve circular types, and for the initial frame that seemed
-            // wrong, but now that call/ret being implemented, seems right
-            //DecodedInstruction* instr;
-        };
-    };
+        Frame* frame; // TODO by value? Probably not. This was changed
+                      // to resolve circular types, and for the initial frame that seemed
+                      // wrong, but now that call/ret being implemented, seems right
+        //DecodedInstruction* instr;
         Label label;
+    //};
 
-    void Init()
+    StackValue() : tag (Tag_none), frame (0)
     {
-        ZeroMem(&tag, sizeof(tag));        
-        ZeroMem(&value, sizeof(value));
-        //ZeroMem(&label, sizeof(label));
-        frame = 0;
     }
 
-    StackValue()
+    StackValue (Tag t) : tag (t), frame (0)
     {
-        Init();
-    }
-
-    StackValue (Tag t)
-    {
-        Init ();
-        tag = t;
         if ((t & 0x78) == 0x78)
         {
             tag = Tag_Value;
@@ -1115,23 +1104,15 @@ struct StackValue
         }
     }
 
-    StackValue (TaggedValue t)
+    StackValue (TaggedValue t) : tag (Tag_Value), frame (0)
     {
-        Init ();
-        tag = Tag_Value;
         value = t;
     }
 
-    StackValue (Frame* f)
+    StackValue (Frame* f) : tag (Tag_Frame), frame (0)
     {
-        Init ();
-        tag = Tag_Frame;
  //     frame = f;
     }
-
-    bool operator < (const StackValue&) const; // workaround old compiler
-    bool operator == (const StackValue&) const; // workaround old compiler
-    bool operator != (const StackValue&) const; // workaround old compiler
 };
 
 // TODO consider a vector instead, but it affects frame.locals staying valid across push/pop
@@ -2977,14 +2958,14 @@ public:
 
         Prefix ();
 
-        size_t size = mod->functions.size ();
-        for (size_t i = 0; i < size; ++i)
+        size_t function_count = mod->functions.size ();
+        for (size_t function_index = 0; function_index < function_count; ++function_index)
         {
             // TODO Rust not C.
 
-            printf("/*function%d*/\n", (int)i);
+            printf("/*function%d*/\n", (int)function_index);
 
-            Function& function = mod->functions[i];
+            Function& function = mod->functions[function_index];
             const size_t function_type_index = function.function_type_index;
 
             printf("/*function_type%d*/\n", (int)function_type_index);
@@ -3009,7 +2990,7 @@ public:
             else
                 printf("\n%s ", TagToStringCxx(function_type->results[0]));
 
-            printf(" function%d ( \n", (int)i);
+            printf(" function%d ( \n", (int)function_index);
 
             // args are the first locals
             // join them here and elsewhere does not care
@@ -3034,23 +3015,30 @@ public:
                 printf("%s local%" FORMAT_SIZE "d;\n", TagToStringCxx(code->locals[k]), (long_t)k + param_count);
             }
 
-            instr = &code->decoded_instructions [0];
-            DecodedInstruction* end = instr + size;
-            for (; instr < end; ++instr)
+            this->instr = &code->decoded_instructions [0];
+            const size_t function_size = code->decoded_instructions.size ();
+            DecodedInstruction* end = instr + function_size;
+            for (; this->instr < end; ++instr)
             {
-                Assert (instr);
-                switch (instr->name)
+                Assert (this->instr);
+                switch (this->instr->name)
                 {
                     // break before instead of after to avoid unreachable code warning
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0)            \
-                break;                                                                              \
-                case w3::name:                                                                      \
-                printf ("/*gen%s x:%X u:%u i:%i*/\n", #name, instr->u32, instr->u32, instr->u32);   \
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0)                            \
+                break;                                                                                              \
+                case w3::name:                                                                                      \
+                printf ("/*gen%s x:%X u:%u i:%i*/\n", #name, this->instr->u32, this->instr->u32, this->instr->u32); \
                 this->name ();
 #include "w3instructions.h"
                 }
             }
+            while (stack.size() > 1)
+                printf("%s;\n", pop ().c_str());
+            if (function_type->results.size())
+                printf("return ");
+            while (stack.size())
+                printf("%s;\n", pop ().c_str());
             printf("\n}\n");
         }
     }
