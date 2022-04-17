@@ -333,10 +333,10 @@ struct GlobalAddr // TODO
 // This should probabably be combined with ResultType, and called Tag.
 typedef enum ValueType : uint8_t
 {
-    ValueType_i32 = 0x7F,
-    ValueType_i64 = 0x7E,
-    ValueType_f32 = 0x7D,
-    ValueType_f64 = 0x7C,
+    Tag_i32 = 0x7F,
+    Tag_i64 = 0x7E,
+    Tag_f32 = 0x7D,
+    Tag_f64 = 0x7C,
 } ValueType;
 
 static
@@ -1092,9 +1092,6 @@ struct TableType
     bool operator != (const TableType&) const; // workaround old compiler
 };
 
-// Table types have an value type, funcref
-const uint32_t TableTypeFuncRef = 0x70;
-
 // Globals are mutable or constant.
 typedef enum Mutable
 {
@@ -1359,14 +1356,14 @@ struct Stack : private StackBase
 
     void push_i32 (int32_t i)
     {
-        StackValue value (ValueType_i32);
+        StackValue value (Tag_i32);
         value.value.value.i32 = i;
         push_value (value);
     }
 
     void push_i64 (int64_t i)
     {
-        StackValue value (ValueType_i64);
+        StackValue value (Tag_i64);
         value.value.value.i64 = i;
         push_value (value);
     }
@@ -1383,14 +1380,14 @@ struct Stack : private StackBase
 
     void push_f32 (float i)
     {
-        StackValue value (ValueType_f32);
+        StackValue value (Tag_f32);
         value.value.value.f32 = i;
         push_value (value);
     }
 
     void push_f64 (double i)
     {
-        StackValue value (ValueType_f64);
+        StackValue value (Tag_f64);
         value.value.value.f64 = i;
         push_value (value);
     }
@@ -1404,32 +1401,32 @@ struct Stack : private StackBase
 
     int32_t& i32 ()
     {
-        return value (ValueType_i32).i32;
+        return value (Tag_i32).i32;
     }
 
     int64_t& i64 ()
     {
-        return value (ValueType_i64).i64;
+        return value (Tag_i64).i64;
     }
 
     uint32_t& u32 ()
     {
-        return value (ValueType_i32).u32;
+        return value (Tag_i32).u32;
     }
 
     uint64_t& u64 ()
     {
-        return value (ValueType_i64).u64;
+        return value (Tag_i64).u64;
     }
 
     float& f32 ()
     {
-        return value (ValueType_f32).f32;
+        return value (Tag_f32).f32;
     }
 
     double& f64 ()
     {
-        return value (ValueType_f64).f64;
+        return value (Tag_f64).f64;
     }
 
     void DumpStack (const char* prefix)
@@ -1477,12 +1474,12 @@ struct Stack : private StackBase
 
     void set_i32 (int32_t a)
     {
-        set (ValueType_i32).i32 = a;
+        set (Tag_i32).i32 = a;
     }
 
     void set_u32 (uint32_t a)
     {
-        set (ValueType_i32).u32 = a;
+        set (Tag_i32).u32 = a;
     }
 
     void set_bool (bool a)
@@ -1492,22 +1489,22 @@ struct Stack : private StackBase
 
     void set_i64 (int64_t a)
     {
-        set (ValueType_i64).i64 = a;
+        set (Tag_i64).i64 = a;
     }
 
     void set_u64 (uint64_t a)
     {
-        set (ValueType_i64).u64 = a;
+        set (Tag_i64).u64 = a;
     }
 
     void set_f32 (float a)
     {
-        set (ValueType_f32).f32 = a;
+        set (Tag_f32).f32 = a;
     }
 
     void set_f64 (double a)
     {
-        set (ValueType_f64).f64 = a;
+        set (Tag_f64).f64 = a;
     }
 
     // type specific poppers
@@ -2689,10 +2686,10 @@ ValueType Module::read_valuetype (uint8_t** cursor)
     default:
         ThrowString (StringFormat ("invalid ValueType:%X", value_type));
         break;
-    case ValueType_i32:
-    case ValueType_i64:
-    case ValueType_f32:
-    case ValueType_f64:
+    case Tag_i32:
+    case Tag_i64:
+    case Tag_f32:
+    case Tag_f64:
         break;
     }
     return (ValueType)value_type;
@@ -2706,10 +2703,10 @@ BlockType Module::read_blocktype(uint8_t** cursor)
     default:
         ThrowString (StringFormat ("invalid BlockType:%X", block_type));
         break;
-    case ValueType_i32:
-    case ValueType_i64:
-    case ValueType_f32:
-    case ValueType_f64:
+    case Tag_i32:
+    case Tag_i64:
+    case Tag_f32:
+    case Tag_f64:
     case ResultType_empty:
         break;
     }
@@ -4140,12 +4137,12 @@ INTERP (f64_Promote_f32_)
 
 INTERP (i32_Reinterpret_f32_)
 {
-    tag (ValueType_f32) = ValueType_i32;
+    tag (Tag_f32) = Tag_i32;
 }
 
 INTERP (f32_Reinterpret_i32_)
 {
-    tag (ValueType_i32) = ValueType_f32;
+    tag (Tag_i32) = Tag_f32;
 }
 
 INTERP (i64_Reinterpret_f64_)
@@ -5696,22 +5693,22 @@ INTERP (f64_Promote_f32_)
 
 INTERP (i32_Reinterpret_f32_)
 {
-    tag (ValueType_f32) = ValueType_i32;
+    tag (Tag_f32) = Tag_i32;
 }
 
 INTERP (f32_Reinterpret_i32_)
 {
-    tag (ValueType_i32) = ValueType_f32;
+    tag (Tag_i32) = Tag_f32;
 }
 
 INTERP (i64_Reinterpret_f64_)
 {
-    tag (ValueType_f64) = ValueType_i64;
+    tag (Tag_f64) = Tag_i64;
 }
 
 INTERP (f64_Reinterpret_i64_)
 {
-    tag (ValueType_i64) = ValueType_f64;
+    tag (Tag_i64) = Tag_f64;
 }
 
 }

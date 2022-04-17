@@ -11,7 +11,7 @@ INTERP (Call)
 INTERP (Block)
 {
     // Label is end.
-    StackValue stack_value (StackTag_Label);
+    StackValue stack_value (Tag_Label);
     stack_value.label.arity = instr->Arity ();
     stack_value.label.continuation = instr->label;
     push_label (stack_value);
@@ -111,7 +111,7 @@ INTERP (If)
     const uint32_t condition = pop_u32 ();
 
     // Push the same label either way.
-    StackValue stack_value (StackTag_Label);
+    StackValue stack_value (Tag_Label);
     stack_value.label.arity = instr->Arity ();
     stack_value.label.continuation = instr->if_end;
     push_label (stack_value);
@@ -160,13 +160,13 @@ INTERP (BlockEnd)
 
     StackValue* p = &front ();
 
-    while (j > 0 && p [j - 1].tag == StackTag_Value)
+    while (j > 0 && p [j - 1].tag == Tag_Value)
         --j;
 
     // FIXME mark earlier if end of block or function
     // FIXME And then assert?
 
-    Assert (j > 0 && (p [j - 1].tag == StackTag_Label || p [j - 1].tag == StackTag_Frame));
+    Assert (j > 0 && (p [j - 1].tag == Tag_Label || p [j - 1].tag == Tag_Frame));
 
     for (size_t i = j - 1; i < s; ++i)
         p [i] = p [i + 1];
@@ -215,11 +215,11 @@ INTERP (Ret)
         result = top ();
         pop_value ();
     }
-    while (!empty () && top ().tag != StackTag_Frame)
+    while (!empty () && top ().tag != Tag_Frame)
         pop ();
 
     Assert (!empty ());
-    Assert (top ().tag == StackTag_Frame);
+    Assert (top ().tag == Tag_Frame);
 //    frame = top ().frame; // TODO Why this is not working?
     pop ();
 
@@ -256,12 +256,12 @@ INTERP (Br)
 
     for (size_t i = 0; i != label; ++i)
     {
-        while (j > 0 && p [j - 1].tag == StackTag_Value)
+        while (j > 0 && p [j - 1].tag == Tag_Value)
         {
             initial_values += (i == 0);
             --j; // Pop_values.
         }
-        Assert (j > 0 && p [j - 1].tag == StackTag_Label);
+        Assert (j > 0 && p [j - 1].tag == Tag_Label);
         arity = p [j - 1].label.arity;
         Assert (arity == 0 || arity == 1); // FUTURE
         --j; // pop_label
@@ -1353,20 +1353,20 @@ INTERP (f64_Promote_f32_)
 
 INTERP (i32_Reinterpret_f32_)
 {
-    tag (ValueType_f32) = ValueType_i32;
+    tag (Tag_f32) = Tag_i32;
 }
 
 INTERP (f32_Reinterpret_i32_)
 {
-    tag (ValueType_i32) = ValueType_f32;
+    tag (Tag_i32) = Tag_f32;
 }
 
 INTERP (i64_Reinterpret_f64_)
 {
-    tag (ValueType_f64) = ValueType_i64;
+    tag (Tag_f64) = Tag_i64;
 }
 
 INTERP (f64_Reinterpret_i64_)
 {
-    tag (ValueType_i64) = ValueType_f64;
+    tag (Tag_i64) = Tag_f64;
 }

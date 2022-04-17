@@ -362,23 +362,25 @@ typedef enum Tag : uint8_t
 {
     Tag_none = 0,   // allow for zero-init
     Tag_bool = 1,   // aka i32
-    Tag_any  = 2,    // often has constraints
+    Tag_any  = 2,	// often has constraints
 
-    // These are from the file format.
+    // These are from the file format. These are the primary
+	// types in WebAssembly, prior to the addition of SIMD.
     Tag_i32 = 0x7F,
     Tag_i64 = 0x7E,
     Tag_f32 = 0x7D,
     Tag_f64 = 0x7C,
 
+	//todo: comment
     Tag_empty = 0x40, // ResultType, void
 
     //internal, any value works..not clearly needed
+	// A heterogenous conceptual WebAssembly stack contains Values, Frames, and Labels.
     Tag_Value = 0x80, // i32, i64, f32, f64
     Tag_Label = 0x81, // branch target
     Tag_Frame = 0x82,  // return address + locals + params
-    Tag_string = 0x83, // sourcegen extension
-    Tag_label  = 0x84, // sourcegen extension, needed?
 
+	//todo: comment
     Tag_FuncRef = 0x70,
 } Tag;
 
@@ -1092,16 +1094,15 @@ union Value
 
 struct TaggedValue
 {
-    ValueType tag;
+    Tag tag;
     Value value;
 };
-
 
 typedef Tag BlockType;
 
 static
 const char*
-TypeToStringCxx (int tag)
+TagToStringCxx (int tag)
 {
     switch ((Tag)tag)
     {
@@ -1114,13 +1115,17 @@ TypeToStringCxx (int tag)
     case Tag_f32:      return "float";
     case Tag_f64:      return "double";
     case Tag_empty:    return "void";
+
+    case Tag_Value:    return "Value(1)";
+    case Tag_Label:    return "Label(2)";
+    case Tag_Frame:    return "Frame(3)";
     }
     return "unknown";
 }
 
 static
 const char*
-TypeToString (int tag)
+TagToString (int tag)
 {
     switch ((Tag)tag)
     {
@@ -1133,20 +1138,13 @@ TypeToString (int tag)
     case Tag_f32:      return "f32(7D)";
     case Tag_f64:      return "f64(7C)";
     case Tag_empty:    return "empty(40)";
+
+    case Tag_Value:    return "Value(1)";
+    case Tag_Label:    return "Label(2)";
+    case Tag_Frame:    return "Frame(3)";
     }
     return "unknown";
 }
-
-typedef enum TableElementType : uint32_t
-{
-    Tag_FuncRef = 0x70,
-} TableElementType;
-
-typedef enum LimitsTag // specific to tabletype?
-{
-    LimitsTag_min = 0,
-    Limits_minMax = 1,
-} LimitsTag;
 
 struct Limits
 {
@@ -1162,18 +1160,15 @@ const uint32_t FunctionTypeTag = 0x60;
 
 struct TableType
 {
-    TableType () : elementType ((TableElementType)0) { }
+    TableType () : elementType ((Tag)0) { }
 
-    TableElementType elementType;
+    Tag elementType;
     Limits limits;
 
     bool operator < (const TableType&) const; // workaround old compiler
     bool operator == (const TableType&) const; // workaround old compiler
     bool operator != (const TableType&) const; // workaround old compiler
 };
-
-// Table types have an value type, funcref
-const uint32_t TableTypeFuncRef = 0x70;
 
 // Globals are mutable or constant.
 typedef enum Mutable
@@ -1212,21 +1207,9 @@ struct Code;
 struct Frame; // work in progress
 struct DecodedInstruction;
 
-static
-const char*
-TagToString (Tag tag)
-{
-    switch (tag)
-    {
-    case Tag_Value: return "Value(1)";
-    case Tag_Label: return "Label(2)";
-    case Tag_Frame: return "Frame(3)";
-    }
-    return "unknown";
-}
-
 struct StackValue
 {
+    // TODO remove two level tagging
     Tag tag;
     union
     {
@@ -1241,25 +1224,28 @@ struct StackValue
         };
     };
 
-    StackValue()
+    void Init()
     {
         ZeroMem(&tag, sizeof(tag));
         ZeroMem(&value, sizeof(value));
-        ZeroMem(&label, sizeof(label));
+        //ZeroMem(&label, sizeof(label));
         frame = 0;
+    }
+
+    StackValue()
+    {
+        Init();
     }
 
     StackValue (Tag t)
     {
         Init ();
         tag = t;
-    }
-
-    StackValue (ValueType t)
-    {
-        Init ();
-        tag = Tag_Value;
-        value.tag = t;
+        if ((t & 0x78) == 0x78)
+        {
+            tag = Tag_Value;
+            value.tag = t; //todo: remove?
+        }
     }
 
     StackValue (TaggedValue t)
@@ -1345,8 +1331,8 @@ struct Frame
     size_t param_count {};
     size_t local_only_count {};
     size_t param_and_local_count {};
-    ValueType* local_only_types {};
-    ValueType* param_types {};
+    Tag* local_only_types {};
+    Tag* param_types {};
     FunctionType* function_type {};
     // TODO locals/params
     // This should just be stack pointer, to another stack,
@@ -1384,7 +1370,7 @@ struct Stack : private StackBase
 
     // While ultimately a stack of values, labels, and frames, values dominate.
 
-    ValueType& tag (ValueType tag)
+    Tag& tag (Tag tag)
     {
         AssertTopIsValue ();
         StackValue& t = top ();
@@ -1392,7 +1378,7 @@ struct Stack : private StackBase
         return t.value.tag;
     }
 
-    ValueType& tag ()
+    Tag& tag ()
     {
         AssertTopIsValue ();
         StackValue& t = top ();
@@ -1406,7 +1392,7 @@ struct Stack : private StackBase
         return t.value.value;
     }
 
-    Value& value (ValueType tag)
+    Value& value (Tag tag)
     {
         AssertTopIsValue ();
         StackValue& t = top ();
@@ -1428,14 +1414,14 @@ struct Stack : private StackBase
         AssertTopIsValue ();
         //int t = tag ();
         pop ();
-        //printf ("pop_value tag:%s depth:%" FORMAT_SIZE "X\n", TypeToString (t), size ());
+        //printf ("pop_value tag:%s depth:%" FORMAT_SIZE "X\n", TagToString (t), size ());
     }
 
     void push_value (const StackValue& value)
     {
         AssertFormat (value.tag == Tag_Value, ("%X %X", value.tag, Tag_Value));
         push (value);
-        //printf ("push_value tag:%s value:%X depth:%" FORMAT_SIZE "X\n", TypeToString (value.value.tag), value.value.value.i32, size ());
+        //printf ("push_value tag:%s value:%X depth:%" FORMAT_SIZE "X\n", TagToString (value.value.tag), value.value.value.i32, size ());
     }
 
     void push_label (const StackValue& value)
@@ -1543,8 +1529,9 @@ struct Stack : private StackBase
             case Tag_Frame:
                 break;
             case Tag_Value:
-                printf ("%s", TypeToString (begin () [(ptrdiff_t)i].value.tag));
+                printf ("%s", TagToString (begin () [(ptrdiff_t)i].value.tag));
                 break;
+			default:; //todo
             }
             printf (" ");
         }
@@ -1561,7 +1548,7 @@ struct Stack : private StackBase
 
     // setter, changes tag, returns ref
 
-    Value& set (ValueType tag)
+    Value& set (Tag tag)
     {
         AssertTopIsValue ();
         StackValue& t = top ();
@@ -1997,7 +1984,7 @@ struct ImportMemory
 
 struct GlobalType
 {
-    ValueType value_type {};
+    Tag value_type {};
     bool is_mutable {};
 };
 
@@ -2128,7 +2115,7 @@ struct Code
 
     size_t size;
     uint8_t* cursor;
-    std::vector <ValueType> locals; // params in FunctionType
+    std::vector <Tag> locals; // params in FunctionType
     std::vector <DecodedInstruction> decoded_instructions; // section10
     bool import;
 };
@@ -2139,8 +2126,8 @@ struct Code
 struct FunctionType
 {
     // CONSIDER pointer into mmf
-    std::vector <ValueType> parameters;
-    std::vector <ValueType> results;
+    std::vector <Tag> parameters;
+    std::vector <Tag> results;
 
     bool operator == (const FunctionType& other) const
     {
@@ -2207,13 +2194,13 @@ struct Module : ModuleBase
     MemoryType read_memorytype (uint8_t** cursor);
     GlobalType read_globaltype (uint8_t** cursor);
     TableType read_tabletype (uint8_t** cursor);
-    ValueType read_valuetype (uint8_t** cursor);
+    Tag read_valuetype (uint8_t** cursor);
     BlockType read_blocktype(uint8_t** cursor);
-    TableElementType read_elementtype (uint8_t** cursor);
+    Tag read_elementtype (uint8_t** cursor);
     bool read_mutable (uint8_t** cursor);
     void read_section (uint8_t** cursor);
     void read_module (const char* file_name);
-    void read_vector_ValueType (std::vector <ValueType>& result, uint8_t** cursor);
+    void read_vector_ValueType (std::vector <Tag>& result, uint8_t** cursor);
     void read_function_type (FunctionType& functionType, uint8_t** cursor);
 
     virtual void read_types (uint8_t** cursor);
@@ -2423,7 +2410,7 @@ void Module::read_imports (uint8_t** cursor)
     code.resize (import_function_count, imported_code);
 }
 
-void Module::read_vector_ValueType (std::vector <ValueType>& result, uint8_t** cursor)
+void Module::read_vector_ValueType (std::vector <Tag>& result, uint8_t** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     result.resize (size);
@@ -2613,7 +2600,7 @@ DecodeFunction (Module* module, Code* code, uint8_t** cursor)
     for (size_t i = 0; i < local_type_count; ++i)
     {
         const size_t j = module->read_varuint32 (cursor);
-        ValueType value_type = module->read_valuetype (cursor);
+        Tag value_type = module->read_valuetype (cursor);
         printf ("local_type_count %" FORMAT_SIZE "X-of-%" FORMAT_SIZE "X count:%" FORMAT_SIZE "X type:%X\n", i, local_type_count, j, value_type);
         code->locals.resize (code->locals.size () + j, value_type);
     }
@@ -2784,13 +2771,13 @@ bool Module::read_mutable (uint8_t** cursor)
     return m == 1;
 }
 
-ValueType Module::read_valuetype (uint8_t** cursor)
+Tag Module::read_valuetype (uint8_t** cursor)
 {
     const uint32_t value_type = read_byte (cursor);
     switch (value_type)
     {
     default:
-        ThrowString (StringFormat ("invalid ValueType:%X", value_type));
+        ThrowString (StringFormat ("invalid Tag:%X", value_type));
         break;
     case Tag_i32:
     case Tag_i64:
@@ -2798,7 +2785,7 @@ ValueType Module::read_valuetype (uint8_t** cursor)
     case Tag_f64:
         break;
     }
-    return (ValueType)value_type;
+    return (Tag)value_type;
 }
 
 BlockType Module::read_blocktype(uint8_t** cursor)
@@ -2827,9 +2814,9 @@ GlobalType Module::read_globaltype (uint8_t** cursor)
     return globalType;
 }
 
-TableElementType Module::read_elementtype (uint8_t** cursor)
+Tag Module::read_elementtype (uint8_t** cursor)
 {
-    TableElementType elementType = (TableElementType)read_byte (cursor);
+    Tag elementType = (Tag)read_byte (cursor);
     if (elementType != Tag_FuncRef)
         ThrowString ("invalid elementType");
     return elementType;
@@ -3151,7 +3138,7 @@ public:
             if (function_type->results.size() == 0)
                 printf("\nvoid ");
             else
-                printf("\n%s ", TypeToStringCxx(function_type->results[0]));
+                printf("\n%s ", TagToStringCxx(function_type->results[0]));
 
             printf(" function%d ( \n", (int)i);
 
@@ -3166,7 +3153,7 @@ public:
                 {
                     if (j)
                         printf(",");
-                    printf("%s local%" FORMAT_SIZE "d", TypeToStringCxx(function_type->parameters[j]), (long_t)j);
+                    printf("%s local%" FORMAT_SIZE "d", TagToStringCxx(function_type->parameters[j]), (long_t)j);
                 }
             }
 
@@ -3175,7 +3162,7 @@ public:
             const size_t local_count = code->locals.size();
             for (size_t k = 0; k < local_count; ++k)
             {
-                printf("%s local%" FORMAT_SIZE "d;\n", TypeToStringCxx(code->locals[k]), (long_t)k + param_count);
+                printf("%s local%" FORMAT_SIZE "d;\n", TagToStringCxx(code->locals[k]), (long_t)k + param_count);
             }
 
             instr = &code->decoded_instructions [0];
