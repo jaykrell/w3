@@ -12,11 +12,15 @@ ifdef MAKEDIR:
 # Microsoft nmake on Windows with desktop CLR, Visual C++.
 #
 
+CFLAGS=-MD -Gy -Z7
+CPPFLAGS=-MD -Gy -Z7
+
 RM_F = del 2>nul /f
 #ILDASM = ildasm /nobar /out:$@
 #ILASM = ilasm /quiet
 #RUN_EACH=for %%a in (
 #RUN_EACH_END=) do @$Q$(MONO)$Q %%a
+O=obj
 
 !else
 else
@@ -31,6 +35,7 @@ RM_F = rm -f
 #MONO ?= mono
 #RUN_EACH=for a in
 #RUN_EACH_END=;do $(MONO) $${a}; done
+O=o
 
 endif
 !endif :
@@ -97,7 +102,7 @@ debug: $(win)
 !endif
 
 clean:
-	$(RM_F) $(win) w3.obj *.ilk win32 win32.exe win64 win64.exe win win.exe winarm.exe winx86.exe winamd64.exe *.pdb lin *.i
+	$(RM_F) $(win) w3rt.o w3rt.obj w3.obj *.ilk win32 win32.exe win64 win64.exe win win.exe winarm.exe winx86.exe winamd64.exe *.pdb lin *.i
 
 # TODO clang cross
 #
@@ -107,7 +112,7 @@ clean:
 
 # TODO /Qspectre
 
-$(win): w3.cpp
+$(win): w3.cpp w3rt.$O
 	@-del $(@R).pdb $(@R).ilk
 	@rem TODO /GX on old, /EHsc on new
 	rem cl -MD -Gy -Z7 /O2s $(Wall) $(Qspectre) -W4 -GX $** /link /out:$@ /incremental:no /opt:ref,icf
@@ -145,21 +150,21 @@ debug: mac
 	lldb -- ./$(NativeTarget) /s/mono/mcs/class/lib/build-macos/mscorlib.dll
 
 clean:
-	$(RM_F) mac win32 win32.exe win64 win64.exe win win.exe cyg cyg.exe *.ilk lin win.exe winarm.exe winx86.exe winamd64.exe
+	$(RM_F) w3rt.o w3rt.obj mac win32 win32.exe win64 win64.exe win win.exe cyg cyg.exe *.ilk lin win.exe winarm.exe winx86.exe winamd64.exe
 
-mac: w3.cpp
+mac: w3.cpp w3rt.$O
 	g++ -g w3.cpp -o $@ -Bsymbolic -bind_at_load
 
-cyg: w3.cpp
+cyg: w3.cpp w3rt.$O
 	g++ -g w3.cpp -o $@ -Bsymbolic -znow -zrelro
 
-lin: w3.cpp
+lin: w3.cpp w3rt.$O
 	g++ -Wall -g w3.cpp -o $@ -Bsymbolic -znow -zrelro
 
-win32.exe: w3.cpp
+win32.exe: w3.cpp w3rt.$O
 	i686-w64-mingw32-g++ -g w3.cpp -o $@ -Bsymbolic
 
-win64.exe: w3.cpp
+win64.exe: w3.cpp w3rt.$O
 	x86_64-w64-mingw32-g++ -g w3.cpp -o $@ -Bsymbolic
 
 test:

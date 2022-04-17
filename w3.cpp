@@ -2,120 +2,15 @@
 // portable
 // simple? Always striving for the right level of complexity -- not too simple.
 // efficient? (not yet)
-
+//
 // https://webassembly.github.io/spec/core/binary/index.html
 // https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
+//
+// ongoing: Spit this file up.
+// ongoing: Port to C++98 or earlier (no namespaces, maybe no STL, maybe no C++)
+//
 
-#define _CRT_SECURE_NO_WARNINGS 1
-
-#if _MSC_VER
-#pragma warning (disable:4127) // conditional expression is constant
-#pragma warning (disable:4365) // integer type mixups
-#pragma warning (disable:4480) // non-standard extension
-#pragma warning (disable:4571) // catch(...)
-#pragma warning (disable:4616) // disable unknown warning (for older compiler)
-#pragma warning (disable:4619) // disable unknown warning (for older compiler)
-#pragma warning (disable:4820) // padding added
-#pragma warning (disable:5045) // compiler will/did insert Spectre mitigation
-#endif
-
-#define _WASI_EMULATED_MMAN
-#define WIN32_LEAN_AND_MEAN 1
-
-#if _WIN32
-#define BIG_ENDIAN      2
-#define LITTLE_ENDIAN   1
-#define BYTE_ORDER      LITTLE_ENDIAN
-#else
-#include <endian.h>
-#define BIG_ENDIAN      __BIG_ENDIAN
-#define LITTLE_ENDIAN   __LITTLE_ENDIAN
-#define BYTE_ORDER      __BYTE_ORDER
-#endif
-
-#include <math.h>
-#include <limits.h>
-
-// Win32 ZeroMemory
-#define ZeroMem(p, n) memset((p), 0, (n))
-
-#if _MSC_VER
-// Older compiler.
-typedef signed __int8     int8_t;
-typedef signed __int16    int16_t;
-typedef signed __int32    int32_t;
-typedef signed __int64    int64_t;
-typedef unsigned __int8  uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-#define __func__ __FUNCTION__
-#else
-#include <stdint.h>
-#endif
-
-#include "ieee.h"
-#include "math_private.h"
-
-static const float wasm_hugef = 1.0e30F;
-static const double wasm_huged = 1.0e300;
-
-#include "s_floor.c"
-#include "s_floorf.c"
-#include "isnan.c"
-#include "isinf.c"
-#include "s_trunc.c"
-#include "s_truncf.c"
-#include "s_round.c"
-#include "s_roundf.c"
-
-#define _DARWIN_USE_64_BIT_INODE 1
-//#define __DARWIN_ONLY_64_BIT_INO_T 1
-// TODO cmake
-// TODO big endian and packed I/O
-//#define _LARGEFILE_SOURCE
-//#define _LARGEFILE64_SOURCE
-
-#if _MSC_VER
-#pragma warning (disable:4201) // nameless struct/union
-#pragma warning (disable:4355) // this used in base member initializer list
-#pragma warning (disable:4100) // unused parameter
-#pragma warning (disable:4371) // layout change from previous compiler version
-#pragma warning (disable:4505) // unused static function
-#pragma warning (disable:4514) // unused function
-#pragma warning (disable:4668) // #if not_defined is #if 0
-#pragma warning (disable:4710) // function not inlined
-#pragma warning (disable:4820) // padding
-#pragma warning (push)
-#pragma warning (disable:4571) // catch(...)
-#pragma warning (disable:4626) // assignment implicitly deleted
-#pragma warning (disable:4625) // copy constructor implicitly deleted
-#pragma warning (disable:4668) // #if not_defined as #if 0
-#pragma warning (disable:4774) // printf used without constant format
-#pragma warning (disable:4820) // ucrt\malloc.h(45): warning C4820: '_heapinfo': '4' bytes padding added after data member '_heapinfo::_useflag'
-#pragma warning (disable:5039) // exception handling and function pointers
-#include <intrin.h>
-#endif
-
-#if __GNUC__ || __clang__
-#pragma GCC diagnostic ignored "-Wunused-const-variable"
-#pragma GCC diagnostic ignored "-Wunused-function"
-#endif
-
-#ifndef _ISOC99_SOURCE
-#define _ISOC99_SOURCE
-#endif
-
-#include <math.h>
-#include <assert.h>
-#include <errno.h>
-#include <memory.h>
-#include <stdarg.h>
-#include <stddef.h>
-typedef ptrdiff_t ssize_t;
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
+#include "w3.h"
 
 #include <stack>
 #include <string>
@@ -131,6 +26,8 @@ typedef ptrdiff_t ssize_t;
 
 #else
 
+typedef char* PCH;
+typedef const char* PCSTR;
 #define IsDebuggerPresent() (0)
 #define __debugbreak() ((void)0)
 #define DebugBreak() ((void)0)
@@ -142,18 +39,32 @@ typedef ptrdiff_t ssize_t;
 #endif
 
 #if _MSC_VER
-#include <malloc.h> // for _alloca
+#pragma warning (suppress:5031)
 #pragma warning (pop)
-#define alloca _alloca
 #endif
+
+#if _MSC_VER
+#pragma warning(disable:4061) // revisit switches
+#endif
+
+#include "ieee.h"
+#include "math_private.h"
+static const float wasm_hugef = 1.0e30F;
+static const double wasm_huged = 1.0e300;
+#include "s_floor.c"
+#include "s_floorf.c"
+#include "isnan.c"
+#include "isinf.c"
+#include "s_trunc.c"
+#include "s_truncf.c"
+#include "s_round.c"
+#include "s_roundf.c"
 
 namespace w3
 {
 
 #if 0
-static
-void
-AssertFailed (const char* file, int line, const char* expr)
+void AssertFailed (PCSTR file, int line, PCSTR expr)
 {
     fprintf (stderr, "Assert failed: %s(%d):%s\n", file, line, expr);
 #if _WIN32
@@ -166,23 +77,16 @@ AssertFailed (const char* file, int line, const char* expr)
 #define Assert(expr) ((void)((expr) || AssertFailed (__FILE__, __LINE__, #expr)))
 #endif
 
-
-static
-void
-ThrowString (const std::string& a)
+void ThrowString (const std::string& a)
 {
     //fprintf (stderr, "%s\n", a.c_str ());
     throw a + "\n";
     //abort ();
 }
 
-static
-std::string
-StringFormatVa (const char* format, va_list va);
+std::string StringFormatVa (PCSTR format, va_list va);
 
-static
-std::string
-StringFormat (const char* format, ...)
+std::string StringFormat (PCSTR format, ...)
 {
     va_list va;
     va_start (va, format);
@@ -191,33 +95,25 @@ StringFormat (const char* format, ...)
     return a;
 }
 
-static
-void
-ThrowInt (int i, const char* a = "")
+void ThrowInt (int i, PCSTR a = "")
 {
     ThrowString (StringFormat ("error 0x%08X %s", i, a));
 }
 
-static
-void
-ThrowErrno (const char* a = "")
+void ThrowErrno (PCSTR a = "")
 {
     ThrowInt (errno, a);
 }
 
 #if _WIN32
 
-static
-void
-throw_Win32Error (int err, const char* a = "")
+void throw_Win32Error (int err, PCSTR a = "")
 {
     ThrowInt (err, a);
 
 }
 
-static
-void
-throw_GetLastError (const char* a = "")
+void throw_GetLastError (PCSTR a = "")
 {
     ThrowInt ((int)GetLastError (), a);
 
@@ -239,8 +135,7 @@ throw_GetLastError (const char* a = "")
 #pragma warning (disable:4996) // _vsnprintf dangerous
 #endif
 
-size_t
-string_vformat_length (const char* format, va_list va)
+size_t string_vformat_length (PCSTR format, va_list va)
 {
 #if _MSC_VER
     return 2 + _vscprintf (format, va);
@@ -253,9 +148,7 @@ string_vformat_length (const char* format, va_list va)
 #pragma warning (pop)
 #endif
 
-static
-void
-AssertFailedFormat (const char* condition, const std::string& extra)
+void AssertFailedFormat (PCSTR condition, const std::string& extra)
 {
     fputs (("AssertFailed:" + std::string (condition) + ":" + extra + "\n").c_str (), stderr);
     //Assert (0);
@@ -266,8 +159,7 @@ AssertFailedFormat (const char* condition, const std::string& extra)
     ThrowString ("AssertFailed:" + std::string (condition) + ":" + extra);
 }
 
-void
-AssertFailed (const char* expr)
+void AssertFailed (PCSTR expr)
 {
     fprintf (stderr, "AssertFailed:%s\n", expr);
 #if _WIN32 // TODO
@@ -280,41 +172,35 @@ AssertFailed (const char* expr)
 #define Assert(x)         ((x) || ( AssertFailed (#x), (int)0))
 #define AssertFormat(x, extra) ((x) || (AssertFailedFormat (#x, StringFormat extra), 0))
 
-template <class T>
-const T& Min (const T& a, const T& b)
+template <class T> const T& Min (const T& a, const T& b)
 {
     return (a <= b) ? a : b;
 }
 
-template <class T>
-const T& Max (const T& a, const T& b)
+template <class T> const T& Max (const T& a, const T& b)
 {
     return (a >= b) ? a : b;
 }
 
-template <class T>
-void WasmStdConstructN (T* a, size_t n)
+template <class T> void WasmStdConstructN (T* a, size_t n)
 {
     for (size_t i = 0; i < n; ++i)
         new (a++) T ();
 }
 
-template <class T>
-void WasmStdCopyConstructNtoN (T* to, T* from, size_t n)
+template <class T> void WasmStdCopyConstructNtoN (T* to, T* from, size_t n)
 {
     for (size_t i = 0; i < n; ++i)
         new (to++) T (*from++);
 }
 
-template <class T>
-void WasmStdCopyConstruct1toN (T* to, const T& from, size_t n)
+template <class T> void WasmStdCopyConstruct1toN (T* to, const T& from, size_t n)
 {
     for (size_t i = 0; i < n; ++i)
         new (to++) T (from);
 }
 
-template <class T>
-void WasmStdCopyConstruct1 (T& to, const T& from)
+template <class T> void WasmStdCopyConstruct1 (T& to, const T& from)
 {
     WasmStdCopyConstruct1toN (&to, from, 1u);
 }
@@ -436,7 +322,7 @@ struct SourceGenValue
     };
     */
     std::string str;
-    const char* cstr() { return str.c_str(); }
+    PCSTR cstr() { return str.c_str(); }
 };
 
 struct SourceGenStack : std::stack<SourceGenValue>
@@ -448,40 +334,19 @@ struct SourceGenStack : std::stack<SourceGenValue>
         while (size()) pop();
     }
 
-    const char* cstr() { return top().str.c_str(); }
+    PCSTR cstr() { return top ().str.c_str (); }
 
-    std::string pop()
+    std::string pop ()
     {
-        std::string str = top().str;
+        std::string str = top ().str;
         base::pop();
         return str;
     }
 
-    void pushf(const char*, ...) //printf todo
-    {
-    }
-
-    void flush_stack()
-    {
-        //todo
-    }
-
-    void printf(const char*, ...) //printf todo
-    {
-        flush_stack();
-        //todo
-    }
-
-    void pushf(const std::string&) // todo
-    {
-    }
-
-    void push_label(...) { } //todo
+    void push_label (...) { } //todo
 };
 
-static
-std::string
-StringFormatVa (const char* format, va_list va)
+std::string StringFormatVa (PCSTR format, va_list va)
 {
     // Some systems, including Linux/amd64, cannot consume a
     // va_list multiple times. It must be copied first.
@@ -510,19 +375,15 @@ const uint32_t PageShift = 16;
 
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
 
-static
-uint32_t
-Unpack2 (const void* a)
+uint32_t Unpack2 (const void* a)
 {
     uint8_t* b = (uint8_t*)a;
     return ((b [1]) << 8) | (uint32_t)b [0];
 }
 
-static
-uint32_t
-Unpack4 (const void* a)
+uint32_t Unpack4 (const void* a)
 {
-    return (Unpack2 ((char*)a + 2) << 16) | Unpack2 (a);
+    return (Unpack2 ((PCH)a + 2) << 16) | Unpack2 (a);
 }
 
 template <uint32_t N> struct uintLEn_to_native_exact;
@@ -577,7 +438,7 @@ struct Handle
 {
     // TODO Handle vs. win32file_t, etc.
 
-    uint64_t get_file_size (const char* file_name = "")
+    uint64_t get_file_size (PCSTR file_name = "")
     {
         DWORD hi = 0;
         DWORD lo = GetFileSize (h, &hi);
@@ -653,7 +514,7 @@ struct Fd
     int fd;
 
 #if !_WIN32
-    uint64_t get_file_size (const char* file_name = "")
+    uint64_t get_file_size (PCSTR file_name = "")
     {
 #if __CYGWIN__
         struct stat st = { 0 }; // TODO test more systems
@@ -745,7 +606,7 @@ struct MemoryMappedFile
 #endif
         base = 0;
     }
-    void read (const char* a)
+    void read (PCSTR a)
     {
 #if _WIN32
 #ifndef FILE_SHARE_DELETE // ifndef required due to Watcom 4 vs. 4L.
@@ -772,9 +633,7 @@ struct MemoryMappedFile
     }
 };
 
-static
-uint64_t
-SignExtend (uint64_t value, uint32_t bits)
+uint64_t SignExtend (uint64_t value, uint32_t bits)
 {
     // Extract lower bits from value and signextend.
     // From detour_sign_extend.
@@ -785,9 +644,7 @@ SignExtend (uint64_t value, uint32_t bits)
     return value | sign;
 }
 
-static
-size_t
-int_magnitude (ssize_t i)
+size_t int_magnitude (ssize_t i)
 {
     // Avoid negating the most negative number.
     return 1 + (size_t)-(i + 1);
@@ -803,9 +660,7 @@ struct int_split_sign_magnitude_t
     uint64_t u;
 };
 
-static
-uint32_t
-UIntGetPrecision (uint64_t a)
+uint32_t UIntGetPrecision (uint64_t a)
 {
     // How many bits needed to represent.
     uint32_t len = 1;
@@ -813,18 +668,14 @@ UIntGetPrecision (uint64_t a)
     return len;
 }
 
-static
-uint32_t
-IntGetPrecision (int64_t a)
+uint32_t IntGetPrecision (int64_t a)
 {
     // How many bits needed to represent.
     // i.e. so leading bit is extendible sign bit, or 64
     return Min (64u, 1 + UIntGetPrecision (int_split_sign_magnitude_t (a).u));
 }
 
-static
-uint32_t
-UIntToDec_GetLength (uint64_t b)
+uint32_t UIntToDec_GetLength (uint64_t b)
 {
     uint32_t len = 0;
     do ++len;
@@ -832,9 +683,7 @@ UIntToDec_GetLength (uint64_t b)
     return len;
 }
 
-static
-uint32_t
-UIntToDec (uint64_t a, char* buf)
+uint32_t UIntToDec (uint64_t a, PCH buf)
 {
     uint32_t const len = UIntToDec_GetLength (a);
     for (uint32_t i = 0; i != len; ++i, a /= 10)
@@ -842,9 +691,7 @@ UIntToDec (uint64_t a, char* buf)
     return len;
 }
 
-static
-uint32_t
-IntToDec (int64_t a, char* buf)
+uint32_t IntToDec (int64_t a, PCH buf)
 {
     const int_split_sign_magnitude_t split (a);
     if (split.neg)
@@ -852,17 +699,13 @@ IntToDec (int64_t a, char* buf)
     return split.neg + UIntToDec (split.u, buf);
 }
 
-static
-uint32_t
-IntToDec_GetLength (int64_t a)
+uint32_t IntToDec_GetLength (int64_t a)
 {
     const int_split_sign_magnitude_t split (a);
     return split.neg + UIntToDec_GetLength (split.u);
 }
 
-static
-uint32_t
-UIntToHex_GetLength (uint64_t b)
+uint32_t UIntToHex_GetLength (uint64_t b)
 {
     uint32_t len = 0;
     do ++len;
@@ -870,9 +713,7 @@ UIntToHex_GetLength (uint64_t b)
     return len;
 }
 
-static
-uint32_t
-IntToHex_GetLength (int64_t a)
+uint32_t IntToHex_GetLength (int64_t a)
 {
     // If negative and first digit is <8, add one to induce leading 8-F
     // so that sign extension of most significant bit will work.
@@ -885,67 +726,51 @@ IntToHex_GetLength (int64_t a)
     return len + (a < 0 && most_significant < 8);
 }
 
-static
-void
-UIntToHexLength (uint64_t a, uint32_t len, char* buf)
+void UIntToHexLength (uint64_t a, uint32_t len, PCH buf)
 {
     buf += len;
     for (uint32_t i = 0; i != len; ++i, a >>= 4)
         *--buf = "0123456789ABCDEF" [a & 0xF];
 }
 
-static
-void
-IntToHexLength (int64_t a, uint32_t len, char* buf)
+void IntToHexLength (int64_t a, uint32_t len, PCH buf)
 {
     UIntToHexLength ((uint64_t)a, len, buf);
 }
 
-static
-uint32_t
-IntToHex (int64_t a, char* buf)
+uint32_t IntToHex (int64_t a, PCH buf)
 {
     uint32_t const len = IntToHex_GetLength (a);
     IntToHexLength (a, len, buf);
     return len;
 }
 
-static
-uint32_t
-IntToHex8 (int64_t a, char* buf)
+uint32_t IntToHex8 (int64_t a, PCH buf)
 {
     IntToHexLength (a, 8, buf);
     return 8;
 }
 
-static
-uint32_t
-IntToHex_GetLength_AtLeast8 (int64_t a)
+uint32_t IntToHex_GetLength_AtLeast8 (int64_t a)
 {
     uint32_t len = IntToHex_GetLength (a);
     return Max (len, 8u);
 }
 
-static
-uint32_t
-UIntToHex_GetLength_AtLeast8 (uint64_t a)
+uint32_t UIntToHex_GetLength_AtLeast8 (uint64_t a)
 {
     uint32_t const len = UIntToHex_GetLength (a);
     return Max (len, 8u);
 }
 
-static
-uint32_t
-IntToHex_AtLeast8 (int64_t a, char* buf)
+uint32_t IntToHex_AtLeast8 (int64_t a, PCH buf)
 {
     uint32_t const len = IntToHex_GetLength_AtLeast8 (a);
     IntToHexLength (a, len, buf);
     return len;
 }
 
-static
-uint32_t
-UIntToHex_AtLeast8 (uint64_t a, char* buf)
+uint32_t UIntToHex_AtLeast8 (uint64_t a, PCH buf)
 {
     uint32_t const len = UIntToHex_GetLength_AtLeast8 (a);
     UIntToHexLength (a, len, buf);
@@ -958,13 +783,13 @@ struct stream
 
     virtual void write (const void* bytes, size_t size) = 0;
 
-    void prints (const char* a) { write (a, strlen (a)); }
+    void prints (PCSTR a) { write (a, strlen (a)); }
 
     void prints (const std::string& a) { write (a.c_str (), a.length ()); }
 
     void printc (char a) { write (&a, 1); }
 
-    void printf (const char* format, ...)
+    void printf (PCSTR format, ...)
     {
         va_list va;
         va_start (va, format);
@@ -972,7 +797,7 @@ struct stream
         va_end (va);
     }
 
-    void printv (const char* format, va_list va)
+    void printv (PCSTR format, va_list va)
     {
         prints (StringFormatVa (format, va));
     }
@@ -983,7 +808,7 @@ struct stdout_stream : stream
     virtual void write (const void* bytes, size_t size)
     {
         fflush (stdout);
-        const char* pc = (const char*)bytes;
+        PCSTR pc = (PCSTR)bytes;
         while (size > 0)
         {
             // TODO: Use smaller number for Win32 console?
@@ -1005,7 +830,7 @@ struct stderr_stream : stream
     virtual void write (const void* bytes, size_t size)
     {
         fflush (stderr);
-        const char* pc = (const char*)bytes;
+        PCSTR pc = (PCSTR)bytes;
         while (size > 0)
         {
             uint32_t const n = (uint32_t)Min (size, (((size_t)1) << 30));
@@ -1020,18 +845,14 @@ struct stderr_stream : stream
     }
 };
 
-static
-uint8_t
-read_byte (uint8_t** cursor, const uint8_t* end)
+uint8_t read_byte (uint8_t** cursor, const uint8_t* end)
 {
     if (*cursor >= end)
         ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     return *(*cursor)++;
 }
 
-static
-uint64_t
-read_varuint64 (uint8_t** cursor, const uint8_t* end)
+uint64_t read_varuint64 (uint8_t** cursor, const uint8_t* end)
 {
     uint64_t result = 0;
     uint32_t shift = 0;
@@ -1045,9 +866,7 @@ read_varuint64 (uint8_t** cursor, const uint8_t* end)
     }
 }
 
-static
-uint32_t
-read_varuint32 (uint8_t** cursor, const uint8_t* end)
+uint32_t read_varuint32 (uint8_t** cursor, const uint8_t* end)
 {
     uint32_t result = 0;
     uint32_t shift = 0;
@@ -1061,9 +880,7 @@ read_varuint32 (uint8_t** cursor, const uint8_t* end)
     }
 }
 
-static
-uint8_t
-read_varuint7 (uint8_t** cursor, const uint8_t* end)
+uint8_t read_varuint7 (uint8_t** cursor, const uint8_t* end)
 {
     const uint8_t result = read_byte (cursor, end);
     if (result & 0x80)
@@ -1071,9 +888,7 @@ read_varuint7 (uint8_t** cursor, const uint8_t* end)
     return result;
 }
 
-static
-int64_t
-read_varint64 (uint8_t** cursor, const uint8_t* end)
+int64_t read_varint64 (uint8_t** cursor, const uint8_t* end)
 {
     int64_t result = 0;
     uint32_t shift = 0;
@@ -1093,9 +908,7 @@ read_varint64 (uint8_t** cursor, const uint8_t* end)
     return result;
 }
 
-static
-int32_t
-read_varint32 (uint8_t** cursor, const uint8_t* end)
+int32_t read_varint32 (uint8_t** cursor, const uint8_t* end)
 {
     int32_t result = 0;
     uint32_t shift = 0;
@@ -1131,11 +944,7 @@ struct TaggedValue
     Value value;
 };
 
-typedef Tag BlockType;
-
-static
-const char*
-TagToStringCxx (int tag)
+PCSTR TagToStringCxx (int tag)
 {
     switch ((Tag)tag)
     {
@@ -1155,9 +964,7 @@ TagToStringCxx (int tag)
     return "unknown";
 }
 
-static
-const char*
-TagToString (int tag)
+PCSTR TagToString (int tag)
 {
     switch ((Tag)tag)
     {
@@ -1242,7 +1049,7 @@ struct DecodedInstruction;
 
 struct String
 {
-    char* buf;
+    PCH buf;
     size_t len;
 };
 
@@ -1254,12 +1061,12 @@ struct Variable
     bool global : 1;
     bool local : 1;
     long id; // in lieue of name
-    char* name;
+    PCH name;
     char namebuf[64];
 #endif
 };
 
-char* VarName(Variable* var)
+PCH VarName(Variable* var)
 {
 //    if (var->name)
 //        return var->name;
@@ -1274,7 +1081,6 @@ struct StackValue
     union
     {
         TaggedValue value; // TODO: change to Value or otherwise remove redundant tag
-        Label label;
         struct
         {
             Frame* frame; // TODO by value? Probably not. This was changed
@@ -1283,10 +1089,11 @@ struct StackValue
             //DecodedInstruction* instr;
         };
     };
+        Label label;
 
     void Init()
     {
-        ZeroMem(&tag, sizeof(tag));
+        ZeroMem(&tag, sizeof(tag));        
         ZeroMem(&value, sizeof(value));
         //ZeroMem(&label, sizeof(label));
         frame = 0;
@@ -1575,21 +1382,21 @@ struct Stack : private StackBase
         return value (Tag_f64).f64;
     }
 
-    void DumpStack (const char* prefix)
+    void DumpStack (PCSTR prefix)
     {
         const size_t n = size ();
         printf ("stack@%s: %" FORMAT_SIZE "X ", prefix, n);
         for (size_t i = 0; i != n; ++i)
         {
-            printf ("%s:", TagToString (begin () [(ptrdiff_t)i].tag));
-            switch (begin () [(ptrdiff_t)i].tag)
+            printf ("%s:", TagToString (begin () [(ssize_t)i].tag));
+            switch (begin () [(ssize_t)i].tag)
             {
             case Tag_Label:
                 break;
             case Tag_Frame:
                 break;
             case Tag_Value:
-                printf ("%s", TagToString (begin () [(ptrdiff_t)i].value.tag));
+                printf ("%s", TagToString (begin () [(ssize_t)i].value.tag));
                 break;
             default:; //todo
             }
@@ -1961,22 +1768,22 @@ struct WasmString
     {
     }
 
-    char* data;
+    PCH data;
     size_t size;
     std::string storage;
     BuiltinString builtin ;
     bool builtinStorage;
 
-    char* c_str ()
+    PCH c_str ()
     {
         if (!data)
         {
-            data = (char*)storage.c_str ();
+            data = (PCH)storage.c_str ();
         }
         else if (data != storage.c_str ())
         {
             storage = std::string (data, size);
-            data = (char*)storage.c_str ();
+            data = (PCH)storage.c_str ();
         }
         return data;
     }
@@ -2238,7 +2045,7 @@ struct Module
     Tag read_elementtype (uint8_t** cursor);
     bool read_mutable (uint8_t** cursor);
     void read_section (uint8_t** cursor);
-    void read_module (const char* file_name);
+    void read_module (PCSTR file_name);
     void read_vector_ValueType (std::vector <Tag>& result, uint8_t** cursor);
     void read_function_type (FunctionType& functionType, uint8_t** cursor);
 
@@ -2258,9 +2065,7 @@ struct Module
     virtual void read_data (uint8_t** cursor);
 };
 
-static
-InstructionEnum
-DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code);
+InstructionEnum DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code);
 
 void Module::read_data (uint8_t** cursor)
 {
@@ -2478,9 +2283,7 @@ void Module::read_types (uint8_t** cursor)
     printf ("read section 1\n");
 }
 
-static
-InstructionEnum
-DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code)
+InstructionEnum DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code)
 {
     uint32_t b0 = (uint32_t)Block;
     size_t index {};
@@ -2627,9 +2430,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
     return (InstructionEnum)b0;
 }
 
-static
-void
-DecodeFunction (Module* module, Code* code, uint8_t** cursor)
+void DecodeFunction (Module* module, Code* code, uint8_t** cursor)
 {
     // read count of types
     // for each type
@@ -2649,7 +2450,7 @@ DecodeFunction (Module* module, Code* code, uint8_t** cursor)
 struct SectionTraits
 {
     void (Module::*read)(uint8_t** cursor);
-    const char* name;
+    PCSTR name;
 };
 
 const
@@ -2744,7 +2545,7 @@ WasmString Module::read_string (uint8_t** cursor)
         ThrowString ("malformed in read_string");
     // TODO UTF8 handling
     WasmString a;
-    a.data = (char*)*cursor;
+    a.data = (PCH)*cursor;
     a.size = size;
 
     // TODO string recognizer?
@@ -2910,12 +2711,12 @@ void Module::read_section (uint8_t** cursor)
     printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, (long_t)payload_size);
     payload = *cursor;
     uint32_t name_size = 0;
-    char* local_name = 0;
+    PCH local_name = 0;
     if (id == 0)
     {
         name_size = read_varuint32 (cursor);
-        local_name = (char*)*cursor;
-        if (local_name + name_size > (char*)end)
+        local_name = (PCH)*cursor;
+        if (local_name + name_size > (PCH)end)
             ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
     }
     if (payload + payload_size > end)
@@ -2951,7 +2752,7 @@ void Module::read_section (uint8_t** cursor)
         ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, *cursor));
 }
 
-void Module::read_module (const char* file_name)
+void Module::read_module (PCSTR file_name)
 {
     mmf.read (file_name);
     base = (uint8_t*)mmf.base;
@@ -3001,9 +2802,7 @@ struct Wasm
 #include "w3instructions.h"
 };
 
-static
-void
-Overflow (void)
+void Overflow (void)
 {
     Assert (!"Overflow");
 }
@@ -3083,7 +2882,7 @@ struct SourceGen : Wasm
 
     // The value stack is the central data structure so assume it.
 
-    const char* cstr() { return stack.top().cstr(); }
+    PCSTR cstr() { return stack.top().cstr(); }
 
     void push_i32 (int i)
     {
@@ -3092,7 +2891,7 @@ struct SourceGen : Wasm
         stack.push(SourceGenValue{Tag_i32, s});
     }
 
-    void push_i32 (const char* s)
+    void push_i32 (PCSTR s)
     {
         stack.push(SourceGenValue{Tag_i32, s});
     }
@@ -3109,18 +2908,21 @@ struct SourceGen : Wasm
     {
     }
 
-    void pop()
+    std::string pop ()
     {
-        stack.pop();
+        return stack.pop();
     }
 
-    static std::string string_format(const char*, ...)
+    /*std::string top ()
+    {
+        std::string a = pop ();
+        push (a);
+        return a;
+    }*/
+
+    static std::string string_format(PCSTR, ...)
     {
         return "todo";
-    }
-
-    void printf(const char*, ...)
-    {
     }
 
     void push(const std::string& s)
@@ -3137,27 +2939,30 @@ struct RustGen : SourceGen //TODO
 {
 };
 
-struct CGen : SourceGen
+struct WasmCGen : SourceGen
 {
 public:
+
+    void Prefix();
 
     void flush() { }
     void print(...) { }
 
-    virtual ~CGen()
+    virtual ~WasmCGen()
     {
     }
 
-    CGen(const CGen&) = delete;
-    void operator=(const CGen&) = delete;
+    WasmCGen(const WasmCGen&) = delete;
+    void operator=(const WasmCGen&) = delete;
 
-    CGen() : module (0)
+    WasmCGen() : module (0)
     {
     }
 
-    void Load (const char* push_type, const char* load_type, unsigned size);
+    void Load (PCSTR stack_type, PCSTR mem_type);
+    void Store (PCSTR stack_type, PCSTR mem_type);
 
-    void* LoadStore (size_t size);
+    void LoadStore (PCSTR stack_type, PCSTR mem_type, bool loadOrStore);
 
     Module* module;
 
@@ -3170,17 +2975,19 @@ public:
 
         // Simulate call to initial function.
 
+        Prefix ();
+
         size_t size = mod->functions.size ();
         for (size_t i = 0; i < size; ++i)
         {
             // TODO Rust not C.
 
-            printf("%d\n", (int)i);
+            printf("/*function%d*/\n", (int)i);
 
             Function& function = mod->functions[i];
             const size_t function_type_index = function.function_type_index;
 
-            printf("%d\n", (int)function_type_index);
+            printf("/*function_type%d*/\n", (int)function_type_index);
 
             Assert (function_type_index < module->function_types.size ());
             function_type = &module->function_types [function_type_index];
@@ -3191,7 +2998,9 @@ public:
             uint8_t* cursor = code->cursor;
             if (cursor)
             {
+                printf("\n#if 0\n");
                 DecodeFunction (module, code, &cursor);
+                printf("\n#endif\n");
                 code->cursor = 0;
             }
 
@@ -3234,10 +3043,10 @@ public:
                 {
                     // break before instead of after to avoid unreachable code warning
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0)     \
-                break;                                                                           \
-                case w3::name:                                                                   \
-                printf ("gen%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); \
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0)            \
+                break;                                                                              \
+                case w3::name:                                                                      \
+                printf ("/*gen%s x:%X u:%u i:%i*/\n", #name, instr->u32, instr->u32, instr->u32);   \
                 this->name ();
 #include "w3instructions.h"
                 }
@@ -3352,7 +3161,7 @@ void Interp::Invoke (Function& function)
 
     for (j = 0; j != param_count; ++j)
     {
-        printf ("2 entering function with param [%" FORMAT_SIZE "X] type %X\n", j, (end () - (ptrdiff_t)param_count + (ptrdiff_t)j)->value.tag);
+        printf ("2 entering function with param [%" FORMAT_SIZE "X] type %X\n", j, (end () - (ssize_t)param_count + (ssize_t)j)->value.tag);
     }
 
     // CONSIDER put the interp loop elsewhere
@@ -3371,14 +3180,14 @@ void Interp::Invoke (Function& function)
         for (i = 0; i < param_count; ++i)
         {
             DumpStack ("moved_param_before");
-            *(end () - 1 - (ptrdiff_t)i) = *(end () - 2 - (ptrdiff_t)i);
+            *(end () - 1 - (ssize_t)i) = *(end () - 2 - (ssize_t)i);
             DumpStack ("moved_param_after");
         }
     }
 
     // place return frame/address (frame is just a marker now, the data is on the native stack)
 
-    (end () - 1 - (ptrdiff_t)param_count)->tag = Tag_Frame;
+    (end () - 1 - (ssize_t)param_count)->tag = Tag_Frame;
     //(end () - 1 - param_count)->frame = frame;
     //(end () - 1 - param_count)->instr = instr + !!instr;
 
@@ -3445,7 +3254,7 @@ void Interp::Invoke (Function& function)
 using namespace w3; // TODO C or C++?
 
 int
-main (int argc, char** argv)
+main (int argc, PCH* argv)
 {
     if (IsDebuggerPresent ()) DebugBreak ();
 #if 0 // test code TODO move it elsewhere? Or under a switch.
@@ -3526,10 +3335,19 @@ main (int argc, char** argv)
         size_t i {};
         bool run_all_exports {};
         bool rust_gen {};
+        bool cgen {};
 
         Assert(argc >= 0);
         for (i = 1 ; i < (uint32_t)argc; ++i)
         {
+            if (strcmp (argv [i], "--cgen") == 0)
+            {
+                cgen = true;
+                if (i == 1)
+                    file = 2;
+                else if (i == 2)
+                    file = 1;
+            }
             if (strcmp (argv [i], "--rust-gen") == 0)
             {
                 rust_gen = true;
@@ -3562,9 +3380,9 @@ main (int argc, char** argv)
             }
         }
 
-        if (rust_gen)
+        if (cgen)
         {
-            CGen().interp (&module);
+            WasmCGen().interp (&module);
         }
     }
 #if 1

@@ -347,27 +347,27 @@ WASM (Ge_f64)
 {
 }
 
-WASM (Popcnt_i32)
+WASM (CountSetBits_i32)
 {
 }
 
-WASM (Popcnt_i64)
+WASM (CountSetBits_i64)
 {
 }
 
-WASM (Ctz_i32)
+WASM (CountTrailingZeros_i32)
 {
 }
 
-WASM (Ctz_i64)
+WASM (CountTrailingZeros_i64)
 {
 }
 
-WASM (Clz_i32)
+WASM (CountLeadingZeros_i32)
 {
 }
 
-WASM (Clz_i64)
+WASM (CountLeadingZeros_i64)
 {
 }
 

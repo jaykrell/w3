@@ -796,7 +796,7 @@ count_leading_zeros (T a)
     return n;
 }
 
-INTERP (Popcnt_i32)
+INTERP (CountSetBits_i32)
 {
     uint32_t& a = u32 ();
 #if (_M_AMD64 || _M_IX86) && _MSC_VER > 1100 // TODO which version
@@ -806,7 +806,7 @@ INTERP (Popcnt_i32)
 #endif
 }
 
-INTERP (Popcnt_i64)
+INTERP (CountSetBits_i64)
 {
     uint64_t& a = u64 ();
 #if _MSC_VER && _M_AMD64
@@ -816,25 +816,25 @@ INTERP (Popcnt_i64)
 #endif
 }
 
-INTERP (Ctz_i32)
+INTERP (CountTrailingZeros_i32)
 {
     uint32_t& a = u32 ();
     a = count_trailing_zeros (a);
 }
 
-INTERP (Ctz_i64)
+INTERP (CountTrailingZeros_i64)
 {
     uint64_t& a = u64 ();
     a = count_trailing_zeros (a);
 }
 
-INTERP (Clz_i32)
+INTERP (CountLeadingZeros_i32)
 {
     uint32_t& a = u32 ();
     a = count_leading_zeros (a);
 }
 
-INTERP (Clz_i64)
+INTERP (CountLeadingZeros_i64)
 {
     uint64_t& a = u64 ();
     a = count_leading_zeros (a);

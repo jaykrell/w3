@@ -109,7 +109,6 @@ static const double wasm_huged = 1.0e300;
 #include <memory.h>
 #include <stdarg.h>
 #include <stddef.h>
-typedef ptrdiff_t ssize_t;
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -1011,16 +1010,6 @@ struct TaggedValue
     };
 };
 
-// This should probabably be combined with ValueType, and called Tag.
-typedef enum ResultType : uint8_t
-{
-    ResultType_i32 = 0x7F,
-    ResultType_i64 = 0x7E,
-    ResultType_f32 = 0x7D,
-    ResultType_f64 = 0x7C,
-    ResultType_empty = 0x40
-} ResultType, BlockType;
-
 static
 const char*
 TypeToStringCxx (int tag)
@@ -1435,15 +1424,15 @@ struct Stack : private StackBase
         printf ("stack@%s: %" FORMAT_SIZE "X ", prefix, n);
         for (size_t i = 0; i != n; ++i)
         {
-            printf ("%s:", StackTagToString (begin () [(ptrdiff_t)i].tag));
-            switch (begin () [(ptrdiff_t)i].tag)
+            printf ("%s:", StackTagToString (begin () [(ssize_t)i].tag));
+            switch (begin () [(ssize_t)i].tag)
             {
             case StackTag_Label:
                 break;
             case StackTag_Frame:
                 break;
             case StackTag_Value:
-                printf ("%s", TypeToString (begin () [(ptrdiff_t)i].value.tag));
+                printf ("%s", TypeToString (begin () [(ssize_t)i].value.tag));
                 break;
             }
             printf (" ");
@@ -3580,7 +3569,7 @@ count_leading_zeros (T a)
     return n;
 }
 
-INTERP (Popcnt_i32)
+INTERP (CountSetBits_i32)
 {
     uint32_t& a = u32 ();
 #if (_M_AMD64 || _M_IX86) && _MSC_VER > 1100 // TODO which version
@@ -3590,35 +3579,35 @@ INTERP (Popcnt_i32)
 #endif
 }
 
-INTERP (Popcnt_i64)
+INTERP (CountSetBits_i64)
 {
     uint64_t& a = u64 ();
 #if _MSC_VER && _M_AMD64
-    a = __popcnt64 (a);
+    a = __CountSetBits64 (a);
 #else
     a = count_set_bits (a);
 #endif
 }
 
-INTERP (Ctz_i32)
+INTERP (CountTrailingZeros_i32)
 {
     uint32_t& a = u32 ();
     a = count_trailing_zeros (a);
 }
 
-INTERP (Ctz_i64)
+INTERP (CountTrailingZeros_i64)
 {
     uint64_t& a = u64 ();
     a = count_trailing_zeros (a);
 }
 
-INTERP (Clz_i32)
+INTERP (CountLeadingZeros_i32)
 {
     uint32_t& a = u32 ();
     a = count_leading_zeros (a);
 }
 
-INTERP (Clz_i64)
+INTERP (CountLeadingZeros_i64)
 {
     uint64_t& a = u64 ();
     a = count_leading_zeros (a);
@@ -4265,7 +4254,7 @@ void Interp::Invoke (Function& function)
 
     for (j = 0; j != param_count; ++j)
     {
-        printf ("2 entering function with param [%" FORMAT_SIZE "X] type %X\n", j, (end () - (ptrdiff_t)param_count + (ptrdiff_t)j)->value.tag);
+        printf ("2 entering function with param [%" FORMAT_SIZE "X] type %X\n", j, (end () - (ssize_t)param_count + (ssize_t)j)->value.tag);
     }
 
     // CONSIDER put the interp loop elsewhere
@@ -4284,14 +4273,14 @@ void Interp::Invoke (Function& function)
         for (i = 0; i < param_count; ++i)
         {
             DumpStack ("moved_param_before");
-            *(end () - 1 - (ptrdiff_t)i) = *(end () - 2 - (ptrdiff_t)i);
+            *(end () - 1 - (ssize_t)i) = *(end () - 2 - (ssize_t)i);
             DumpStack ("moved_param_after");
         }
     }
 
     // place return frame/address (frame is just a marker now, the data is on the native stack)
 
-    (end () - 1 - (ptrdiff_t)param_count)->tag = StackTag_Frame;
+    (end () - 1 - (ssize_t)param_count)->tag = StackTag_Frame;
     //(end () - 1 - param_count)->frame = frame;
     //(end () - 1 - param_count)->instr = instr + !!instr;
 
@@ -5136,7 +5125,7 @@ count_leading_zeros (T a)
     return n;
 }
 
-INTERP (Popcnt_i32)
+INTERP (CountSetBits_i32)
 {
     uint32_t& a = u32 ();
 #if (_M_AMD64 || _M_IX86) && _MSC_VER > 1100 // TODO which version
@@ -5146,7 +5135,7 @@ INTERP (Popcnt_i32)
 #endif
 }
 
-INTERP (Popcnt_i64)
+INTERP (CountSetBits_i64)
 {
     uint64_t& a = u64 ();
 #if _MSC_VER && _M_AMD64
@@ -5156,25 +5145,25 @@ INTERP (Popcnt_i64)
 #endif
 }
 
-INTERP (Ctz_i32)
+INTERP (CountTrailingZeros_i32)
 {
     uint32_t& a = u32 ();
     a = count_trailing_zeros (a);
 }
 
-INTERP (Ctz_i64)
+INTERP (CountTrailingZeros_i64)
 {
     uint64_t& a = u64 ();
     a = count_trailing_zeros (a);
 }
 
-INTERP (Clz_i32)
+INTERP (CountLeadingZeros_i32)
 {
     uint32_t& a = u32 ();
     a = count_leading_zeros (a);
 }
 
-INTERP (Clz_i64)
+INTERP (CountLeadingZeros_i64)
 {
     uint64_t& a = u64 ();
     a = count_leading_zeros (a);
