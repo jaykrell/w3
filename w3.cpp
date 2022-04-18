@@ -1,50 +1,18 @@
-// A WebAssembly implementation and experimentation platform.
-// portable
-// simple? Always striving for the right level of complexity -- not too simple.
-// efficient? (not yet)
+// A WebAssembly codebase by Jay Krell
 //
 // https://webassembly.github.io/spec/core/binary/index.html
 // https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
-//
-// ongoing: Spit this file up.
-// ongoing: Port to C++98 or earlier (no namespaces, maybe no STL, maybe no C++)
-//
+
 #include "w3.h"
+#include "w3Fd.h"
+#include "w3Handle.h"
+#include "w3MemoryMappedFile.h"
+#include "w3Module.h"
 
 #include <stack>
 #include <string>
 #include <vector>
 #include <memory>
-
-#if _WIN32
-
-#define NOMINMAX 1
-#include <io.h>
-#include <windows.h>
-#define DebugBreak __debugbreak
-
-#else
-
-typedef char* PCH;
-typedef const char* PCSTR;
-#define IsDebuggerPresent() (0)
-#define __debugbreak() ((void)0)
-#define DebugBreak() ((void)0)
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-
-#endif
-
-#if _MSC_VER
-#pragma warning (suppress:5031)
-#pragma warning (pop)
-#endif
-
-#if _MSC_VER
-#pragma warning(disable:4061) // revisit switches
-#endif
 
 #include "ieee.h"
 #include "math_private.h"
@@ -59,14 +27,18 @@ static const double wasm_huged = 1.0e300;
 #include "s_round.c"
 #include "s_roundf.c"
 
-namespace w3
+void ThrowString (const std::string& a)
 {
+    //fprintf (stderr, "%s\n", a.c_str ());
+    throw a + "\n";
+    //abort ();
+}
 
 #if 0
 void AssertFailed (PCSTR file, int line, PCSTR expr)
 {
     fprintf (stderr, "Assert failed: %s(%d):%s\n", file, line, expr);
-#if _WIN32
+#ifdef _WIN32
     DebugBreak();
 #else
     abort ();
@@ -74,14 +46,31 @@ void AssertFailed (PCSTR file, int line, PCSTR expr)
 }
 
 #define Assert(expr) ((void)((expr) || AssertFailed (__FILE__, __LINE__, #expr)))
-#endif
+#else
 
-void ThrowString (const std::string& a)
+
+void AssertFailedFormat (PCSTR condition, const std::string& extra)
 {
-    //fprintf (stderr, "%s\n", a.c_str ());
-    throw a + "\n";
+    fputs (("AssertFailed:" + std::string (condition) + ":" + extra + "\n").c_str (), stderr);
+    //Assert (0);
     //abort ();
+#ifdef _WIN32 // TODO
+    if (IsDebuggerPresent ()) __debugbreak ();
+#endif
+    ThrowString ("AssertFailed:" + std::string (condition) + ":" + extra);
 }
+
+void AssertFailed (PCSTR expr)
+{
+    fprintf (stderr, "AssertFailed:%s\n", expr);
+#ifdef _WIN32 // TODO
+    if (IsDebuggerPresent ()) __debugbreak ();
+#endif
+    assert (0);
+    abort ();
+}
+
+#endif
 
 std::string StringFormatVa (PCSTR format, va_list va);
 
@@ -94,25 +83,25 @@ std::string StringFormat (PCSTR format, ...)
     return a;
 }
 
-void ThrowInt (int i, PCSTR a = "")
+void ThrowInt (int i, PCSTR a)
 {
     ThrowString (StringFormat ("error 0x%08X %s", i, a));
 }
 
-void ThrowErrno (PCSTR a = "")
+void ThrowErrno (PCSTR a)
 {
     ThrowInt (errno, a);
 }
 
-#if _WIN32
+#ifdef _WIN32
 
-void throw_Win32Error (int err, PCSTR a = "")
+void throw_Win32Error (int err, PCSTR a)
 {
     ThrowInt (err, a);
 
 }
 
-void throw_GetLastError (PCSTR a = "")
+void throw_GetLastError (PCSTR a)
 {
     ThrowInt ((int)GetLastError (), a);
 
@@ -120,15 +109,7 @@ void throw_GetLastError (PCSTR a = "")
 
 #endif
 
-#ifdef _WIN64
-#define FORMAT_SIZE "I64"
-#define long_t __int64 // aka ptrdiff, aka Unix long but not Windows long
-#else
-#define FORMAT_SIZE "l"
-#define long_t long // aka ptrdiff, aka Unix long but not Windows long
-#endif
-
-#if _MSC_VER
+#ifdef _MSC_VER
 #pragma warning (disable:4777) // printf maybe wrong for other platforms
 #pragma warning (push)
 #pragma warning (disable:4996) // _vsnprintf dangerous
@@ -136,7 +117,7 @@ void throw_GetLastError (PCSTR a = "")
 
 size_t string_vformat_length (PCSTR format, va_list va)
 {
-#if _MSC_VER
+#ifdef _MSC_VER
     return 2 + _vscprintf (format, va);
 #else
     return 2 + vsnprintf (0, 0, format, va);
@@ -146,30 +127,6 @@ size_t string_vformat_length (PCSTR format, va_list va)
 #if _MSC_VER >= 1200
 #pragma warning (pop)
 #endif
-
-void AssertFailedFormat (PCSTR condition, const std::string& extra)
-{
-    fputs (("AssertFailed:" + std::string (condition) + ":" + extra + "\n").c_str (), stderr);
-    //Assert (0);
-    //abort ();
-#if _WIN32 // TODO
-    if (IsDebuggerPresent ()) __debugbreak ();
-#endif
-    ThrowString ("AssertFailed:" + std::string (condition) + ":" + extra);
-}
-
-void AssertFailed (PCSTR expr)
-{
-    fprintf (stderr, "AssertFailed:%s\n", expr);
-#if _WIN32 // TODO
-    if (IsDebuggerPresent ()) __debugbreak ();
-#endif
-    assert (0);
-    abort ();
-}
-
-#define Assert(x)         ((x) || ( AssertFailed (#x), (int)0))
-#define AssertFormat(x, extra) ((x) || (AssertFailedFormat (#x, StringFormat extra), 0))
 
 template <class T> const T& Min (const T& a, const T& b)
 {
@@ -220,61 +177,6 @@ struct GlobalAddr // TODO
 {
 };
 
-struct Label
-{
-    Label() : arity(0), continuation(0)
-    {
-    }
-
-    size_t arity;
-    size_t continuation;
-};
-
-// Wasm has several notions of type tags.
-// Some are in the file format, some are useful
-// to interpreters or codegenerators (probably
-// none are useful to generated code).
-//
-// Since there are not all that many, and there should
-// be contradictory requirements on their values,
-// unify them for a sort of simplicity (sort of complexity,
-// since it is confusing which to deal with).
-//
-// WebAssembly file format defines at least the values 0x7C-0x7F.
-// We desire simplicity and clarity, so we shall endeavor
-// to not do much translation or compression.
-
-typedef enum Tag : uint8_t
-{
-    Tag_none = 0,   // allow for zero-init
-    Tag_bool = 1,   // aka i32
-    Tag_any  = 2,   // often has constraints
-
-    // These are from the file format. These are the primary
-    // types in WebAssembly, prior to the addition of SIMD.
-    Tag_i32 = 0x7F,
-    Tag_i64 = 0x7E,
-    Tag_f32 = 0x7D,
-    Tag_f64 = 0x7C,
-
-    //todo: comment
-    Tag_empty = 0x40, // ResultType, void
-
-    //internal, any value works..not clearly needed
-    // A heterogenous conceptual WebAssembly stack contains Values, Frames, and Labels.
-    Tag_Value = 0x80,   // i32, i64, f32, f64
-    Tag_Label = 0x81,   // branch target
-    Tag_Frame = 0x82,   // return address + locals + params
-
-    //todo: comment
-    Tag_FuncRef = 0x70,
-
-    //codegen temp
-    //Tag_intptr = 3,
-    //Tag_uintptr = 4,
-    //Tag_pch = 5,
-} Tag;
-
 char TagChar(Tag t) //todo: short string?
 {
     switch (t)
@@ -295,9 +197,6 @@ char TagChar(Tag t) //todo: short string?
     case Tag_Label: return 'L';
     case Tag_Frame: return 'r';
     case Tag_FuncRef: return 'u';
-    //case Tag_intptr: return 'k';
-    //case Tag_uintptr: return 'u';
-    //case Tag_pch:     return 'p';
     }
     return '$';
 }
@@ -307,19 +206,6 @@ char TagChar(Tag t) //todo: short string?
 struct SourceGenValue
 {
     Tag tag;
-    /* TODO constant
-    union
-    {
-        int32_t i32;
-        int32_t Bool;
-        uint32_t u32;
-        uint64_t u64;
-        int64_t i64;
-        float f32;
-        double f64;
-        Label label; // probably remove this and use separate label stack
-    };
-    */
     std::string str;
     PCSTR cstr() { return str.c_str(); }
 };
@@ -350,7 +236,7 @@ std::string StringFormatVa (PCSTR format, va_list va)
     // Some systems, including Linux/amd64, cannot consume a
     // va_list multiple times. It must be copied first.
     // Passing the parameter twice does not work.
-#if !_WIN32
+#ifndef _WIN32
     va_list va2;
 #ifdef __va_copy
     __va_copy (va2, va);
@@ -361,7 +247,7 @@ std::string StringFormatVa (PCSTR format, va_list va)
 
     std::vector <char> s (string_vformat_length (format, va));
 
-#if _WIN32
+#ifdef _WIN32
     _vsnprintf (&s [0], s.size (), format, va);
 #else
     vsnprintf (&s [0], s.size (), format, va2);
@@ -384,253 +270,6 @@ uint32_t Unpack4 (const void* a)
 {
     return (Unpack2 ((PCH)a + 2) << 16) | Unpack2 (a);
 }
-
-template <uint32_t N> struct uintLEn_to_native_exact;
-template <uint32_t N> struct uintLEn_to_native_fast;
-
-template <> struct uintLEn_to_native_exact<16> { typedef uint16_t T; };
-template <> struct uintLEn_to_native_exact<32> { typedef uint32_t T; };
-template <> struct uintLEn_to_native_exact<64> { typedef uint64_t T; };
-template <> struct uintLEn_to_native_fast<16> { typedef uint32_t T; };
-template <> struct uintLEn_to_native_fast<32> { typedef uint32_t T; };
-template <> struct uintLEn_to_native_fast<64> { typedef uint64_t T; };
-
-template <uint32_t N>
-struct uintLEn // unsigned little endian integer, size n bits
-{
-    union
-    {
-        typename uintLEn_to_native_exact<N>::T native;
-        unsigned char data [N / 8];
-    };
-
-    operator typename uintLEn_to_native_fast<N>::T ()
-    {
-#if BYTE_ORDER == LITTLE_ENDIAN
-    return native;
-#else
-        typename uintLEn_to_native_fast<N>::T a = 0;
-        for (uint32_t i = N / 8; i; )
-            a = (a << 8) | data [--i];
-        return a;
-#endif
-    }
-    void operator= (uint32_t);
-};
-
-//typedef uintLEn<16> uintLE16;
-typedef uintLEn<32> uintLE32;
-//typedef uintLEn<64> uintLE64;
-
-// C++98 workaround for what C++11 offers.
-struct explicit_operator_bool
-{
-    typedef void (explicit_operator_bool::*T) () const;
-    void True () const;
-};
-
-typedef void (explicit_operator_bool::*bool_type) () const;
-
-
-#if _WIN32
-struct Handle
-{
-    // TODO Handle vs. win32file_t, etc.
-
-    uint64_t get_file_size (PCSTR file_name = "")
-    {
-        DWORD hi = 0;
-        DWORD lo = GetFileSize (h, &hi);
-        if (lo == INVALID_FILE_SIZE)
-        {
-            DWORD err = GetLastError ();
-            if (err != NO_ERROR)
-                throw_Win32Error ((int)err, StringFormat ("GetFileSize (%s)", file_name).c_str ());
-        }
-        return (((uint64_t)hi) << 32) | lo;
-    }
-
-    void* h;
-
-    Handle (void* a) : h (a) { }
-    Handle () : h (0) { }
-
-    void* get () { return h; }
-
-    bool valid () const { return static_valid (h); }
-
-    static bool static_valid (void* h) { return h && h != INVALID_HANDLE_VALUE; }
-
-    operator void* () { return get (); }
-
-    static void static_cleanup (void* h)
-    {
-        if (!static_valid (h)) return;
-        CloseHandle (h);
-    }
-
-    void* detach ()
-    {
-        void* const a = h;
-        h = 0;
-        return a;
-    }
-
-    void cleanup ()
-    {
-        static_cleanup (detach ());
-    }
-
-    Handle& operator= (void* a)
-    {
-        if (h == a) return *this;
-        cleanup ();
-        h = a;
-        return *this;
-    }
-
-#if 0 // C++11
-    explicit operator bool () { return valid (); } // C++11
-#else
-    operator explicit_operator_bool::T () const
-    {
-        return valid () ? &explicit_operator_bool::True : NULL;
-    }
-#endif
-
-    bool operator ! () { return !valid (); }
-
-    ~Handle ()
-    {
-        if (valid ()) CloseHandle (h);
-        h = 0;
-    }
-};
-#endif
-
-struct Fd
-{
-    int fd;
-
-#if !_WIN32
-    uint64_t get_file_size (PCSTR file_name = "")
-    {
-#if __CYGWIN__
-        struct stat st = { 0 }; // TODO test more systems
-        if (fstat (fd, &st))
-#else
-        struct stat64 st = { 0 }; // TODO test more systems
-        if (fstat64 (fd, &st))
-#endif
-            ThrowErrno (StringFormat ("fstat (%s)", file_name).c_str ());
-        return st.st_size;
-    }
-#endif
-
-#if 0 // C++11
-    explicit operator bool () { return valid (); } // C++11
-#else
-    operator explicit_operator_bool::T () const
-    {
-        return valid () ? &explicit_operator_bool::True : NULL;
-    }
-#endif
-
-    bool operator ! () { return !valid (); }
-
-    operator int () { return get (); }
-    static bool static_valid (int fd) { return fd != -1; }
-    int get () const { return fd; }
-    bool valid () const { return static_valid (fd); }
-
-    static void static_cleanup (int fd)
-    {
-        if (!static_valid (fd)) return;
-#if _WIN32
-        _close (fd);
-#else
-        close (fd);
-#endif
-    }
-
-    int detach ()
-    {
-        int const a = fd;
-        fd = -1;
-        return a;
-    }
-
-    void cleanup ()
-    {
-        static_cleanup (detach ());
-    }
-
-    Fd (int a = -1) : fd (a) { }
-
-    Fd& operator = (int a)
-    {
-        if (fd == a) return *this;
-        cleanup ();
-        fd = a;
-        return *this;
-    }
-
-    ~Fd ()
-    {
-        cleanup ();
-    }
-};
-
-struct MemoryMappedFile
-{
-// TODO allow for redirection to built-in data (i.e. filesystem emulation with builtin BCL)
-// TODO allow for systems that must read, not mmap
-    void* base;
-    size_t size;
-#if _WIN32
-    Handle file;
-#else
-    Fd file;
-#endif
-    MemoryMappedFile () : base (0), size (0) { }
-
-    ~MemoryMappedFile ()
-    {
-        if (!base)
-            return;
-#if _WIN32
-        UnmapViewOfFile (base);
-#else
-        munmap (base, size);
-#endif
-        base = 0;
-    }
-    void read (PCSTR a)
-    {
-#if _WIN32
-#ifndef FILE_SHARE_DELETE // ifndef required due to Watcom 4 vs. 4L.
-#define FILE_SHARE_DELETE               0x00000004 // missing in older headers
-#endif
-        file = CreateFileA (a, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-        if (!file) throw_GetLastError (StringFormat ("CreateFileA (%s)", a).c_str ());
-        // FIXME check for size==0 and >4GB.
-        size = (size_t)file.get_file_size (a);
-        Handle h2 = CreateFileMappingW (file, 0, PAGE_READONLY, 0, 0, 0);
-        if (!h2) throw_GetLastError (StringFormat ("CreateFileMapping (%s)", a).c_str ());
-        base = MapViewOfFile (h2, FILE_MAP_READ, 0, 0, 0);
-        if (!base)
-            throw_GetLastError (StringFormat ("MapViewOfFile (%s)", a).c_str ());
-#else
-        file = open (a, O_RDONLY);
-        if (!file) ThrowErrno (StringFormat ("open (%s)", a).c_str ());
-        // FIXME check for size==0 and >4GB.
-        size = (size_t)file.get_file_size (a);
-        base = mmap (0, size, PROT_READ, MAP_PRIVATE, file, 0);
-        if (base == MAP_FAILED)
-            ThrowErrno (StringFormat ("mmap (%s)", a).c_str ());
-#endif
-    }
-};
 
 uint64_t SignExtend (uint64_t value, uint32_t bits)
 {
@@ -776,9 +415,9 @@ uint32_t UIntToHex_AtLeast8 (uint64_t a, PCH buf)
     return len;
 }
 
-struct stream
+struct Stream
 {
-    virtual ~stream() { }
+    virtual ~Stream() { }
 
     virtual void write (const void* bytes, size_t size) = 0;
 
@@ -802,7 +441,7 @@ struct stream
     }
 };
 
-struct stdout_stream : stream
+struct stdout_stream : Stream
 {
     virtual void write (const void* bytes, size_t size)
     {
@@ -823,7 +462,7 @@ struct stdout_stream : stream
     }
 };
 
-struct stderr_stream : stream
+struct stderr_stream : Stream
 {
     // TODO: Refactor with stdout.
     virtual void write (const void* bytes, size_t size)
@@ -989,29 +628,7 @@ PCSTR TagToString (int tag)
     return "unknown";
 }
 
-struct Limits
-{
-    // TODO size_t? null?
-    Limits () : min (0), max (0), hasMax (false) { }
-
-    uint32_t min;
-    uint32_t max;
-    bool hasMax;
-};
-
-const uint32_t FunctionTypeTag = 0x60;
-
-struct TableType
-{
-    TableType () : elementType ((Tag)0) { }
-
-    Tag elementType;
-    Limits limits;
-
-    bool operator < (const TableType&) const; // workaround old compiler
-    bool operator == (const TableType&) const; // workaround old compiler
-    bool operator != (const TableType&) const; // workaround old compiler
-};
+//const uint32_t FunctionTypeTag = 0x60;
 
 // Globals are mutable or constant.
 typedef enum Mutable
@@ -1019,14 +636,6 @@ typedef enum Mutable
     Mutable_constant = 0, // aka false
     Mutable_variable = 1, // aka true
 } Mutable;
-
-struct Runtime;
-struct Stack;
-struct StackValue;
-struct ModuleInstance;
-struct Module;
-struct Section;
-struct Variable; //local, global, temp
 
 // The stack shall use _alloca in a non-recursive interpreter loop.
 // This requires some care and macros. Macros that reference locals.
@@ -1045,29 +654,22 @@ struct Variable; //local, global, temp
 // StackValue* stack = initial_stack;
 // StackValue* min_stack = initial_stack;
 
-struct FunctionType;
-struct Function;
-struct Code;
-struct Frame; // work in progress
-struct DecodedInstruction;
-
 struct String
 {
     PCH buf;
     size_t len;
 };
 
-struct Variable
-{
 #if 0
-    Tag tag;
+
+struct Variable
+{    Tag tag;
     bool temp : 1;
     bool global : 1;
     bool local : 1;
     long id; // in lieue of name
     PCH name;
     char namebuf[64];
-#endif
 };
 
 PCH VarName(Variable* var)
@@ -1077,6 +679,8 @@ PCH VarName(Variable* var)
 //    sprintf("
     return 0;
 }
+
+#endif
 
 struct StackValue
 {
@@ -1487,24 +1091,6 @@ struct Stack : private StackBase
     }
 };
 
-typedef enum Immediate : uint8_t
-{
-    Imm_none = 0,
-    Imm_i32,
-    Imm_i64,
-    Imm_f32,
-    Imm_f64,
-    Imm_sequence,
-    Imm_vecLabel,
-    //Imm_u32,
-    Imm_memory      ,     // align:u32 offset:u32
-    Imm_type        ,     // read_varuint32
-    Imm_function    ,     // read_varuint32
-    Imm_global      ,     // read_varuint32
-    Imm_local       ,     // read_varuint32
-    Imm_label       ,     // read_varuint32
-} Immediate;
-
 #define INTERP(x) void interp_ ## x ();
 
 INTERP (Unreach)
@@ -1562,78 +1148,6 @@ INTERP (FBinOp)
 #define LOAD(b0, to, from)  INSTRUCTION (b0, 1, 0, to ## _Load ## from,  Imm_memory, 0, 1, Tag_none,     Tag_none, Tag_none, Tag_ ## to)
 #define STORE(b0, from, to) INSTRUCTION (b0, 1, 0, from ## _Store ## to, Imm_memory, 1, 0, Tag_ ## from, Tag_none, Tag_none, Tag_none)
 
-#undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) name,
-
-enum InstructionEnum : uint16_t
-{
-#include "w3instructions.h"
-};
-
-#undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) char name [ sizeof (#name) ];
-typedef struct InstructionNames
-{
-#include "w3instructions.h"
-} InstructionNames;
-
-#if 0 // Split string up for old compiler.
-const char instructionNames [ ] =
-#undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) #name "\0"
-#include "w3instructions.h"
-;
-#else
-
-union {
-    struct {
-#undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) char name [sizeof (#name)];
-#include "w3instructions.h"
-    } x;
-    char data [1];
-} instructionNames = { {
-#undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) #name,
-#include "w3instructions.h"
-} };
-
-#endif
-
-#define BITS_FOR_UINT_HELPER(a, x) (a) >= (1u << x) ? (x) + 1 :
-#define BITS_FOR_UINT(a)                                                                                \
-  (BITS_FOR_UINT_HELPER (a, 31) BITS_FOR_UINT_HELPER (a, 30)                                                          \
-   BITS_FOR_UINT_HELPER (a, 29) BITS_FOR_UINT_HELPER (a, 28) BITS_FOR_UINT_HELPER (a, 27) BITS_FOR_UINT_HELPER (a, 26) BITS_FOR_UINT_HELPER (a, 25) \
-   BITS_FOR_UINT_HELPER (a, 24) BITS_FOR_UINT_HELPER (a, 23) BITS_FOR_UINT_HELPER (a, 22) BITS_FOR_UINT_HELPER (a, 21) BITS_FOR_UINT_HELPER (a, 20) \
-   BITS_FOR_UINT_HELPER (a, 19) BITS_FOR_UINT_HELPER (a, 18) BITS_FOR_UINT_HELPER (a, 17) BITS_FOR_UINT_HELPER (a, 16) BITS_FOR_UINT_HELPER (a, 15) \
-   BITS_FOR_UINT_HELPER (a, 14) BITS_FOR_UINT_HELPER (a, 13) BITS_FOR_UINT_HELPER (a, 12) BITS_FOR_UINT_HELPER (a, 11) BITS_FOR_UINT_HELPER (a, 10) \
-   BITS_FOR_UINT_HELPER (a,  9) BITS_FOR_UINT_HELPER (a,  8) BITS_FOR_UINT_HELPER (a,  7) BITS_FOR_UINT_HELPER (a,  6) BITS_FOR_UINT_HELPER (a,  5) \
-   BITS_FOR_UINT_HELPER (a,  4) BITS_FOR_UINT_HELPER (a,  3) BITS_FOR_UINT_HELPER (a,  2) BITS_FOR_UINT_HELPER (a,  1) BITS_FOR_UINT_HELPER (a,  0) 1)
-
-#if (_MSC_VER && _MSC_VER <= 1700) || __WATCOMC__
-
-#define bits_for_uint(x) BITS_FOR_UINT (x)
-
-#else
-
-constexpr int bits_for_uint (uint32_t a)
-{
-    return
-#define X(x) (a < (1u << x)) ? x :
-    X( 1) X( 2) X( 3) X( 4)
-    X( 5) X( 6) X( 7) X( 8)
-    X( 9) X(10) X(11) X(12)
-    X(13) X(14) X(15) X(16)
-    X(17) X(18) X(19) X(20)
-    X(21) X(22) X(23) X(24)
-    X(25) X(26) X(27) X(28)
-    X(29) X(30) X(31)
-#undef X
-    32;
-}
-
-#endif
-
 #if defined (_WIN32) && defined (C_ASSERT) // older compiler
 #define static_assert(x, y) C_ASSERT (x)
 #endif
@@ -1658,142 +1172,10 @@ static_assert (bits_for_uint (30) == 5, "");
 static_assert (bits_for_uint (200) == 8, "");
 static_assert (bits_for_uint (sizeof (instructionNames)) == 12, "");
 
-#define InstructionName(i) (&instructionNames.data [instructionEncode [i].string_offset])
-
-struct InstructionEncoding
-{
-    uint8_t byte0;
-    //uint8_t byte1;              // FIXME always 0 if fixed_size > 1
-    uint8_t fixed_size    : 2;    // 0, 1, 2
-    Immediate immediate;
-    uint8_t pop           : 2;    // required minimum stack in
-    uint8_t push          : 1;
-    InstructionEnum name;
-    uint32_t string_offset : bits_for_uint (sizeof (instructionNames));
-    Tag stack_in0  ; // type of stack [0] upon input, if pop >= 1
-    Tag stack_in1  ; // type of stack [1] upon input, if pop >= 2
-    Tag stack_in2  ; // type of stack [2] upon input, if pop == 3
-    Tag stack_out0 ; // type of stack [1] upon input, if push == 1
-    void (*interp) (Module*); // Module* wrong
-};
-
-struct DecodedInstructionZeroInit // ZeroMem-compatible part
-{
-    union
-    {
-        uint32_t u32;
-        uint64_t u64;
-        int32_t i32;
-        int64_t i64;
-        float f32;
-        double f64;
-        struct // memory
-        {
-            uint32_t align;
-            uint32_t offset;
-        };
-        struct // block / loop
-        {
-            size_t label;
-        };
-
-        struct // if / else
-        {
-            size_t if_false;
-            size_t if_end;
-        };
-        // etc.
-    };
-
-    uint64_t file_offset; // to match up with disasm output, unsigned for hex
-    InstructionEnum name;
-    Tag blockType;
-};
-
-struct DecodedInstruction : DecodedInstructionZeroInit
-{
-    DecodedInstruction () : DecodedInstructionZeroInit {}
-    {
-    }
-
-    size_t Arity() const
-    {
-        return (blockType == Tag_empty) ? 0u : 1u; // FUTURE
-    }
-
-    int id {}; //sourcegen
-    std::vector <uint32_t> vecLabel;
-};
-
-#undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) { byte0, fixed_size, imm, pop, push, name, offsetof (InstructionNames, name), in0, in1, in2, out0 },
-const InstructionEncoding instructionEncode [ ] = {
-#include "w3instructions.h"
-};
-
-static_assert (sizeof (instructionEncode) / sizeof (instructionEncode [0]) == 256, "not 256 instructions");
-
-typedef enum BuiltinString {
-    BuiltinString_none = 0,
-    BuiltinString_main,
-    BuiltinString_start,
-} BuiltinString;
-
-struct WasmString
-{
-    WasmString() :
-        data (0),
-        size (0),
-        builtin (BuiltinString_none),
-        builtinStorage (false)
-    {
-    }
-
-    PCH data;
-    size_t size;
-    std::string storage;
-    BuiltinString builtin ;
-    bool builtinStorage;
-
-    PCH c_str ()
-    {
-        if (!data)
-        {
-            data = (PCH)storage.c_str ();
-        }
-        else if (data != storage.c_str ())
-        {
-            storage = std::string (data, size);
-            data = (PCH)storage.c_str ();
-        }
-        return data;
-    }
-};
-
-struct Section
-{
-    uint32_t id;
-    WasmString name;
-    size_t payload_size;
-    uint8_t* payload;
-};
-
-typedef enum ImportTag { // aka desc
-    ImportTag_Function = 0, // aka type
-    ImportTag_Table = 1,
-    ImportTag_Memory = 2,
-    ImportTag_Global = 3,
-} ImportTag, ExportTag;
-
 #define ExportTag_Function ImportTag_Function
 #define ExportTag_Table ImportTag_Table
 #define ExportTag_Memory ImportTag_Memory
 #define ExportTag_Global ImportTag_Global
-
-struct MemoryType
-{
-    Limits limits;
-};
 
 struct ImportFunction
 {
@@ -1805,29 +1187,6 @@ struct ImportTable
 
 struct ImportMemory
 {
-};
-
-struct GlobalType
-{
-    Tag value_type {};
-    bool is_mutable {};
-};
-
-struct Import
-{
-    Import() : tag ((ImportTag)-1) { }
-
-    WasmString module;
-    WasmString name;
-    ImportTag tag;
-    // TODO virtual functions to model union
-    //union
-    //{
-        TableType table;
-        uint32_t function;
-        MemoryType memory;
-        GlobalType global;
-    //};
 };
 
 struct ExternalValue // external to a module, an export instance
@@ -1868,566 +1227,6 @@ struct FunctionInstance // work in progress
     Code* code; // TODO
 };
 
-struct Function // section3
-{
-    // Functions are split between two sections: types in section3, locals/body in section10
-    size_t function_index {}; // TODO needed?
-    size_t function_type_index {};
-    size_t local_only_count {};
-    size_t param_count {};
-    bool import {}; // TODO needed?
-};
-
-struct Global
-{
-    GlobalType global_type;
-    std::vector <DecodedInstruction> init;
-};
-
-struct Element
-{
-    uint32_t table;
-    std::vector <DecodedInstruction> offset_instructions;
-    uint32_t offset;
-    std::vector <uint32_t> functions;
-};
-
-struct Export
-{
-    Export ()
-    {
-    }
-
-    Export (const Export& e)
-    {
-        printf ("copy export %X %X %X %X\n", tag, is_main, is_start, table);
-        *this = e;
-    }
-
-    //void operator = (const Export& e);
-
-    ExportTag tag {};
-    WasmString name {};
-    bool is_start {};
-    bool is_main {};
-    union
-    {
-        uint32_t function {};
-        uint32_t memory;
-        uint32_t table;
-        uint32_t global;
-    };
-};
-
-struct Data // section11
-{
-    Data () : memory (0), bytes (0) { }
-
-    uint32_t memory;
-    std::vector <DecodedInstruction> expr;
-    void* bytes;
-};
-
-struct Code
-// The code to a function.
-// Functions are split between section3 and section10.
-// Instructions are in section10.
-// Function code is decoded upon first (or only) visit.
-{
-    Code () : size (0), cursor (0), import (false)
-    {
-    }
-
-    size_t size;
-    uint8_t* cursor;
-    std::vector <Tag> locals; // params in FunctionType
-    std::vector <DecodedInstruction> decoded_instructions; // section10
-    bool import;
-};
-
-// Initial representation of X and XSection are the same.
-// This might evolve, i.e. into separate TypesSection and Types,
-// or just Types that is not Section.
-struct FunctionType
-{
-    // CONSIDER pointer into mmf
-    std::vector <Tag> parameters;
-    std::vector <Tag> results;
-
-    bool operator == (const FunctionType& other) const
-    {
-        return parameters == other.parameters && results == other.results;
-    }
-};
-
-struct Module
-{
-    std::string name;
-
-    virtual ~Module() { }
-
-    Module () : base (0), file_size (0), end (0), start (0), main (0),
-        import_function_count (0),
-        import_table_count (0),
-        import_memory_count (0),
-        import_global_count (0)
-    {
-    }
-
-    MemoryMappedFile mmf;
-    uint8_t* base;
-    uint64_t file_size;
-    uint8_t* end;
-    Section sections [12];
-    //std::vector <std::shared_ptr<Section>> custom_sections; // FIXME
-
-    // The order can be take advantage of.
-    // For example global is read before any code,
-    // so the index of any global.get/set can be validated right away.
-    std::vector <FunctionType> function_types; // section1 function signatures
-    std::vector <Import> imports; // section2
-    std::vector <Function> functions; // section3 and section10 function declarations
-    std::vector <TableType> tables; // section4 indirect tables
-    std::vector <Global> globals; // section6
-    std::vector <Export> exports; // section7
-    std::vector <Element> elements; // section9 table initialization
-    std::vector <Code> code; // section10
-    std::vector <Data> data; // section11 memory initialization
-    Limits memory_limits;
-
-    int instructionId {}; //sourcegen
-
-    Export* start;
-    Export* main;
-
-    size_t import_function_count;
-    size_t import_table_count;
-    size_t import_memory_count;
-    size_t import_global_count;
-
-    WasmString read_string (uint8_t** cursor);
-
-    int32_t read_i32 (uint8_t** cursor);
-    int64_t read_i64 (uint8_t** cursor);
-    float read_f32 (uint8_t** cursor);
-    double read_f64 (uint8_t** cursor);
-
-    uint8_t read_byte (uint8_t** cursor);
-    uint8_t read_varuint7 (uint8_t** cursor);
-    uint32_t read_varuint32 (uint8_t** cursor);
-
-    void read_vector_varuint32 (std::vector <uint32_t>&, uint8_t** cursor);
-    Limits read_limits (uint8_t** cursor);
-    MemoryType read_memorytype (uint8_t** cursor);
-    GlobalType read_globaltype (uint8_t** cursor);
-    TableType read_tabletype (uint8_t** cursor);
-    Tag read_valuetype (uint8_t** cursor);
-    Tag read_blocktype(uint8_t** cursor);
-    Tag read_elementtype (uint8_t** cursor);
-    bool read_mutable (uint8_t** cursor);
-    void read_section (uint8_t** cursor);
-    void read_module (PCSTR file_name);
-    void read_vector_ValueType (std::vector <Tag>& result, uint8_t** cursor);
-    void read_function_type (FunctionType& functionType, uint8_t** cursor);
-
-    virtual void read_types (uint8_t** cursor);
-    virtual void read_imports (uint8_t** cursor);
-    virtual void read_functions (uint8_t** cursor);
-    virtual void read_tables (uint8_t** cursor);
-    virtual void read_memory (uint8_t** cursor);
-    virtual void read_globals (uint8_t** cursor);
-    virtual void read_exports (uint8_t** cursor);
-    virtual void read_start (uint8_t** cursor)
-    {
-        ThrowString ("Start::read not yet implemented");
-    }
-    virtual void read_elements (uint8_t** cursor);
-    virtual void read_code (uint8_t** cursor);
-    virtual void read_data (uint8_t** cursor);
-};
-
-InstructionEnum DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code);
-
-void Module::read_data (uint8_t** cursor)
-{
-    const size_t size1 = read_varuint32 (cursor);
-    printf ("reading data11 size:%" FORMAT_SIZE "X\n", size1);
-    data.resize (size1);
-    for (size_t i = 0; i < size1; ++i)
-    {
-        Data& a = data [i];
-        a.memory = read_varuint32 (cursor);
-        DecodeInstructions (this, a.expr, cursor, 0);
-        const size_t size2 = read_varuint32 (cursor);
-        if (*cursor + size2 > end)
-            ThrowString ("data out of bounds");
-        a.bytes = *cursor;
-        printf ("data [%" FORMAT_SIZE "X]:{%X}\n", i, (*cursor) [0]);
-        *cursor += size2;
-    }
-    printf ("read data11 size:%" FORMAT_SIZE "X\n", size1);
-}
-
-void Module::read_code (uint8_t** cursor)
-{
-    printf ("reading CodeSection10\n");
-    const size_t size = read_varuint32 (cursor);
-    printf ("reading CodeSection size:%" FORMAT_SIZE "X\n", size);
-    if (*cursor + size > end)
-        ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", *cursor, end, size, __LINE__));
-    const size_t old = code.size ();
-    AssertFormat (old == import_function_count, ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", old, import_function_count));
-    code.resize (old + size);
-    for (size_t i = 0; i < size; ++i)
-    {
-        Code& a = code [old + i];
-        a.import = false;
-        a.size = read_varuint32 (cursor);
-        if (*cursor + a.size > end)
-            ThrowString (StringFormat ("code out of bounds cursor:%p end:%p size:%" FORMAT_SIZE "X line:%X", *cursor, end, (long_t)a.size, __LINE__));
-        a.cursor = *cursor;
-        printf ("code [%" FORMAT_SIZE "X]: %p/%" FORMAT_SIZE "X\n", (long_t)i, a.cursor, (long_t)a.size);
-        if (a.size)
-        {
-            //printf (InstructionName ((*cursor) [0]));
-            *cursor += a.size;
-        }
-    }
-}
-
-void Module::read_elements (uint8_t** cursor)
-{
-    const size_t size1 = read_varuint32 (cursor);
-    printf ("reading section9 elements size1:%" FORMAT_SIZE "X\n", size1);
-    elements.resize (size1);
-    for (size_t i = 0; i < size1; ++i)
-    {
-        Element& a = elements [i];
-        a.table = read_varuint32 (cursor);
-        DecodeInstructions (this, a.offset_instructions, cursor, 0);
-        const size_t size2 = read_varuint32 (cursor);
-        a.functions.resize (size2);
-        for (size_t j = 0; j < size2; ++j)
-        {
-            uint32_t& b = a.functions [j];
-            b = read_varuint32 (cursor);
-            printf ("elem.function [%" FORMAT_SIZE "X/%" FORMAT_SIZE "X]:%X\n", j, size2, b);
-        }
-    }
-    printf ("read elements9 size:%" FORMAT_SIZE "X\n", size1);
-}
-
-void Module::read_exports (uint8_t** cursor)
-{
-    printf ("reading section 7\n");
-    const size_t size = read_varuint32 (cursor);
-    printf ("reading exports7 count:%" FORMAT_SIZE "X\n", size);
-    exports.resize (size);
-    for (size_t i = 0; i < size; ++i)
-    {
-        Export& a = exports [i];
-        a.name = read_string (cursor);
-        a.tag = (ExportTag)read_byte (cursor);
-        a.function = read_varuint32 (cursor);
-        a.is_main = a.name.builtin == BuiltinString_main;
-        a.is_start = a.name.builtin == BuiltinString_start;
-        printf ("read_export %" FORMAT_SIZE "X:%" FORMAT_SIZE "X %s tag:%X index:%X is_main:%X is_start:%X\n", i, size, a.name.c_str (), a.tag, a.function, a.is_main, a.is_start);
-
-        if (a.is_start)
-        {
-            Assert (!start);
-            start = &a;
-        }
-        else if (a.is_main)
-        {
-            Assert (!main);
-            main = &a;
-        }
-    }
-    printf ("read exports7 size:%" FORMAT_SIZE "X\n", size);
-}
-
-void Module::read_globals (uint8_t** cursor)
-{
-    //printf ("reading section 6\n");
-    const size_t size = read_varuint32 (cursor);
-    printf ("reading globals6 size:%" FORMAT_SIZE "X\n", size);
-    globals.resize (size);
-    for (size_t i = 0; i < size; ++i)
-    {
-        Global& a = globals [i];
-        a.global_type = read_globaltype (cursor);
-        printf ("read_globals %" FORMAT_SIZE "X:%" FORMAT_SIZE "X value_type:%X  mutable:%X init:%p\n", i, size, a.global_type.value_type, a.global_type.is_mutable, *cursor);
-        DecodeInstructions (this, a.init, cursor, 0);
-        // Init points to code -- Instructions until end of block 0x0B Instruction.
-    }
-    printf ("read globals6 size:%" FORMAT_SIZE "X\n", size);
-}
-
-void Module::read_functions (uint8_t** cursor)
-{
-    printf ("reading section 3\n");
-    const size_t old = functions.size ();
-    Assert (old == import_function_count);
-    const size_t size = read_varuint32 (cursor);
-    functions.resize (old + size);
-    for (size_t i = 0; i < size; ++i)
-    {
-        printf ("read_function %" FORMAT_SIZE "X:%" FORMAT_SIZE "X\n", i, size);
-        Function& a = functions [old + i];
-        a.function_type_index = read_varuint32 (cursor);
-        a.function_index = i + old; // TODO probably not needed
-        a.import = false; // TODO probably not needed
-    }
-    printf ("read section 3\n");
-}
-
-void Module::read_imports (uint8_t** cursor)
-{
-    printf ("reading section 2\n");
-    const size_t size = read_varuint32 (cursor);
-    imports.resize (size);
-    // TODO two passes to limit realloc?
-    for (size_t i = 0; i < size; ++i)
-    {
-        Import& r = imports [i];
-        r.module = read_string (cursor);
-        r.name = read_string (cursor);
-        ImportTag tag = r.tag = (ImportTag)read_byte (cursor);
-        printf ("import %s.%s %X\n", r.module.c_str (), r.name.c_str (), (uint32_t)tag);
-        switch (tag)
-        {
-            // TODO more specific import type and vtable?
-        case ImportTag_Function:
-            r.function = read_varuint32 (cursor); // TODO probably not needed
-            ++import_function_count;
-            // TODO for each import type
-            functions.resize (functions.size () + 1);
-            functions.back ().function_index = functions.size () - 1; // TODO remove this field
-            functions.back ().function_type_index = r.function;
-            functions.back ().import = true; // TODO needed?
-            break;
-        case ImportTag_Table:
-            r.table = read_tabletype (cursor);
-            ++import_table_count;
-            break;
-        case ImportTag_Memory:
-            r.memory = read_memorytype (cursor);
-            ++import_memory_count;
-            break;
-        case ImportTag_Global:
-            r.global = read_globaltype (cursor);
-            ++import_global_count;
-            break;
-        default:
-            ThrowString ("invalid ImportTag");
-        }
-    }
-    printf ("read section 2 import_function_count:%" FORMAT_SIZE "X import_table_count:%" FORMAT_SIZE "X import_memory_count:%" FORMAT_SIZE "X import_global_count:%" FORMAT_SIZE "X\n",
-        (long_t)import_function_count,
-        (long_t)import_table_count,
-        (long_t)import_memory_count,
-        (long_t)import_global_count);
-
-    // TODO fill in more about imports?
-    Code imported_code;
-    imported_code.import = true;
-    code.resize (import_function_count, imported_code);
-}
-
-void Module::read_vector_ValueType (std::vector <Tag>& result, uint8_t** cursor)
-{
-    const size_t size = read_varuint32 (cursor);
-    result.resize (size);
-    for (size_t i = 0; i < size; ++i)
-        result [i] = read_valuetype (cursor);
-}
-
-void Module::read_function_type (FunctionType& functionType, uint8_t** cursor)
-{
-    read_vector_ValueType (functionType.parameters, cursor);
-    read_vector_ValueType (functionType.results, cursor);
-}
-
-void Module::read_types (uint8_t** cursor)
-{
-    printf ("reading section 1\n");
-    const size_t size = read_varuint32 (cursor);
-    function_types.resize (size);
-    for (size_t i = 0; i < size; ++i)
-    {
-        const uint32_t marker = read_byte (cursor);
-        if (marker != 0x60)
-            ThrowString ("malformed2 in Types::read");
-        read_function_type (function_types [i], cursor);
-    }
-    printf ("read section 1\n");
-}
-
-InstructionEnum DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code)
-{
-    uint32_t b0 = (uint32_t)Block;
-    size_t index {};
-    uint32_t b1 {};
-    size_t pc = ~(size_t)0;
-
-    while (b0 != (uint32_t)BlockEnd && b0 != (uint32_t)Else)
-    {
-        ++pc;
-        InstructionEncoding e {};
-        DecodedInstruction i {};
-        i.id = ++(module->instructionId);
-        b0 = module->read_byte (cursor); // TODO multi-byte instructions
-        e = instructionEncode [b0];
-        if (e.fixed_size == 0)
-        {
-#if _WIN32
-            if (IsDebuggerPresent ()) DebugBreak();
-#endif
-            ThrowString ("reserved");
-        }
-        i.name = e.name;
-        i.file_offset = (uint64_t)(*cursor - module->base - 1);
-        if (e.fixed_size == 2) // TODO
-        {
-            b1 = module->read_byte (cursor);
-            if (b1)
-                ThrowString ("second byte not 0");
-        }
-        printf ("decode1:%" FORMAT_SIZE "X %s\n", pc, InstructionName (i.name));
-        size_t if_false = 0;
-        size_t if_end = 0;
-        switch (e.immediate)
-        {
-        case Imm_sequence:
-            i.blockType = module->read_blocktype (cursor);
-            index = instructions.size ();
-            instructions.push_back (i);
-            InstructionEnum next;
-            next = DecodeInstructions (module, instructions, cursor, code);
-            Assert (next == BlockEnd || (i.name == If && next == Else));
-            switch (b0)
-            {
-            default:
-                Assert (!"invalid Imm_sequnce");
-                break;
-            case If:
-#include "diag-switch-push.h"
-                switch (next)
-                {
-                default:
-                    Assert (!"invalid next after If");
-                    break;
-                case BlockEnd:
-                    if_false = instructions.size () - 1; // to BlockEnd
-                    if_end = instructions.size () - 1; // to BlockEnd
-                    break;
-                case Else:
-                    if_false = instructions.size (); // past Else
-                    // If we fall to Else tell it how many values to keep.
-                    instructions [if_false - 1].blockType = i.blockType;
-                    next = DecodeInstructions (module, instructions, cursor, code);
-                    Assert (next == BlockEnd);
-                    if_end = instructions.size () - 1; // to BlockEnd
-                    break;
-                }
-#include "diag-switch-pop.h"
-                instructions [index].if_false = if_false;
-                instructions [index].if_end = if_end;
-                break;
-            case Block: // label is forward
-                instructions [index].label = instructions.size (); // past BlockEnd
-                break;
-            case Loop: // label is backward, to self; each invocation repushes the label
-                // and there need not be any instructions between it and
-                // a branch -- infinite empty loop -- and a branch
-                // to self would fail for lack of labels on stack,
-                // or branch incorrect to ever further out labels
-                // Obviously TODO is make branches optimized
-                // and not deal with a stack at all, at least
-                // not as late as currently.
-                instructions [index].label = index; // to Loop
-                break;
-            }
-            // If we fall to BlockEnd tell it how many values to keep.
-            instructions [instructions.size () - 1].blockType = i.blockType;
-            break;
-        case Imm_memory:
-            i.align = module->read_varuint32 (cursor);
-            i.offset = module->read_varuint32 (cursor);
-            break;
-        case Imm_none:
-            break;
-        case Imm_global:
-        case Imm_label:
-        case Imm_function:
-        case Imm_local:
-        case Imm_type:
-            i.u32 = module->read_varuint32 (cursor);
-            break;
-        default:
-            ThrowString ("unknown immediate");
-            break;
-        case Imm_i32: // Spec is confusing here, signed or unsigned.
-            i.i32 = module->read_i32 (cursor);
-            break;
-        case Imm_i64: // Spec is confusing here, signed or unsigned.
-            i.i64 = module->read_i64 (cursor);
-            break;
-        case Imm_f32:
-            i.f32 = module->read_f32 (cursor);
-            break;
-        case Imm_f64:
-            i.f64 = module->read_f64 (cursor);
-            break;
-        case Imm_vecLabel:
-            module->read_vector_varuint32 (i.vecLabel, cursor);
-            break;
-        }
-#include "diag-switch-push.h"
-        switch (e.immediate)
-        {
-        case Imm_global:
-            Assert (i.u32 < module->globals.size ());
-            break;
-        case Imm_label:
-            //Assert (i.u32 < module->globals.size ());
-            break;
-        case Imm_function:
-            //Assert (i.u32 < module->globals.size ());
-            break;
-        case Imm_local:
-            //Assert (i.u32 < code->globals.size ());
-            break;
-        case Imm_type:
-            //Assert (i.u32 < module->globals.size ());
-            break;
-        }
-#include "diag-switch-pop.h"
-        printf ("decode2:%" FORMAT_SIZE "X %s 0x%X %d\n", pc, InstructionName (i.name), i.i32, i.i32);
-        if (e.immediate != Imm_sequence)
-            instructions.push_back (i);
-    }
-    return (InstructionEnum)b0;
-}
-
-void DecodeFunction (Module* module, Code* code, uint8_t** cursor)
-{
-    // read count of types
-    // for each type
-    //   read type and count for that type
-    const size_t local_type_count = module->read_varuint32 (cursor);
-    printf ("local_type_count:%" FORMAT_SIZE "X\n", local_type_count);
-    for (size_t i = 0; i < local_type_count; ++i)
-    {
-        const size_t j = module->read_varuint32 (cursor);
-        Tag value_type = module->read_valuetype (cursor);
-        printf ("local_type_count %" FORMAT_SIZE "X-of-%" FORMAT_SIZE "X count:%" FORMAT_SIZE "X type:%X\n", i, local_type_count, j, value_type);
-        code->locals.resize (code->locals.size () + j, value_type);
-    }
-    DecodeInstructions (module, code->decoded_instructions, cursor, code);
-}
-
 struct SectionTraits
 {
     void (Module::*read)(uint8_t** cursor);
@@ -2456,314 +1255,6 @@ SectionTraits section_traits [ ] =
 SECTIONS
 
 };
-
-int32_t Module::read_i32 (uint8_t** cursor)
-// Unspecified signedness is unsigned. Spec is unclear.
-{
-    return w3::read_varint32 (cursor, end);
-}
-
-int64_t Module::read_i64 (uint8_t** cursor)
-// Unspecified signedness is unsigned. Spec is unclear.
-{
-    return (int64_t)w3::read_varint64 (cursor, end);
-}
-
-#if _MSC_VER
-#pragma warning (push)
-#pragma warning (disable:4701) // uninitialized variable
-#endif
-
-float Module::read_f32 (uint8_t** cursor)
-// floats are not variably sized? Spec is unclear due to fancy notation
-// getting in the way.
-{
-    union {
-        uint8_t bytes [4];
-        float f32;
-    } u;
-    for (uint32_t i = 0; i < 4; ++i)
-        u.bytes [i] = (uint8_t)read_byte (cursor);
-    return u.f32;
-}
-
-double Module::read_f64 (uint8_t** cursor)
-// floats are not variably sized? Spec is unclear due to fancy notation
-// getting in the way.
-{
-    union
-    {
-        uint8_t bytes [8];
-        double f64;
-    } u;
-    for (uint32_t i = 0; i < 8; ++i)
-        u.bytes [i] = (uint8_t)read_byte (cursor);
-    return u.f64;
-}
-
-#if _MSC_VER >= 1200
-#pragma warning (pop)
-#endif
-
-uint8_t Module::read_varuint7 (uint8_t** cursor)
-{
-    // TODO move implementation here, i.e. for context, for errors
-    return w3::read_varuint7 (cursor, end);
-}
-
-uint8_t Module::read_byte (uint8_t** cursor)
-{
-    // TODO move implementation here, i.e. for context, for errors
-    return w3::read_byte (cursor, end);
-}
-
-// TODO efficiency
-// i.e. string_view or such pointing right into the mmap
-WasmString Module::read_string (uint8_t** cursor)
-{
-    const uint32_t size = read_varuint32 (cursor);
-    if (size + *cursor > end)
-        ThrowString ("malformed in read_string");
-    // TODO UTF8 handling
-    WasmString a;
-    a.data = (PCH)*cursor;
-    a.size = size;
-
-    // TODO string recognizer?
-    if (size <= INT_MAX)
-        printf ("read_string %X:%.*s\n", size, (int)size, *cursor);
-    if (size == 7 && !memcmp (*cursor, "$_start", 7))
-    {
-        a.builtin = BuiltinString_start;
-    }
-    else if (size == 5 && !memcmp (*cursor, "_main", 5))
-    {
-        a.builtin = BuiltinString_main;
-    }
-    *cursor += size;
-    return a;
-}
-
-void Module::read_vector_varuint32 (std::vector <uint32_t>& result, uint8_t** cursor)
-{
-    const size_t size = read_varuint32 (cursor);
-    result.resize (size);
-    for (size_t i = 0; i < size; ++i)
-        result [i] = read_varuint32 (cursor);
-}
-
-uint32_t Module::read_varuint32 (uint8_t** cursor)
-{
-    // TODO move implementation here, i.e. for context, for errors
-    return w3::read_varuint32 (cursor, end);
-}
-
-Limits Module::read_limits (uint8_t** cursor)
-{
-    Limits limits;
-    const uint32_t tag = read_byte (cursor);
-    switch (tag)
-    {
-    case 0:
-    case 1:
-        break;
-    default:
-        ThrowString ("invalid limit tag");
-        break;
-    }
-    limits.hasMax = (tag == 1);
-    limits.min = read_varuint32 (cursor);
-    if (limits.hasMax)
-        limits.max = read_varuint32 (cursor);
-    return limits;
-}
-
-MemoryType Module::read_memorytype (uint8_t** cursor)
-{
-    MemoryType m {};
-    m.limits = read_limits (cursor);
-    return m;
-}
-
-bool Module::read_mutable (uint8_t** cursor)
-{
-    const uint32_t m = read_byte (cursor);
-    switch (m)
-    {
-    case 0:
-    case 1: break;
-    default:
-        ThrowString ("invalid mutable");
-    }
-    return m == 1;
-}
-
-Tag Module::read_valuetype (uint8_t** cursor)
-{
-    const uint32_t value_type = read_byte (cursor);
-    switch (value_type)
-    {
-    default:
-        ThrowString (StringFormat ("invalid Tag:%X", value_type));
-        break;
-    case Tag_i32:
-    case Tag_i64:
-    case Tag_f32:
-    case Tag_f64:
-        break;
-    }
-    return (Tag)value_type;
-}
-
-Tag Module::read_blocktype(uint8_t** cursor)
-{
-    const uint32_t block_type = read_byte (cursor);
-    switch (block_type)
-    {
-    default:
-        ThrowString (StringFormat ("invalid BlockType:%X", block_type));
-        break;
-    case Tag_i32:
-    case Tag_i64:
-    case Tag_f32:
-    case Tag_f64:
-    case Tag_empty:
-        break;
-    }
-    return (Tag)block_type;
-}
-
-GlobalType Module::read_globaltype (uint8_t** cursor)
-{
-    GlobalType globalType;
-    globalType.value_type = read_valuetype (cursor);
-    globalType.is_mutable = read_mutable (cursor);
-    return globalType;
-}
-
-Tag Module::read_elementtype (uint8_t** cursor)
-{
-    Tag elementType = (Tag)read_byte (cursor);
-    if (elementType != Tag_FuncRef)
-        ThrowString ("invalid elementType");
-    return elementType;
-}
-
-TableType Module::read_tabletype (uint8_t** cursor)
-{
-    TableType tableType;
-    tableType.elementType = read_elementtype (cursor);
-    tableType.limits = read_limits (cursor);
-    printf ("read_tabletype:type:%X min:%X hasMax:%X max:%X\n", tableType.elementType, tableType.limits.min, tableType.limits.hasMax, tableType.limits.max);
-    return tableType;
-}
-
-void Module::read_memory (uint8_t** cursor)
-{
-    printf ("reading section5\n");
-    const size_t size = read_varuint32 (cursor);
-    AssertFormat (size <= 1, ("%" FORMAT_SIZE "X", size)); // FUTURE
-    for (size_t i = 0; i < size; ++i)
-        memory_limits = read_limits (cursor);
-    printf ("read section5 min:%X hasMax:%X max:%X\n", memory_limits.min, memory_limits.hasMax, memory_limits.max);
-}
-
-void Module::read_tables (uint8_t** cursor)
-{
-    const size_t size = read_varuint32 (cursor);
-    printf ("reading tables size:%" FORMAT_SIZE "X\n", size);
-    AssertFormat (size == 1, ("%" FORMAT_SIZE "X", size));
-    tables.resize (size);
-    for (size_t i = 0; i < size; ++i)
-        tables [0] = read_tabletype (cursor);
-}
-
-void Module::read_section (uint8_t** cursor)
-{
-    uint8_t* payload = *cursor;
-    const uint32_t id = read_varuint7 (cursor);
-
-    if (id > 11)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p base:%p end:%p", __LINE__, id, payload, base, end)); // UNDONE context
-
-    printf("%s(%d)\n", __FILE__, __LINE__);
-
-    const size_t payload_size = read_varuint32 (cursor);
-    printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, (long_t)payload_size);
-    payload = *cursor;
-    uint32_t name_size = 0;
-    PCH local_name = 0;
-    if (id == 0)
-    {
-        name_size = read_varuint32 (cursor);
-        local_name = (PCH)*cursor;
-        if (local_name + name_size > (PCH)end)
-            ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
-    }
-    if (payload + payload_size > end)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%" FORMAT_SIZE "X base:%p end:%p", __LINE__, id, payload, (long_t)payload_size, base, end)); // UNDONE context
-
-    printf("%s(%d)\n", __FILE__, __LINE__);
-
-    *cursor = payload + payload_size;
-
-    if (id == 0)
-    {
-        if (name_size < INT_MAX)
-            printf ("skipping custom section:.%.*s\n", (int)name_size, local_name);
-        // UNDONE custom sections
-        return;
-    }
-
-    printf("%s(%d)\n", __FILE__, __LINE__);
-
-    Section& section = sections [id];
-    section.id = id;
-    section.name.data = local_name;
-    section.name.size = name_size;
-    section.payload_size = payload_size;
-    section.payload = payload;
-
-    printf("%s(%d) %d\n", __FILE__, __LINE__, (int)id);
-    //DebugBreak ();
-
-    (this->*section_traits [id].read) (&payload);
-
-    if (payload != *cursor)
-        ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, *cursor));
-}
-
-void Module::read_module (PCSTR file_name)
-{
-    mmf.read (file_name);
-    base = (uint8_t*)mmf.base;
-    file_size = mmf.file.get_file_size ();
-    end = file_size + (uint8_t*)base;
-
-    if (file_size < 8)
-        ThrowString (StringFormat ("too small %s", file_name));
-
-    uintLE32& magic = (uintLE32&)*base;
-    uintLE32& version = (uintLE32&)*(base + 4);
-    printf ("magic: %X\n", (uint32_t)magic);
-    printf ("version: %X\n", (uint32_t)version);
-
-    if (memcmp (&magic,"\0asm", 4))
-        ThrowString (StringFormat ("incorrect magic: %X", (uint32_t)magic));
-
-    if (version != 1)
-        ThrowString (StringFormat ("incorrect version: %X", (uint32_t)version));
-
-    // Valid module with no sections.
-    if (file_size == 8)
-        return;
-
-    uint8_t* cursor = base + 8;
-    while (cursor < end)
-        read_section (&cursor);
-
-    Assert (cursor == end);
-}
 
 // TODO once we have Validate, Interp, Jit, CppGen,
 // we might invert this structure and have a class per instruction with those 4 virtual functions.
@@ -2855,7 +1346,7 @@ struct SourceGenFunction
 struct SourceGen : Wasm
 {
     long temp{};
-    std::vector<Variable> globals;
+    //std::vector<Variable> globals;
 
     SourceGenStack stack; // TODO? std::stack<std::string>
     std::stack<Label> labels;
@@ -3027,7 +1518,7 @@ public:
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0)                            \
                 break;                                                                                              \
-                case w3::name:                                                                                      \
+                case ::name:                                                                                      \
                 printf ("/*gen%s x:%X u:%u i:%i*/\n", #name, this->instr->u32, this->instr->u32, this->instr->u32); \
                 this->name ();
 #include "w3instructions.h"
@@ -3212,19 +1703,19 @@ void Interp::Invoke (Function& function)
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0)     \
             break;                                                                           \
-            case w3::name:                                                                   \
+            case ::name:                                                                   \
             printf ("interp%s x:%X u:%u i:%i\n", #name, instr->u32, instr->u32, instr->u32); \
             this->name ();
 #include "w3instructions.h"
         }
         // special handling
-        if (instr->name == w3::Ret) // gross but most choices are
+        if (instr->name == ::Ret) // gross but most choices are
             break;
 #include "diag-switch-push.h"
         switch (instr->name)
         {
-        case w3::Call:
-        case w3::Calli:
+        case ::Call:
+        case ::Calli:
             frame = &frame_value; // TODO should handled in Ret.
             break;
         }
@@ -3235,11 +1726,7 @@ void Interp::Invoke (Function& function)
     //__debugbreak ();
 }
 
-#include "w3interp.cpp"
-
-}
-
-using namespace w3; // TODO C or C++?
+#include "w3interp.cpp" //todo separate compile
 
 int
 main (int argc, PCH* argv)
@@ -3368,7 +1855,7 @@ main (int argc, PCH* argv)
             }
         }
 
-        if (cgen)
+        if (cgen || rust_gen)
         {
             WasmCGen().interp (&module);
         }

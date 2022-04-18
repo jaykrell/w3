@@ -94,7 +94,7 @@ static const double wasm_huged = 1.0e300;
 #include <intrin.h>
 #endif
 
-#if __GNUC__ || __clang__
+#if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic ignored "-Wunused-const-variable"
 #pragma GCC diagnostic ignored "-Wunused-function"
 #endif
@@ -1664,7 +1664,7 @@ union {
    BITS_FOR_UINT_HELPER (a,  9) BITS_FOR_UINT_HELPER (a,  8) BITS_FOR_UINT_HELPER (a,  7) BITS_FOR_UINT_HELPER (a,  6) BITS_FOR_UINT_HELPER (a,  5) \
    BITS_FOR_UINT_HELPER (a,  4) BITS_FOR_UINT_HELPER (a,  3) BITS_FOR_UINT_HELPER (a,  2) BITS_FOR_UINT_HELPER (a,  1) BITS_FOR_UINT_HELPER (a,  0) 1)
 
-#if (_MSC_VER && _MSC_VER <= 1700) || __WATCOMC__
+#if (_MSC_VER && _MSC_VER <= 1700) || defined(__WATCOMC__)
 
 #define bits_for_uint(x) BITS_FOR_UINT (x)
 
@@ -2485,9 +2485,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
     return (InstructionEnum)b0;
 }
 
-static
-void
-DecodeFunction (Module* module, Code* code, uint8_t** cursor)
+void DecodeFunction (Module* module, Code* code, uint8_t** cursor)
 {
     // read count of types
     // for each type
@@ -2504,8 +2502,7 @@ DecodeFunction (Module* module, Code* code, uint8_t** cursor)
     DecodeInstructions (module, code->decoded_instructions, cursor, code);
 }
 
-const
-SectionTraits section_traits [ ] =
+extern const SectionTraits section_traits [ ] =
 {
     { 0 },
 #define SECTIONS        \

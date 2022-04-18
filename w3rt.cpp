@@ -1,7 +1,7 @@
 #include "w3.h"
-#if _MSC_VER
-#pragma warning (pop)
-#endif
+
+#undef PopulationCount64
+#undef PopulationCount32
 
 #if _MSC_VER
 extern __forceinline

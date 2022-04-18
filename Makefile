@@ -12,8 +12,8 @@ ifdef MAKEDIR:
 # Microsoft nmake on Windows with desktop CLR, Visual C++.
 #
 
-CFLAGS=-MD -Gy -Z7
-CPPFLAGS=-MD -Gy -Z7
+CFLAGS=-MD -Gy -Z7 -GX
+CPPFLAGS=-MD -Gy -Z7 -GX
 
 RM_F = del 2>nul /f
 #ILDASM = ildasm /nobar /out:$@
@@ -112,7 +112,15 @@ clean:
 
 # TODO /Qspectre
 
-$(win): w3.cpp w3rt.$O
+OBJS=   w3Fd.$O \
+        w3Handle.$O \
+        w3InstrEncoding.$O \
+        w3InstrNames.$O \
+        w3MemoryMappedFile.$O \
+        w3Module.$O \
+        w3rt.$O \
+
+$(win): w3.cpp $(OBJS)
 	@-del $(@R).pdb $(@R).ilk
 	@rem TODO /GX on old, /EHsc on new
 	rem cl -MD -Gy -Z7 /O2s $(Wall) $(Qspectre) -W4 -GX $** /link /out:$@ /incremental:no /opt:ref,icf
@@ -152,20 +160,28 @@ debug: mac
 clean:
 	$(RM_F) w3rt.o w3rt.obj mac win32 win32.exe win64 win64.exe win win.exe cyg cyg.exe *.ilk lin win.exe winarm.exe winx86.exe winamd64.exe
 
-mac: w3.cpp w3rt.$O
-	g++ -g w3.cpp -o $@ -Bsymbolic -bind_at_load
+OBJS=   w3Fd.$O \
+        w3Handle.$O \
+        w3InstrEncoding.$O \
+        w3InstrNames.$O \
+        w3MemoryMappedFile.$O \
+        w3Module.$O \
+        w3rt.$O \
 
-cyg: w3.cpp w3rt.$O
-	g++ -g w3.cpp -o $@ -Bsymbolic -znow -zrelro
+mac: w3.cpp $(OBJS)
+	g++ -g w3.cpp $(OBJS) -o $@ -Bsymbolic -bind_at_load
 
-lin: w3.cpp w3rt.$O
-	g++ -Wall -g w3.cpp -o $@ -Bsymbolic -znow -zrelro
+cyg: w3.cpp $(OBJS)
+	g++ -g w3.cpp $(OBJS) -o $@ -Bsymbolic -znow -zrelro
 
-win32.exe: w3.cpp w3rt.$O
-	i686-w64-mingw32-g++ -g w3.cpp -o $@ -Bsymbolic
+lin: w3.cpp $(OBJS)
+	g++ -Wall -g w3.cpp $(OBJS) -o $@ -Bsymbolic -znow -zrelro
 
-win64.exe: w3.cpp w3rt.$O
-	x86_64-w64-mingw32-g++ -g w3.cpp -o $@ -Bsymbolic
+win32.exe: w3.cpp $(OBJS)
+	i686-w64-mingw32-g++ -g w3.cpp $(OBJS) -o $@ -Bsymbolic
+
+win64.exe: w3.cpp $(OBJS)
+	x86_64-w64-mingw32-g++ -g w3.cpp $(OBJS) -o $@ -Bsymbolic
 
 test:
 

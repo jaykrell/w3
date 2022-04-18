@@ -74,7 +74,7 @@ struct Fd
 #else
     operator explicit_operator_bool::T () const
     {
-    return valid () ? &explicit_operator_bool::True : NULL;
+        return valid () ? &explicit_operator_bool::True : NULL;
     }
 #endif
 

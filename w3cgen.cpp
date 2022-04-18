@@ -1,3 +1,8 @@
+// A WebAssembly codebase by Jay Krell
+//
+// https://webassembly.github.io/spec/core/binary/index.html
+// https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
+
 #define CGEN(x) void WasmCGen::x ()
 
 using std::string;
@@ -197,7 +202,7 @@ void WasmCGen::LoadStore (PCSTR stack_type, PCSTR mem_type, bool loadOrStore)
     PCSTR effective_address = TEMP();
     PCSTR u = TEMP();
 
-    printf ("const long %s = %ld;\n", offset, instr->offset);
+    printf ("const long %s = %u;\n", offset, instr->offset);
     printf ("const long %s = %s;\n", i, pop().c_str());
     printf ("long %s;\n", effective_address);
     printf ("%s %s;\n", stack_type, result);
