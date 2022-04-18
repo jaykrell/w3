@@ -334,7 +334,7 @@ typedef enum Immediate : uint8_t
     Imm_label       ,     // read_varuint32
 } Immediate;
 
-enum InstructionEnum : uint16_t;
+enum InstructionEnum;
 
 #define BITS_FOR_UINT_HELPER(a, x) (a) >= (1u << x) ? (x) + 1 :
 

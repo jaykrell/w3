@@ -50,7 +50,7 @@ CGEN (Local_get)
 CGEN (Block)
 {
     printf ("/*%s*/\n", __func__);
-    Label label {};
+    Label label;
     label.arity = instr->Arity ();
     label.continuation = instr->label;
     stack.push_label (label);

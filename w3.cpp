@@ -212,7 +212,7 @@ struct SourceGenValue
 
 struct SourceGenStack : std::stack<SourceGenValue>
 {
-    using base = std::stack<SourceGenValue>;
+    typedef std::stack<SourceGenValue> base;
 
     void clear()
     {
@@ -775,23 +775,28 @@ struct Interp;
 struct Frame
 {
     // FUTURE spec return_arity
-    size_t function_index {}; // replace with pointer?
-    ModuleInstance* module_instance {};
-    Module* module {};
+    size_t function_index; // replace with pointer?
+    ModuleInstance* module_instance;
+    Module* module;
 //    Frame* next; // TODO remove this; it is on stack
-    Code* code {};
-    size_t param_count {};
-    size_t local_only_count {};
-    size_t param_and_local_count {};
-    Tag* local_only_types {};
-    Tag* param_types {};
-    FunctionType* function_type {};
+    Code* code;
+    size_t param_count;
+    size_t local_only_count;
+    size_t param_and_local_count;
+    Tag* local_only_types;
+    Tag* param_types;
+    FunctionType* function_type;
     // TODO locals/params
     // This should just be stack pointer, to another stack,
     // along with type information (module->module->locals_types[])
 
-    Interp* interp {};
-    size_t locals {}; // index in stack to start of params and locals, params first
+    Interp* interp;
+    size_t locals; // index in stack to start of params and locals, params first
+
+    Frame ()
+    {
+        ZeroMem(this, sizeof(*this));
+    }
 
     StackValue& Local (size_t index);
 };
@@ -1209,8 +1214,9 @@ struct ExportInstance // work in progress
 struct ModuleInstance // work in progress
 {
     ModuleInstance (Module* mod);
+    ModuleInstance () : module(0) { }
 
-    Module* module {};
+    Module* module;
     std::vector <uint8_t> memory;
     std::vector <FuncAddr*> funcs;
     std::vector <TableAddr*> tables;
@@ -1345,12 +1351,16 @@ struct SourceGenFunction
 
 struct SourceGen : Wasm
 {
-    long temp{};
+    SourceGen() : temp(0), function_type(0)
+    {
+    }
+
+    long temp;
     //std::vector<Variable> globals;
 
     SourceGenStack stack; // TODO? std::stack<std::string>
     std::stack<Label> labels;
-    FunctionType* function_type {};
+    FunctionType* function_type;
 
     // The value stack is the central data structure so assume it.
 
@@ -1360,12 +1370,14 @@ struct SourceGen : Wasm
     {
         char s[99];
         sprintf(s, "%d", i); // TODO C vs. Rust TODO perf
-        stack.push(SourceGenValue{Tag_i32, s});
+        SourceGenValue sourceGenValue = {Tag_i32, s};
+        stack.push(sourceGenValue);
     }
 
     void push_i32 (PCSTR s)
     {
-        stack.push(SourceGenValue{Tag_i32, s});
+        SourceGenValue sourceGenValue = {Tag_i32, s};
+        stack.push(sourceGenValue);
     }
 
     void push_i64 (...) //todo
@@ -1413,6 +1425,9 @@ struct RustGen : SourceGen //TODO
 
 struct WasmCGen : SourceGen
 {
+private:
+    WasmCGen(const WasmCGen&);
+    void operator=(const WasmCGen&);
 public:
 
     void Prefix();
@@ -1423,9 +1438,6 @@ public:
     virtual ~WasmCGen()
     {
     }
-
-    WasmCGen(const WasmCGen&) = delete;
-    void operator=(const WasmCGen&) = delete;
 
     WasmCGen() : module (0)
     {
@@ -1562,7 +1574,7 @@ void* Interp::LoadStore (size_t size)
     // TODO Not clear from spec and paper what to do here, despite
     // focused discussion on it.
     // Why is the operand signed??
-    size_t effective_address {};
+    size_t effective_address = 0;
     const int32_t i = pop_i32 ();
     const size_t offset = instr->offset;
     if (i >= 0)
@@ -1807,10 +1819,10 @@ main (int argc, PCH* argv)
         // Support --run-all-exports for wabt test suite.
 
         size_t file = 1;
-        size_t i {};
-        bool run_all_exports {};
-        bool rust_gen {};
-        bool cgen {};
+        size_t i = 0;
+        bool run_all_exports = 0;
+        bool rust_gen = 0;
+        bool cgen = 0;
 
         Assert(argc >= 0);
         for (i = 1 ; i < (uint32_t)argc; ++i)

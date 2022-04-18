@@ -13,11 +13,16 @@
 struct Function // section3
 {
     // Functions are split between two sections: types in section3, locals/body in section10
-    size_t function_index {}; // TODO needed?
-    size_t function_type_index {};
-    size_t local_only_count {};
-    size_t param_count {};
-    bool import {}; // TODO needed?
+    size_t function_index; // TODO needed?
+    size_t function_type_index;
+    size_t local_only_count;
+    size_t param_count;
+    bool import; // TODO needed?
+
+    Function()
+    {
+        ZeroMem(this, sizeof(*this));
+    }
 };
 
 // Initial representation of X and XSection are the same.
@@ -105,8 +110,13 @@ struct MemoryType
 
 struct GlobalType
 {
-    Tag value_type {};
-    bool is_mutable {};
+    Tag value_type;
+    bool is_mutable;
+
+    GlobalType()
+    {
+        ZeroMem(this, sizeof(*this));
+    }
 };
 
 struct TableType
@@ -134,10 +144,15 @@ struct Import
     //};
 };
 
-enum InstructionEnum : uint16_t; // C++11
+enum InstructionEnum;
 
 struct DecodedInstructionZeroInit // ZeroMem-compatible part
 {
+    DecodedInstructionZeroInit ()
+    {
+        ZeroMem(this, sizeof(*this));
+    }
+
     union
     {
         uint32_t u32;
@@ -167,20 +182,16 @@ struct DecodedInstructionZeroInit // ZeroMem-compatible part
     uint64_t file_offset; // to match up with disasm output, unsigned for hex
     InstructionEnum name;
     Tag blockType;
+    int id; //sourcegen
 };
 
 struct DecodedInstruction : DecodedInstructionZeroInit
 {
-    DecodedInstruction () : DecodedInstructionZeroInit {}
-    {
-    }
-
     size_t Arity() const
     {
         return (blockType == Tag_empty) ? 0u : 1u; // FUTURE
     }
 
-    int id {}; //sourcegen
     std::vector <uint32_t> vecLabel;
 };
 
@@ -201,8 +212,12 @@ struct Element
 
 struct Export
 {
-    Export ()
+    Export () :
+        tag((ExportTag)0),
+        is_start(0),
+        is_main(0)
     {
+        function = 0;
     }
 
     Export (const Export& e)
@@ -212,14 +227,13 @@ struct Export
     }
 
     //void operator = (const Export& e);
-
-    ExportTag tag {};
-    WasmString name {};
-    bool is_start {};
-    bool is_main {};
+    WasmString name;
+    ExportTag tag;
+    bool is_start;
+    bool is_main;
     union
     {
-        uint32_t function {};
+        uint32_t function;
         uint32_t memory;
         uint32_t table;
         uint32_t global;

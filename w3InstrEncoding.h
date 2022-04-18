@@ -10,8 +10,8 @@
 
 #include "w3InstrNames.h"
 
-enum InstructionEnum : uint16_t;
-struct Module;
+enum InstructionEnum;
+typedef struct Module Module;
 
 struct InstructionEncoding
 {
@@ -30,4 +30,5 @@ struct InstructionEncoding
     void (*interp) (Module*); // Module* wrong
 };
 
+// index by byte, first byte in instruction (too bad it is bytecode not shortcode)
 extern const InstructionEncoding instructionEncode [];

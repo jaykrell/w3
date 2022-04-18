@@ -1619,7 +1619,7 @@ INTERP (FBinOp)
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) name,
 
-enum InstructionEnum : uint16_t
+enum InstructionEnum
 {
 #include __FILE__
 };
@@ -1722,7 +1722,7 @@ struct InstructionEncoding
     Immediate immediate;
     uint8_t pop           : 2;    // required minimum stack in
     uint8_t push          : 1;
-    InstructionEnum name : 16;
+    InstructionEnum name;
     uint32_t string_offset : bits_for_uint (sizeof (instructionNames));
     Type stack_in0  ; // type of stack [0] upon input, if pop >= 1
     Type stack_in1  ; // type of stack [1] upon input, if pop >= 2
