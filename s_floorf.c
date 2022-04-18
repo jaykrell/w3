@@ -22,9 +22,7 @@
  *	Inexact flag raised if x not equal to floorf(x).
  */
 
-static
-float
-wasm_floorf(float x)
+float wasm_floorf(float x)
 {
 	int32_t i0,jj0;
 	uint32_t i;

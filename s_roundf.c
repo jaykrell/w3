@@ -26,9 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-static
-float
-wasm_roundf (float x)
+float wasm_roundf (float x)
 {
 	float t;
 

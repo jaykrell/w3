@@ -26,9 +26,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-static
-double
-wasm_roundd (double x)
+double wasm_roundd (double x)
 {
 	double t;
 

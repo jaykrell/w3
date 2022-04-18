@@ -1182,17 +1182,9 @@ static_assert (bits_for_uint (sizeof (instructionNames)) == 12, "");
 #define ExportTag_Memory ImportTag_Memory
 #define ExportTag_Global ImportTag_Global
 
-struct ImportFunction
-{
-};
-
-struct ImportTable
-{
-};
-
-struct ImportMemory
-{
-};
+//struct ImportFunction;
+//struct ImportTable;
+//struct ImportMemory;
 
 struct ExternalValue // external to a module, an export instance
 {
@@ -1239,22 +1231,21 @@ struct SectionTraits
     PCSTR name;
 };
 
-const
-SectionTraits section_traits [ ] =
+extern const SectionTraits section_traits [ ] =
 {
     { 0 },
 #define SECTIONS        \
-    SECTION (TypesSection, read_types)     \
-    SECTION (ImportsSection, read_imports)   \
-    SECTION (FunctionsSection, read_functions) \
-    SECTION (TablesSection, read_tables)    \
-    SECTION (MemorySection, read_memory)    \
-    SECTION (GlobalsSection, read_globals)   \
-    SECTION (ExportsSection, read_exports)   \
-    SECTION (StartSection, read_start)     \
-    SECTION (ElementsSection, read_elements) \
-    SECTION (CodeSection, read_code) \
-    SECTION (DataSection, read_data) \
+    SECTION (TypesSection, read_types)          \
+    SECTION (ImportsSection, read_imports)      \
+    SECTION (FunctionsSection, read_functions)  \
+    SECTION (TablesSection, read_tables)        \
+    SECTION (MemorySection, read_memory)        \
+    SECTION (GlobalsSection, read_globals)      \
+    SECTION (ExportsSection, read_exports)      \
+    SECTION (StartSection, read_start)          \
+    SECTION (ElementsSection, read_elements)    \
+    SECTION (CodeSection, read_code)            \
+    SECTION (DataSection, read_data)            \
 
 #undef SECTION
 #define SECTION(x, read) {&Module::read, #x},

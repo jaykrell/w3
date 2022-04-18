@@ -21,9 +21,7 @@
 
 #if 0
 
-static
-double
-wasm_floord (double x)
+double wasm_floord (double x)
 {
 	int32_t i0,i1,jj0;
 	uint32_t i,j;

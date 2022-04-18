@@ -15,9 +15,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-static
-int
-wasm_isinfd (double d)
+int wasm_isinfd (double d)
 {
 	ieee_double *p = (ieee_double *)&d;
 
@@ -25,9 +23,7 @@ wasm_isinfd (double d)
 	    p->dbl_frach == 0 && p->dbl_fracl == 0);
 }
 
-static
-int
-wasm_isinff (float f)
+int wasm_isinff (float f)
 {
 	ieee_single *p = (ieee_single *)&f;
  

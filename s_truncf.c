@@ -19,9 +19,7 @@
  *	Inexact flag raised if x not equal to truncf(x).
  */
 
-static
-float
-wasm_truncf (float x)
+float wasm_truncf (float x)
 {
 	int32_t i0,jj0;
 	uint32_t i;

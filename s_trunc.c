@@ -19,9 +19,7 @@
  *	Inexact flag raised if x not equal to trunc(x).
  */
 
-static
-double
-wasm_truncd (double x)
+double wasm_truncd (double x)
 {
 	int32_t i0,i1,jj0;
 	uint32_t i;
