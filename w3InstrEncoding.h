@@ -10,7 +10,7 @@
 
 #include "w3InstrNames.h"
 
-enum InstructionEnum;
+enum InstructionEnum : int; //TODO: underlying type?
 typedef struct Module Module;
 
 struct InstructionEncoding

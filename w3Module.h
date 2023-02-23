@@ -13,16 +13,11 @@
 struct Function // section3
 {
     // Functions are split between two sections: types in section3, locals/body in section10
-    size_t function_index; // TODO needed?
-    size_t function_type_index;
-    size_t local_only_count;
-    size_t param_count;
-    bool import; // TODO needed?
-
-    Function()
-    {
-        ZeroMem(this, sizeof(*this));
-    }
+    size_t function_index {}; // TODO needed?
+    size_t function_type_index {};
+    size_t local_only_count {};
+    size_t param_count {};
+    bool import {}; // TODO needed?
 };
 
 // Initial representation of X and XSection are the same.
@@ -49,19 +44,11 @@ typedef enum BuiltinString {
 //todo eliminate this? remove std::string?
 struct WasmString
 {
-    WasmString() :
-        data (0),
-        size (0),
-        builtin (BuiltinString_none),
-        builtinStorage (false)
-    {
-    }
-
-    PCH data;
-    size_t size;
-    std::string storage;
-    BuiltinString builtin ;
-    bool builtinStorage;
+    PCH data {};
+    size_t size {};
+    std::string storage {};
+    BuiltinString builtin {};
+    bool builtinStorage {};
 
     PCH c_str ()
     {
@@ -80,10 +67,10 @@ struct WasmString
 
 struct Section
 {
-    uint32_t id;
-    WasmString name;
-    size_t payload_size;
-    uint8_t* payload;
+    uint32_t id {};
+    WasmString name {};
+    size_t payload_size {};
+    uint8_t* payload {};
 };
 
 typedef enum ImportTag {    // aka desc
@@ -96,51 +83,40 @@ typedef enum ImportTag {    // aka desc
 struct Limits
 {
     // TODO size_t? null?
-    Limits () : min (0), max (0), hasMax (false) { }
-
-    uint32_t min;
-    uint32_t max;
-    bool hasMax;
+    uint32_t min {};
+    uint32_t max {};
+    bool hasMax {};
 };
 
 struct MemoryType
 {
-    Limits limits;
+    Limits limits {};
 };
 
 struct GlobalType
 {
-    Tag value_type;
-    bool is_mutable;
-
-    GlobalType()
-    {
-        ZeroMem(this, sizeof(*this));
-    }
+    Tag value_type {};
+    bool is_mutable {};
 };
 
 struct TableType
 {
-    TableType () : elementType ((Tag)0) { }
-
-    Tag elementType;
-    Limits limits;
+    Tag elementType {};
+    Limits limits {};
 };
 
 struct Import
 {
-    Import() : tag ((ImportTag)-1) { }
-
-    WasmString module;
-    WasmString name;
-    ImportTag tag;
+    WasmString module {};
+    WasmString name {};
+    ImportTag tag {(ImportTag)-1};
     // TODO virtual functions to model union
     //union
     //{
-        TableType table;
-        uint32_t function;
-        MemoryType memory;
-        GlobalType global;
+        TableType table {};
+        uint32_t function {};
+        MemoryType memory {};
+        GlobalType global {};
     //};
 };
 
@@ -148,11 +124,11 @@ enum InstructionEnum;
 
 struct DecodedInstructionZeroInit // ZeroMem-compatible part
 {
-    DecodedInstructionZeroInit ()
+    DecodedInstructionZeroInit()
     {
-        ZeroMem(this, sizeof(*this));
+        static DecodedInstructionZeroInit a;
+        *this = a;
     }
-
     union
     {
         uint32_t u32;
@@ -170,7 +146,6 @@ struct DecodedInstructionZeroInit // ZeroMem-compatible part
         {
             size_t label;
         };
-
         struct // if / else
         {
             size_t if_false;
@@ -192,48 +167,32 @@ struct DecodedInstruction : DecodedInstructionZeroInit
         return (blockType == Tag_empty) ? 0u : 1u; // FUTURE
     }
 
-    std::vector <uint32_t> vecLabel;
+    std::vector <uint32_t> vecLabel {};
 };
 
 struct Global
 {
-    GlobalType global_type;
-    std::vector <DecodedInstruction> init;
+    GlobalType global_type {};
+    std::vector <DecodedInstruction> init {};
 };
-
 
 struct Element
 {
-    uint32_t table;
-    std::vector <DecodedInstruction> offset_instructions;
-    uint32_t offset;
-    std::vector <uint32_t> functions;
+    uint32_t table {};
+    std::vector <DecodedInstruction> offset_instructions {};
+    uint32_t offset {};
+    std::vector <uint32_t> functions {};
 };
 
 struct Export
 {
-    Export () :
-        tag((ExportTag)0),
-        is_start(0),
-        is_main(0)
-    {
-        function = 0;
-    }
-
-    Export (const Export& e)
-    {
-        printf ("copy export %X %X %X %X\n", tag, is_main, is_start, table);
-        *this = e;
-    }
-
-    //void operator = (const Export& e);
-    WasmString name;
-    ExportTag tag;
-    bool is_start;
-    bool is_main;
+    WasmString name {};
+    ExportTag tag {};
+    bool is_start {};
+    bool is_main {};
     union
     {
-        uint32_t function;
+        uint32_t function {};
         uint32_t memory;
         uint32_t table;
         uint32_t global;
@@ -242,11 +201,9 @@ struct Export
 
 struct Data // section11
 {
-    Data () : memory (0), bytes (0) { }
-
-    uint32_t memory;
-    std::vector <DecodedInstruction> expr;
-    void* bytes;
+    uint32_t memory {};
+    std::vector <DecodedInstruction> expr {};
+    void* bytes {};
 };
 
 struct Code
@@ -255,30 +212,24 @@ struct Code
 // Instructions are in section10.
 // Function code is decoded upon first (or only) visit.
 {
-    Code () : size (0), cursor (0), import (false)
-    {
-    }
-
-    size_t size;
-    uint8_t* cursor;
-    std::vector <Tag> locals; // params in FunctionType
-    std::vector <DecodedInstruction> decoded_instructions; // section10
-    bool import;
+    size_t size {};
+    uint8_t* cursor {};
+    std::vector <Tag> locals {}; // params in FunctionType
+    std::vector <DecodedInstruction> decoded_instructions {}; // section10
+    bool import {};
 };
 
 struct Module
 {
-    std::string name;
+    std::string name {};
 
     virtual ~Module();
 
-    Module ();
-
-    MemoryMappedFile mmf;
-    uint8_t* base;
-    uint64_t file_size;
-    uint8_t* end;
-    Section sections [12];
+    MemoryMappedFile mmf {};
+    uint8_t* base {};
+    uint64_t file_size {};
+    uint8_t* end {};
+    Section sections [12] {};
     //std::vector <std::shared_ptr<Section>> custom_sections; // FIXME
 
     // The order can be take advantage of.
@@ -295,15 +246,15 @@ struct Module
     std::vector <Data> data; // section11 memory initialization
     Limits memory_limits;
 
-    int instructionId; //sourcegen
+    int instructionId {}; //sourcegen
 
-    Export* start;
-    Export* main;
+    Export* start {};
+    Export* main {};
 
-    size_t import_function_count;
-    size_t import_table_count;
-    size_t import_memory_count;
-    size_t import_global_count;
+    size_t import_function_count {};
+    size_t import_table_count {};
+    size_t import_memory_count {};
+    size_t import_global_count {};
 
     WasmString read_string (uint8_t** cursor);
 

@@ -12,20 +12,6 @@ Module::~Module()
 {
 }
 
-Module::Module () :
-    base (0),
-    file_size (0),
-    end (0),
-    start (0),
-    main (0),
-    import_function_count (0),
-    import_table_count (0),
-    import_memory_count (0),
-    import_global_count (0),
-    instructionId (0)
-{
-}
-
 void Module::read_start (uint8_t** cursor)
 {
     ThrowString ("Start::read not yet implemented");

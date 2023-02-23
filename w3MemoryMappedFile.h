@@ -10,15 +10,13 @@ struct MemoryMappedFile
 {
 // TODO allow for redirection to built-in data (i.e. filesystem emulation with builtin BCL)
 // TODO allow for systems that must read, not mmap
-    void* base;
-    size_t size;
+    void* base {};
+    size_t size {};
 #ifdef _WIN32
-    Handle file;
+    Handle file {};
 #else
-    Fd file;
+    Fd file {};
 #endif
-
-    MemoryMappedFile ();
 
     ~MemoryMappedFile ();
 

@@ -10,7 +10,7 @@ struct Handle
 
     uint64_t get_file_size (PCSTR file_name = "");
 
-    void* h;
+    void* h {};
 
     Handle (void* a);
     Handle ();

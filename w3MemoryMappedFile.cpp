@@ -8,11 +8,6 @@
 #include "w3Fd.h"
 #include "w3MemoryMappedFile.h"
 
-MemoryMappedFile::MemoryMappedFile () :
-    base (0), size (0)
-{
-}
-
 MemoryMappedFile::~MemoryMappedFile ()
 {
     if (!base)

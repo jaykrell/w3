@@ -20,6 +20,7 @@
 #pragma warning (disable:4668) // #if not_defined vs. #if 0
 #pragma warning (disable:4820) // padding added
 #pragma warning (disable:5045) // compiler will/did insert Spectre mitigation
+#pragma warning (disable:5264) // const variable not used
 #endif
 
 #include <math.h>
@@ -31,10 +32,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <string>
 
 typedef char* PCH;
 typedef const char* PCSTR;
-#include <string> // todo: remove?
 std::string StringFormat (PCSTR format, ...);
 void ThrowString (const std::string& a);
 
@@ -334,7 +335,7 @@ typedef enum Immediate : uint8_t
     Imm_label       ,     // read_varuint32
 } Immediate;
 
-enum InstructionEnum;
+enum InstructionEnum : int; //TODO: underlying type?
 
 #define BITS_FOR_UINT_HELPER(a, x) (a) >= (1u << x) ? (x) + 1 :
 
