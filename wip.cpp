@@ -144,7 +144,6 @@ namespace w3
 {
 
 #if 0
-static
 void
 AssertFailed (const char* file, int line, const char* expr)
 {
@@ -160,7 +159,6 @@ AssertFailed (const char* file, int line, const char* expr)
 #endif
 
 
-static
 void
 ThrowString (const std::string& a)
 {
@@ -169,11 +167,9 @@ ThrowString (const std::string& a)
     //abort ();
 }
 
-static
 std::string
 StringFormatVa (const char* format, va_list va);
 
-static
 std::string
 StringFormat (const char* format, ...)
 {
@@ -184,14 +180,12 @@ StringFormat (const char* format, ...)
     return a;
 }
 
-static
 void
 ThrowInt (int i, const char* a = "")
 {
     ThrowString (StringFormat ("error 0x%08X %s", i, a));
 }
 
-static
 void
 ThrowErrno (const char* a = "")
 {
@@ -200,7 +194,6 @@ ThrowErrno (const char* a = "")
 
 #if _WIN32
 
-static
 void
 throw_Win32Error (int err, const char* a = "")
 {
@@ -208,7 +201,6 @@ throw_Win32Error (int err, const char* a = "")
 
 }
 
-static
 void
 throw_GetLastError (const char* a = "")
 {
@@ -246,7 +238,6 @@ string_vformat_length (const char* format, va_list va)
 #pragma warning (pop)
 #endif
 
-static
 void
 AssertFailedFormat (const char* condition, const std::string& extra)
 {
@@ -303,7 +294,6 @@ enum ValueType : uint8_t
     Tag_f64 = 0x7C,
 };
 
-static
 std::string
 StringFormatVa (const char* format, va_list va)
 {
@@ -334,7 +324,6 @@ const uint32_t PageShift = 16;
 
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
 
-static
 uint32_t
 Unpack2 (const void* a)
 {
@@ -342,7 +331,6 @@ Unpack2 (const void* a)
     return ((b [1]) << 8) | (uint32_t)b [0];
 }
 
-static
 uint32_t
 Unpack4 (const void* a)
 {
