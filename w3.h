@@ -180,23 +180,7 @@ void AssertFailed (PCSTR expr);
 #define Assert(x)         ((x) || ( AssertFailed (#x), (int)0))
 #define AssertFormat(x, extra) ((x) || (AssertFailedFormat (#x, StringFormat extra), 0))
 
-typedef enum Immediate : uint8_t
-{
-    Imm_none = 0,
-    Imm_i32,
-    Imm_i64,
-    Imm_f32,
-    Imm_f64,
-    Imm_sequence,
-    Imm_vecLabel,
-    //Imm_u32,
-    Imm_memory      ,     // align:u32 offset:u32
-    Imm_type        ,     // read_varuint32
-    Imm_function    ,     // read_varuint32
-    Imm_global      ,     // read_varuint32
-    Imm_local       ,     // read_varuint32
-    Imm_label       ,     // read_varuint32
-} Immediate;
+#include "w3Immediate.h"
 
 enum InstructionEnum : int; //TODO: underlying type?
 
