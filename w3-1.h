@@ -48,6 +48,7 @@
 
 #include <math.h>
 #include <limits.h>
+#include <stddef.h>
 
 // Win32 ZeroMemory
 #define ZeroMem(p, n) memset((p), 0, (n))

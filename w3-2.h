@@ -29,8 +29,6 @@
 #include <errno.h>
 #include <memory.h>
 #include <stdarg.h>
-#include <stddef.h>
-typedef ptrdiff_t ssize_t;
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>

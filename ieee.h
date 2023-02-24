@@ -40,9 +40,7 @@
  *	@(#)ieee.h	8.1 (Berkeley) 6/11/93
  */
 
-#if _MSC_VER > 1000
 #pragma once
-#endif
 
 /*
  * ieee.h defines the machine-dependent layout of the machine's IEEE
