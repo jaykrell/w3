@@ -11,14 +11,26 @@
 #define _CRT_SECURE_NO_WARNINGS 1
 
 #ifdef _MSC_VER
+#pragma warning (disable:4100) // unused parameter
 #pragma warning (disable:4127) // conditional expression is constant
+#pragma warning (disable:4201) // nameless struct/union
+#pragma warning (disable:4355) // this used in base member initializer list
 #pragma warning (disable:4365) // integer type mixups
+#pragma warning (disable:4371) // layout change from previous compiler version
 #pragma warning (disable:4480) // non-standard extension
+#pragma warning (disable:4505) // unused static function
+#pragma warning (disable:4514) // unused function
 #pragma warning (disable:4571) // catch(...)
 #pragma warning (disable:4616) // disable unknown warning (for older compiler)
 #pragma warning (disable:4619) // disable unknown warning (for older compiler)
+#pragma warning (disable:4625) // copy constructor implicitly deleted
+#pragma warning (disable:4626) // assignment implicitly deleted
 #pragma warning (disable:4668) // #if not_defined vs. #if 0
+#pragma warning (disable:4710) // function not inlined
+#pragma warning (disable:4774) // printf used without constant format
 #pragma warning (disable:4820) // padding added
+#pragma warning (disable:5032) // pragma warning push is balanced elsewhere
+#pragma warning (disable:5039) // exception handling and function pointers
 #pragma warning (disable:5045) // compiler will/did insert Spectre mitigation
 #pragma warning (disable:5264) // const variable not used
 #endif
@@ -43,21 +55,8 @@
 // Win32 ZeroMemory
 #define ZeroMem(p, n) memset((p), 0, (n))
 
-#ifdef _MSC_VER
-// Older compiler.
-typedef signed __int8     int8_t;
-typedef signed __int16    int16_t;
-typedef signed __int32    int32_t;
-typedef signed __int64    int64_t;
-typedef unsigned __int8  uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-#define __func__ __FUNCTION__
-#else
-#include <stdint.h>
-#endif
-
+#include "w3StdInt.h"
+#include "w3StdFunc.h"
 #include "ieee.h"
 #include "math_private.h"
 

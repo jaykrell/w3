@@ -27,49 +27,6 @@ void ThrowString (const std::string& a);
 
 typedef ptrdiff_t ssize_t;
 
-#define _WASI_EMULATED_MMAN
-#define WIN32_LEAN_AND_MEAN 1
-
-#if _WIN32
-#define BIG_ENDIAN      2
-#define LITTLE_ENDIAN   1
-#define BYTE_ORDER      LITTLE_ENDIAN
-#else
-#include <endian.h>
-#define BIG_ENDIAN      __BIG_ENDIAN
-#define LITTLE_ENDIAN   __LITTLE_ENDIAN
-#define BYTE_ORDER      __BYTE_ORDER
-#endif
-
-#if _MSC_VER
-#pragma warning(push)
-#pragma warning (disable:4668) // #if not_defined is #if 0
-#endif
-
-#include <limits.h>
-
-#if _MSC_VER
-#pragma warning(pop)
-#endif
-
-// Win32 ZeroMemory
-#define ZeroMem(p, n) memset((p), 0, (n))
-
-#if _MSC_VER
-// Older compiler.
-typedef signed __int8     int8_t;
-typedef signed __int16    int16_t;
-typedef signed __int32    int32_t;
-typedef signed __int64    int64_t;
-typedef unsigned __int8  uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-#define __func__ __FUNCTION__
-#else
-#include <stdint.h>
-#endif
-
 #include "w3Tag.h"
 
 #define _DARWIN_USE_64_BIT_INODE 1
@@ -80,24 +37,6 @@ typedef unsigned __int64 uint64_t;
 //#define _LARGEFILE64_SOURCE
 
 #if _MSC_VER
-#pragma warning (disable:4201) // nameless struct/union
-#pragma warning (disable:4355) // this used in base member initializer list
-#pragma warning (disable:4100) // unused parameter
-#pragma warning (disable:4371) // layout change from previous compiler version
-#pragma warning (disable:4505) // unused static function
-#pragma warning (disable:4514) // unused function
-#pragma warning (disable:4668) // #if not_defined is #if 0
-#pragma warning (disable:4710) // function not inlined
-#pragma warning (disable:4820) // padding
-#pragma warning (disable:5032) // pragma warning push is balanced elsewhere
-#pragma warning (push)
-#pragma warning (disable:4571) // catch(...)
-#pragma warning (disable:4626) // assignment implicitly deleted
-#pragma warning (disable:4625) // copy constructor implicitly deleted
-#pragma warning (disable:4668) // #if not_defined as #if 0
-#pragma warning (disable:4774) // printf used without constant format
-#pragma warning (disable:4820) // ucrt\malloc.h(45): warning C4820: '_heapinfo': '4' bytes padding added after data member '_heapinfo::_useflag'
-#pragma warning (disable:5039) // exception handling and function pointers
 #include <intrin.h>
 #endif
 
@@ -236,13 +175,8 @@ typedef const char* PCSTR;
 
 #endif
 
-#if _MSC_VER
-#pragma warning (suppress:5031)
-#pragma warning (pop)
-#endif
-
 #ifdef _MSC_VER
-#pragma warning(disable:4061) // revisit switches
+#pragma warning(disable:4061) // enumerator in switch of enum is not explicitly handled 
 #endif
 
 PCH VarName(Variable* var);
@@ -284,7 +218,7 @@ enum InstructionEnum : int; //TODO: underlying type?
    BITS_FOR_UINT_HELPER (a,  9) BITS_FOR_UINT_HELPER (a,  8) BITS_FOR_UINT_HELPER (a,  7) BITS_FOR_UINT_HELPER (a,  6) BITS_FOR_UINT_HELPER (a,  5) \
    BITS_FOR_UINT_HELPER (a,  4) BITS_FOR_UINT_HELPER (a,  3) BITS_FOR_UINT_HELPER (a,  2) BITS_FOR_UINT_HELPER (a,  1) BITS_FOR_UINT_HELPER (a,  0) 1)
 
-#if (_MSC_VER && _MSC_VER <= 1700) || defined(__WATCOMC__)
+#if 1 // (_MSC_VER && _MSC_VER <= 1700) || defined(__WATCOMC__)
 
 #define bits_for_uint(x) BITS_FOR_UINT (x)
 
