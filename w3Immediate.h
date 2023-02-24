@@ -6,7 +6,7 @@
 #pragma once
 
 // Immediate is part of InstructionEncoding.
-typedef enum Immediate : uint8_t
+typedef enum Immediate
 {
     Imm_none = 0,
     Imm_i32,
