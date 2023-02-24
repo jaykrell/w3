@@ -196,17 +196,6 @@ const uint32_t PageShift = 16;
 
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
 
-uint32_t Unpack2 (const void* a)
-{
-    uint8_t* b = (uint8_t*)a;
-    return ((b [1]) << 8) | (uint32_t)b [0];
-}
-
-uint32_t Unpack4 (const void* a)
-{
-    return (Unpack2 ((PCH)a + 2) << 16) | Unpack2 (a);
-}
-
 uint64_t SignExtend (uint64_t value, uint32_t bits)
 {
     // Extract lower bits from value and signextend.

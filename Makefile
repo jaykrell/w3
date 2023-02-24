@@ -119,6 +119,7 @@ OBJS=   w3Fd.$O \
         w3MemoryMappedFile.$O \
         w3Module.$O \
         w3rt.$O \
+        w3Unpack.$O \
         isinf.$O \
         isnan.$O \
         s_floor.$O \

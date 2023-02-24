@@ -11,6 +11,7 @@ w3InstructionNames.cpp
 w3MemoryMappedFile.cpp
 w3Module.cpp
 w3rt.cpp
+w3Unpack.cpp
 isinf.c
 isnan.c
 s_floor.c
