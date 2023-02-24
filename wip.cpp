@@ -274,32 +274,10 @@ AssertFailed (const char* expr)
 #define Assert(x)         ((x) || ( AssertFailed (#x), (int)0))
 #define AssertFormat(x, extra) ((x) || (AssertFailedFormat (#x, StringFormat extra), 0))
 
-template <class T>
-void WasmStdConstructN (T* a, size_t n)
-{
-    for (size_t i = 0; i < n; ++i)
-        new (a++) T ();
-}
-
-template <class T>
-void WasmStdCopyConstructNtoN (T* to, T* from, size_t n)
-{
-    for (size_t i = 0; i < n; ++i)
-        new (to++) T (*from++);
-}
-
-template <class T>
-void WasmStdCopyConstruct1toN (T* to, const T& from, size_t n)
-{
-    for (size_t i = 0; i < n; ++i)
-        new (to++) T (from);
-}
-
-template <class T>
-void WasmStdCopyConstruct1 (T& to, const T& from)
-{
-    WasmStdCopyConstruct1toN (&to, from, 1u);
-}
+//template <class T> void WasmStdConstructN (T* a, size_t n) { for (size_t i = 0; i < n; ++i) new (a++) T (); }
+//template <class T> void WasmStdCopyConstructNtoN (T* to, T* from, size_t n) { for (size_t i = 0; i < n; ++i) new (to++) T (*from++); }
+//template <class T> void WasmStdCopyConstruct1toN (T* to, const T& from, size_t n) { for (size_t i = 0; i < n; ++i) new (to++) T (from); }
+//template <class T> void WasmStdCopyConstruct1 (T& to, const T& from) { WasmStdCopyConstruct1toN (&to, from, 1u); }
 
 struct FuncAddr // TODO
 {
