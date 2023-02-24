@@ -116,6 +116,7 @@ OBJS=   w3Fd.$O \
         w3Handle.$O \
         w3InstructionEncoding.$O \
         w3InstructionNames.$O \
+        w3Int.$O \
         w3MemoryMappedFile.$O \
         w3Module.$O \
         w3rt.$O \
@@ -173,9 +174,19 @@ OBJS=   w3Fd.$O \
         w3Handle.$O \
         w3InstructionEncoding.$O \
         w3InstructionNames.$O \
+        w3Int.$O \
         w3MemoryMappedFile.$O \
         w3Module.$O \
         w3rt.$O \
+        w3Unpack.$O \
+        isinf.$O \
+        isnan.$O \
+        s_floor.$O \
+        s_floorf.$O \
+        s_round.$O \
+        s_roundf.$O \
+        s_trunc.$O \
+        s_truncf.$O \
 
 mac: w3.cpp $(OBJS)
 	g++ -g w3.cpp $(OBJS) -o $@ -Bsymbolic -bind_at_load

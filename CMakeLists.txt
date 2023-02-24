@@ -8,6 +8,7 @@ w3Fd.cpp
 w3Handle.cpp
 w3InstructionEncoding.cpp
 w3InstructionNames.cpp
+w3Int.cpp
 w3MemoryMappedFile.cpp
 w3Module.cpp
 w3rt.cpp
