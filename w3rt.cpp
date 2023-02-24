@@ -19,7 +19,7 @@ uint32_t PopulationCount64 (uint64_t a)
         a >>= 1;
     }
 
-    return c;
+    return (uint32_t)c;
 }
 
 #if _MSC_VER
@@ -44,7 +44,7 @@ uint32_t CountTrailingZeros64 (uint64_t a)
         a >>= 1;
         ++c;
     }
-    return c;
+    return (uint32_t)c;
 }
 
 #if _MSC_VER
@@ -71,7 +71,7 @@ uint32_t CountLeadingZeros64 (uint64_t a)
         a <<= 1;
         ++c;
     }
-    return c;
+    return (uint32_t)c;
 }
 
 #if _MSC_VER
