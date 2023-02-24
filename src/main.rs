@@ -1,5 +1,7 @@
-// A WebAssembly implementation and experimentation platform.
-// Full spec TBD.
+// A WebAssembly codebase by Jay Krell
+//
+// https://webassembly.github.io/spec/core/binary/index.html
+// https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
 
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
