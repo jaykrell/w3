@@ -5,66 +5,8 @@
 
 #define _CRT_SECURE_NO_WARNINGS 1
 
-#if _MSC_VER
-#pragma warning (disable:4127) // conditional expression is constant
-#pragma warning (disable:4365) // integer type mixups
-#pragma warning (disable:4480) // non-standard extension
-#pragma warning (disable:4571) // catch(...)
-#pragma warning (disable:4616) // disable unknown warning (for older compiler)
-#pragma warning (disable:4619) // disable unknown warning (for older compiler)
-#pragma warning (disable:4820) // padding added
-#pragma warning (disable:5045) // compiler will/did insert Spectre mitigation
-#endif
-
-#define _WASI_EMULATED_MMAN
-#define WIN32_LEAN_AND_MEAN 1
-
-#if _WIN32
-#define BIG_ENDIAN      2
-#define LITTLE_ENDIAN   1
-#define BYTE_ORDER      LITTLE_ENDIAN
-#else
-#include <endian.h>
-#define BIG_ENDIAN      __BIG_ENDIAN
-#define LITTLE_ENDIAN   __LITTLE_ENDIAN
-#define BYTE_ORDER      __BYTE_ORDER
-#endif
-
-#include <math.h>
-#include <limits.h>
-
-// Win32 ZeroMemory
-#define ZeroMem(p, n) memset((p), 0, (n))
-
-#if _MSC_VER
-// Older compiler.
-typedef signed __int8     int8_t;
-typedef signed __int16    int16_t;
-typedef signed __int32    int32_t;
-typedef signed __int64    int64_t;
-typedef unsigned __int8  uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-#define __func__ __FUNCTION__
-#else
-#include <stdint.h>
-#endif
-
-#include "ieee.h"
-#include "math_private.h"
-
 extern const float wasm_hugef = 1.0e30F;
 extern const double wasm_huged = 1.0e300;
-
-#include "s_floor.c"
-#include "s_floorf.c"
-#include "isnan.c"
-#include "isinf.c"
-#include "s_trunc.c"
-#include "s_truncf.c"
-#include "s_round.c"
-#include "s_roundf.c"
 
 #define _DARWIN_USE_64_BIT_INODE 1
 //#define __DARWIN_ONLY_64_BIT_INO_T 1
@@ -74,23 +16,6 @@ extern const double wasm_huged = 1.0e300;
 //#define _LARGEFILE64_SOURCE
 
 #if _MSC_VER
-#pragma warning (disable:4201) // nameless struct/union
-#pragma warning (disable:4355) // this used in base member initializer list
-#pragma warning (disable:4100) // unused parameter
-#pragma warning (disable:4371) // layout change from previous compiler version
-#pragma warning (disable:4505) // unused static function
-#pragma warning (disable:4514) // unused function
-#pragma warning (disable:4668) // #if not_defined is #if 0
-#pragma warning (disable:4710) // function not inlined
-#pragma warning (disable:4820) // padding
-#pragma warning (push)
-#pragma warning (disable:4571) // catch(...)
-#pragma warning (disable:4626) // assignment implicitly deleted
-#pragma warning (disable:4625) // copy constructor implicitly deleted
-#pragma warning (disable:4668) // #if not_defined as #if 0
-#pragma warning (disable:4774) // printf used without constant format
-#pragma warning (disable:4820) // ucrt\malloc.h(45): warning C4820: '_heapinfo': '4' bytes padding added after data member '_heapinfo::_useflag'
-#pragma warning (disable:5039) // exception handling and function pointers
 #include <intrin.h>
 #endif
 
@@ -102,19 +27,6 @@ extern const double wasm_huged = 1.0e300;
 #ifndef _ISOC99_SOURCE
 #define _ISOC99_SOURCE
 #endif
-
-//#include <math.h>
-//#include <assert.h>
-//#include <errno.h>
-//#include <memory.h>
-//#include <stdarg.h>
-//#include <stddef.h>
-//#include <stdio.h>
-//#include <string.h>
-//#include <stdlib.h>
-//#include <string>
-//#include <vector>
-//#include <memory>
 
 #if _WIN32
 
@@ -137,7 +49,6 @@ extern const double wasm_huged = 1.0e300;
 
 #if _MSC_VER
 #include <malloc.h> // for _alloca
-#pragma warning (pop)
 #endif
 
 namespace w3
@@ -157,7 +68,6 @@ AssertFailed (const char* file, int line, const char* expr)
 
 #define Assert(expr) ((void)((expr) || AssertFailed (__FILE__, __LINE__, #expr)))
 #endif
-
 
 void
 ThrowString (const std::string& a)
@@ -615,7 +525,6 @@ struct int_split_sign_magnitude_t
     uint64_t u;
 };
 
-static
 uint32_t
 UIntGetPrecision (uint64_t a)
 {
@@ -625,7 +534,6 @@ UIntGetPrecision (uint64_t a)
     return len;
 }
 
-static
 uint32_t
 IntGetPrecision (int64_t a)
 {
@@ -634,7 +542,6 @@ IntGetPrecision (int64_t a)
     return std::min (64u, 1 + UIntGetPrecision (int_split_sign_magnitude_t (a).u));
 }
 
-static
 uint32_t
 UIntToDec_GetLength (uint64_t b)
 {
@@ -644,7 +551,6 @@ UIntToDec_GetLength (uint64_t b)
     return len;
 }
 
-static
 uint32_t
 UIntToDec (uint64_t a, char* buf)
 {
@@ -654,7 +560,6 @@ UIntToDec (uint64_t a, char* buf)
     return len;
 }
 
-static
 uint32_t
 IntToDec (int64_t a, char* buf)
 {
@@ -664,7 +569,6 @@ IntToDec (int64_t a, char* buf)
     return split.neg + UIntToDec (split.u, buf);
 }
 
-static
 uint32_t
 IntToDec_GetLength (int64_t a)
 {
@@ -672,7 +576,6 @@ IntToDec_GetLength (int64_t a)
     return split.neg + UIntToDec_GetLength (split.u);
 }
 
-static
 uint32_t
 UIntToHex_GetLength (uint64_t b)
 {
@@ -682,7 +585,6 @@ UIntToHex_GetLength (uint64_t b)
     return len;
 }
 
-static
 uint32_t
 IntToHex_GetLength (int64_t a)
 {
@@ -697,7 +599,6 @@ IntToHex_GetLength (int64_t a)
     return len + (a < 0 && most_significant < 8);
 }
 
-static
 void
 UIntToHexLength (uint64_t a, uint32_t len, char* buf)
 {
@@ -713,7 +614,6 @@ IntToHexLength (int64_t a, uint32_t len, char* buf)
     UIntToHexLength ((uint64_t)a, len, buf);
 }
 
-static
 uint32_t
 IntToHex (int64_t a, char* buf)
 {
@@ -722,7 +622,6 @@ IntToHex (int64_t a, char* buf)
     return len;
 }
 
-static
 uint32_t
 IntToHex8 (int64_t a, char* buf)
 {
@@ -730,7 +629,6 @@ IntToHex8 (int64_t a, char* buf)
     return 8;
 }
 
-static
 uint32_t
 IntToHex_GetLength_AtLeast8 (int64_t a)
 {
@@ -755,7 +653,6 @@ IntToHex_AtLeast8 (int64_t a, char* buf)
     return len;
 }
 
-static
 uint32_t
 UIntToHex_AtLeast8 (uint64_t a, char* buf)
 {
@@ -832,7 +729,6 @@ struct stderr_stream : stream
     }
 };
 
-static
 uint8_t
 read_byte (uint8_t** cursor, const uint8_t* end)
 {
@@ -841,7 +737,6 @@ read_byte (uint8_t** cursor, const uint8_t* end)
     return *(*cursor)++;
 }
 
-static
 uint64_t
 read_varuint64 (uint8_t** cursor, const uint8_t* end)
 {
@@ -857,7 +752,6 @@ read_varuint64 (uint8_t** cursor, const uint8_t* end)
     }
 }
 
-static
 uint32_t
 read_varuint32 (uint8_t** cursor, const uint8_t* end)
 {
@@ -873,7 +767,6 @@ read_varuint32 (uint8_t** cursor, const uint8_t* end)
     }
 }
 
-static
 uint8_t
 read_varuint7 (uint8_t** cursor, const uint8_t* end)
 {
@@ -883,7 +776,6 @@ read_varuint7 (uint8_t** cursor, const uint8_t* end)
     return result;
 }
 
-static
 int64_t
 read_varint64 (uint8_t** cursor, const uint8_t* end)
 {
@@ -905,7 +797,6 @@ read_varint64 (uint8_t** cursor, const uint8_t* end)
     return result;
 }
 
-static
 int32_t
 read_varint32 (uint8_t** cursor, const uint8_t* end)
 {
@@ -963,7 +854,6 @@ struct TaggedValue
     };
 };
 
-static
 const char*
 TypeToStringCxx (int tag)
 {
@@ -981,7 +871,6 @@ TypeToStringCxx (int tag)
     return "unknown";
 }
 
-static
 const char*
 TypeToString (int tag)
 {
@@ -1078,7 +967,6 @@ typedef enum StackTag
     StackTag_Frame,     // return address + locals + params
 } StackTag;
 
-static
 const char*
 StackTagToString (StackTag tag)
 {
@@ -2068,7 +1956,6 @@ struct Module : ModuleBase
     virtual void read_data (uint8_t** cursor);
 };
 
-static
 InstructionEnum
 DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code);
 
@@ -2288,7 +2175,6 @@ void Module::read_types (uint8_t** cursor)
     printf ("read section 1\n");
 }
 
-static
 InstructionEnum
 DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code)
 {
@@ -2800,7 +2686,6 @@ struct IWasm
 #include __FILE__
 };
 
-static
 void
 Overflow (void)
 {
@@ -3469,9 +3354,6 @@ INTERP (Ge_f64)
 }
 
 template <class T>
-#if !_MSC_VER || _MSC_VER > 900
-static
-#endif
 uint32_t
 count_set_bits (T a)
 {
@@ -3485,9 +3367,6 @@ count_set_bits (T a)
 }
 
 template <class T>
-#if !_MSC_VER || _MSC_VER > 900
-static
-#endif
 uint32_t
 count_trailing_zeros (T a)
 {
@@ -3501,9 +3380,6 @@ count_trailing_zeros (T a)
 }
 
 template <class T>
-#if !_MSC_VER || _MSC_VER > 900
-static
-#endif
 uint32_t
 count_leading_zeros (T a)
 {
@@ -5025,9 +4901,6 @@ INTERP (Ge_f64)
 }
 
 template <class T>
-#if !_MSC_VER || _MSC_VER > 900
-static
-#endif
 uint32_t
 count_set_bits (T a)
 {
@@ -5041,9 +4914,6 @@ count_set_bits (T a)
 }
 
 template <class T>
-#if !_MSC_VER || _MSC_VER > 900
-static
-#endif
 uint32_t
 count_trailing_zeros (T a)
 {
@@ -5057,9 +4927,6 @@ count_trailing_zeros (T a)
 }
 
 template <class T>
-#if !_MSC_VER || _MSC_VER > 900
-static
-#endif
 uint32_t
 count_leading_zeros (T a)
 {
