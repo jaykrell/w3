@@ -4,7 +4,7 @@
 // https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
 
 #include "w3.h"
-#include "w3InstrEnum.h"
+#include "w3InstructionEnum.h"
 #include "w3InstrEncoding.h"
 #include "w3InstrNames.h"
 
