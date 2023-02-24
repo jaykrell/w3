@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "w3InstrNames.h"
+#include "w3InstructionNames.h"
 
 enum InstructionEnum : int; //TODO: underlying type?
 typedef struct Module Module;

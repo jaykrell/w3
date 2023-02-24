@@ -114,8 +114,8 @@ clean:
 
 OBJS=   w3Fd.$O \
         w3Handle.$O \
-        w3InstrEncoding.$O \
-        w3InstrNames.$O \
+        w3InstructionEncoding.$O \
+        w3InstructionNames.$O \
         w3MemoryMappedFile.$O \
         w3Module.$O \
         w3rt.$O \
@@ -170,8 +170,8 @@ clean:
 
 OBJS=   w3Fd.$O \
         w3Handle.$O \
-        w3InstrEncoding.$O \
-        w3InstrNames.$O \
+        w3InstructionEncoding.$O \
+        w3InstructionNames.$O \
         w3MemoryMappedFile.$O \
         w3Module.$O \
         w3rt.$O \

@@ -5,8 +5,8 @@
 
 #include "w3.h"
 #include "w3InstructionEnum.h"
-#include "w3InstrEncoding.h"
-#include "w3InstrNames.h"
+#include "w3InstructionEncoding.h"
+#include "w3InstructionNames.h"
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) { byte0, fixed_size, imm, pop, push, name, offsetof (InstructionNames, name), in0, in1, in2, out0 },

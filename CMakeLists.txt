@@ -6,8 +6,8 @@ add_executable(w3
 
 w3Fd.cpp
 w3Handle.cpp
-w3InstrEncoding.cpp
-w3InstrNames.cpp
+w3InstructionEncoding.cpp
+w3InstructionNames.cpp
 w3MemoryMappedFile.cpp
 w3Module.cpp
 w3rt.cpp

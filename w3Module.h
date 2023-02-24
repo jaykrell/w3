@@ -8,7 +8,7 @@
 //#include <string> TODO: namespace
 //#include <vector>
 #include "w3InstructionEnum.h"
-#include "w3InstrEncoding.h"
+#include "w3InstructionEncoding.h"
 
 struct Function // section3
 {
