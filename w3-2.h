@@ -400,9 +400,7 @@ constexpr int bits_for_uint (uint32_t a)
 
 #endif
 
-#if defined (_WIN32) && defined (C_ASSERT) // older compiler
-#define static_assert(x, y) C_ASSERT (x)
-#endif
+#include "w3StdStaticAssert.h"
 
 static_assert (BITS_FOR_UINT (0) == 1, "0");
 static_assert (BITS_FOR_UINT (1) == 1, "1");

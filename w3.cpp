@@ -664,9 +664,7 @@ INTERP (FBinOp)
 #define LOAD(b0, to, from)  INSTRUCTION (b0, 1, 0, to ## _Load ## from,  Imm_memory, 0, 1, Tag_none,     Tag_none, Tag_none, Tag_ ## to)
 #define STORE(b0, from, to) INSTRUCTION (b0, 1, 0, from ## _Store ## to, Imm_memory, 1, 0, Tag_ ## from, Tag_none, Tag_none, Tag_none)
 
-#if defined (_WIN32) && defined (C_ASSERT) // older compiler
-#define static_assert(x, y) C_ASSERT (x)
-#endif
+#include "w3StdStaticAssert.h"
 
 static_assert (BITS_FOR_UINT (0) == 1, "0");
 static_assert (BITS_FOR_UINT (1) == 1, "1");
