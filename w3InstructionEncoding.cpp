@@ -13,7 +13,7 @@
 
 extern const InstructionEncoding instructionEncode [ ] =
 {
-#include "w3instructions.h"
+#include "w3Instructions.h"
 };
 
 static_assert (sizeof (instructionEncode) / sizeof (instructionEncode [0]) == 256, "not 256 instructions");

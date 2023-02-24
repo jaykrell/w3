@@ -10,7 +10,7 @@
 
 enum InstructionEnum : int //TODO: underlying type?
 {
-#include "w3instructions.h"
+#include "w3Instructions.h"
 };
 
 #undef INSTRUCTION

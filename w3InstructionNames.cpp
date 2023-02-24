@@ -11,14 +11,14 @@
 extern const char instructionNames [ ] =
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) #name "\0"
-#include "w3instructions.h"
+#include "w3Instructions.h"
 ;
 #else
 
 extern const UInstructionNames instructionNames = { {
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) #name,
-#include "w3instructions.h"
+#include "w3Instructions.h"
 } };
 
 #endif
