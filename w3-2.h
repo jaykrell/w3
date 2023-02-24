@@ -197,7 +197,7 @@ struct uintLEn // unsigned little endian integer, size n bits
     operator typename uintLEn_to_native_fast<N>::T ()
     {
 #if BYTE_ORDER == LITTLE_ENDIAN
-    return native;
+        return native;
 #else
         typename uintLEn_to_native_fast<N>::T a = 0;
         for (uint32_t i = N / 8; i; )
