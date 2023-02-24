@@ -207,20 +207,21 @@ uint64_t SignExtend (uint64_t value, uint32_t bits)
     return value | sign;
 }
 
-size_t int_magnitude (ssize_t i)
+size_t IntMagnitude (ssize_t i)
 {
     // Avoid negating the most negative number.
     return 1 + (size_t)-(i + 1);
 }
 
-struct int_split_sign_magnitude_t
+struct IntSplitSignMagnitude_t
 {
-    int_split_sign_magnitude_t (int64_t a)
-    : neg ((a < 0) ? 1u : 0u),
-        u ((a < 0) ? (1 + (uint64_t)-(a + 1)) // Avoid negating most negative number.
+    IntSplitSignMagnitude_t (int64_t a)
+    : is_negative ((a < 0) ? 1u : 0u),
+        magnitude ((a < 0) ? (1 + (uint64_t)-(a + 1)) // Avoid negating most negative number.
                   : (uint64_t)a) { }
-    uint32_t neg;
-    uint64_t u;
+
+    uint32_t is_negative;
+    uint64_t magnitude;
 };
 
 uint32_t UIntGetPrecision (uint64_t a)
@@ -235,7 +236,7 @@ uint32_t IntGetPrecision (int64_t a)
 {
     // How many bits needed to represent.
     // i.e. so leading bit is extendible sign bit, or 64
-    return std::min (64u, 1 + UIntGetPrecision (int_split_sign_magnitude_t (a).u));
+    return std::min (64u, 1 + UIntGetPrecision (IntSplitSignMagnitude_t (a).magnitude));
 }
 
 uint32_t UIntToDec_GetLength (uint64_t b)
@@ -256,16 +257,16 @@ uint32_t UIntToDec (uint64_t a, PCH buf)
 
 uint32_t IntToDec (int64_t a, PCH buf)
 {
-    const int_split_sign_magnitude_t split (a);
-    if (split.neg)
+    const IntSplitSignMagnitude_t split (a);
+    if (split.is_negative)
         *buf++ = '-';
-    return split.neg + UIntToDec (split.u, buf);
+    return split.is_negative + UIntToDec (split.magnitude, buf);
 }
 
 uint32_t IntToDec_GetLength (int64_t a)
 {
-    const int_split_sign_magnitude_t split (a);
-    return split.neg + UIntToDec_GetLength (split.u);
+    const IntSplitSignMagnitude_t split (a);
+    return split.is_negative + UIntToDec_GetLength (split.magnitude);
 }
 
 uint32_t UIntToHex_GetLength (uint64_t b)
@@ -991,10 +992,10 @@ void* Interp::LoadStore (size_t size)
     }
     else
     {
-        const size_t u = int_magnitude (i);
-        if (u > offset)
+        const size_t magnitude = IntMagnitude (i);
+        if (magnitude > offset)
             Overflow ();
-        effective_address = offset - u;
+        effective_address = offset - magnitude;
     }
     if (effective_address > UINT_MAX - size)
         Overflow ();

@@ -507,17 +507,15 @@ SignExtend (uint64_t value, uint32_t bits)
     return value | sign;
 }
 
-static
-size_t
-int_magnitude (ssize_t i)
+size_t IntMagnitude (ssize_t i)
 {
     // Avoid negating the most negative number.
     return 1 + (size_t)-(i + 1);
 }
 
-struct int_split_sign_magnitude_t
+struct IntSplitSignMagnitude_t
 {
-    int_split_sign_magnitude_t (int64_t a)
+    IntSplitSignMagnitude_t (int64_t a)
     : neg ((a < 0) ? 1u : 0u),
         u ((a < 0) ? (1 + (uint64_t)-(a + 1)) // Avoid negating most negative number.
                   : (uint64_t)a) { }
@@ -539,7 +537,7 @@ IntGetPrecision (int64_t a)
 {
     // How many bits needed to represent.
     // i.e. so leading bit is extendible sign bit, or 64
-    return std::min (64u, 1 + UIntGetPrecision (int_split_sign_magnitude_t (a).u));
+    return std::min (64u, 1 + UIntGetPrecision (IntSplitSignMagnitude_t (a).u));
 }
 
 uint32_t
@@ -563,7 +561,7 @@ UIntToDec (uint64_t a, char* buf)
 uint32_t
 IntToDec (int64_t a, char* buf)
 {
-    const int_split_sign_magnitude_t split (a);
+    const IntSplitSignMagnitude_t split (a);
     if (split.neg)
         *buf++ = '-';
     return split.neg + UIntToDec (split.u, buf);
@@ -572,7 +570,7 @@ IntToDec (int64_t a, char* buf)
 uint32_t
 IntToDec_GetLength (int64_t a)
 {
-    const int_split_sign_magnitude_t split (a);
+    const IntSplitSignMagnitude_t split (a);
     return split.neg + UIntToDec_GetLength (split.u);
 }
 
@@ -4000,7 +3998,7 @@ void* Interp::LoadStore (size_t size)
     }
     else
     {
-        const size_t u = int_magnitude (i);
+        const size_t u = IntMagnitude (i);
         if (u > offset)
             Overflow ();
         effective_address = offset - u;

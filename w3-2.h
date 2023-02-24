@@ -206,7 +206,7 @@ struct explicit_operator_bool
 typedef void (explicit_operator_bool::*bool_type) () const;
 
 uint64_t SignExtend (uint64_t value, uint32_t bits);
-size_t int_magnitude (ssize_t i);
+size_t IntMagnitude (ssize_t i);
 
 struct int_split_sign_magnitude_t
 {
