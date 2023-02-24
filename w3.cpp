@@ -16,8 +16,15 @@
 
 #include "ieee.h"
 #include "math_private.h"
+
 extern const float wasm_hugef = 1.0e30F;
 extern const double wasm_huged = 1.0e300;
+
+#include "w3Value.h"
+#include "w3TaggedValue.h"
+#include "w3StackValue.h"
+#include "w3StackBaseBase.h"
+#include "w3StackBase.h"
 
 void ThrowString (const std::string& a)
 {
@@ -165,35 +172,8 @@ char TagChar(Tag t) //todo: short string?
     return '$';
 }
 
-// TODO templatize on existance of string and possibly label
-// so that SourceGen and Interp can share.
-struct SourceGenValue
-{
-    Tag tag;
-    std::string str;
-    PCSTR cstr() { return str.c_str(); }
-};
-
-struct SourceGenStack : std::stack<SourceGenValue>
-{
-    typedef std::stack<SourceGenValue> base;
-
-    void clear()
-    {
-        while (size()) pop();
-    }
-
-    PCSTR cstr() { return top ().str.c_str (); }
-
-    std::string pop ()
-    {
-        std::string str = top ().str;
-        base::pop();
-        return str;
-    }
-
-    void push_label (...) { } //todo
-};
+#include "w3SourceGenValue.h"
+#include "w3SourceGenStack.h"
 
 std::string StringFormatVa (PCSTR format, va_list va)
 {
@@ -530,27 +510,6 @@ int32_t read_varint32 (uint8_t** cursor, const uint8_t* end)
     return result;
 }
 
-union Value
-{
-    int32_t i32;
-    uint32_t u32;
-    uint64_t u64;
-    int64_t i64;
-    float f32;
-    double f64;
-};
-
-struct TaggedValue
-{
-    Tag tag;
-    Value value;
-
-    TaggedValue()
-    {
-        memset (this, 0, sizeof(*this));
-    }
-};
-
 PCSTR TagToStringCxx (int tag)
 {
     switch ((Tag)tag)
@@ -618,16 +577,13 @@ typedef enum Mutable
 // StackValue* stack = initial_stack;
 // StackValue* min_stack = initial_stack;
 
-struct String
-{
-    PCH buf;
-    size_t len;
-};
+// struct String { PCH buf; size_t len; };
 
 #if 0
 
 struct Variable
-{    Tag tag;
+{
+    Tag tag;
     bool temp : 1;
     bool global : 1;
     bool local : 1;
@@ -646,419 +602,10 @@ PCH VarName(Variable* var)
 
 #endif
 
-struct StackValue
-{
-    // TODO remove two level tagging
-    Tag tag;
-    //union {
-        TaggedValue value; // TODO: change to Value or otherwise remove redundant tag
-        Frame* frame; // TODO by value? Probably not. This was changed
-                      // to resolve circular types, and for the initial frame that seemed
-                      // wrong, but now that call/ret being implemented, seems right
-        //DecodedInstruction* instr;
-        Label label;
-    //};
-
-    StackValue() : tag (Tag_none), frame (0)
-    {
-    }
-
-    StackValue (Tag t) : tag (t), frame (0)
-    {
-        if ((t & 0x78) == 0x78)
-        {
-            tag = Tag_Value;
-            value.tag = t; //todo: remove?
-        }
-    }
-
-    StackValue (TaggedValue t) : tag (Tag_Value), frame (0)
-    {
-        value = t;
-    }
-
-    StackValue (Frame* f) : tag (Tag_Frame), frame (0)
-    {
- //     frame = f;
-    }
-};
-
-// TODO consider a vector instead, but it affects frame.locals staying valid across push/pop
-//typedef std::deque <StackValue> StackBaseBase;
-typedef std::vector <StackValue> StackBaseBase;
-
-struct StackBase : private StackBaseBase
-{
-    typedef StackBaseBase base;
-    typedef base::iterator iterator;
-    StackValue& back () { return base::back (); }
-    StackValue& front () { return base::front (); }
-    iterator begin () { return base::begin (); }
-    iterator end () { return base::end (); }
-    bool empty () const { return base::empty (); }
-    void resize (size_t newsize) { base::resize (newsize); }
-    size_t size () { return base::size (); }
-    StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
-
-    void push (const StackValue& a)
-    {   // While ultimately a stack of values, labels, and frames, values dominate,
-        // so the usage is made convenient for them.
-        push_back (a);
-    }
-
-    void push_i32(...) // todo
-    {
-    }
-
-    void push_i64(...) // todo
-    {
-    }
-
-    void push_f32(...) // todo
-    {
-    }
-
-    void push_f64(...) // todo
-    {
-    }
-
-    void pop ()
-    {
-        pop_back ();
-    }
-
-    StackValue& top ()
-    {   // While ultimately a stack of values, labels, and frames, values dominate,
-        // so the usage is made convenient for them.
-        return back ();
-    }
-};
-
 struct Interp;
 
-struct Frame
-{
-    // FUTURE spec return_arity
-    size_t function_index; // replace with pointer?
-    ModuleInstance* module_instance;
-    Module* module;
-//    Frame* next; // TODO remove this; it is on stack
-    Code* code;
-    size_t param_count;
-    size_t local_only_count;
-    size_t param_and_local_count;
-    Tag* local_only_types;
-    Tag* param_types;
-    FunctionType* function_type;
-    // TODO locals/params
-    // This should just be stack pointer, to another stack,
-    // along with type information (module->module->locals_types[])
-
-    Interp* interp;
-    size_t locals; // index in stack to start of params and locals, params first
-
-    Frame ()
-    {
-        ZeroMem(this, sizeof(*this));
-    }
-
-    StackValue& Local (size_t index);
-};
-
-// work in progress
-struct Stack : private StackBase
-{
-    Stack () { }
-
-    // old compilers lack using.
-    typedef StackBase base;
-    typedef base::iterator iterator;
-    void pop () { base::pop (); }
-    StackValue& top () { return base::top (); }
-    StackValue& back () { return base::back (); }
-    StackValue& front () { return base::front (); }
-    iterator begin () { return base::begin (); }
-    iterator end () { return base::end (); }
-    bool empty () const { return base::empty (); }
-    void resize (size_t newsize) { base::resize (newsize); }
-    size_t size () { return base::size (); }
-    StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
-
-    void reserve (size_t n)
-    {
-        // TODO
-    }
-
-    // While ultimately a stack of values, labels, and frames, values dominate.
-
-    Tag& tag (Tag tag)
-    {
-        AssertTopIsValue ();
-        StackValue& t = top ();
-        AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
-        return t.value.tag;
-    }
-
-    Tag& tag ()
-    {
-        AssertTopIsValue ();
-        StackValue& t = top ();
-        return t.value.tag;
-    }
-
-    Value& value ()
-    {
-        AssertTopIsValue ();
-        StackValue& t = top ();
-        return t.value.value;
-    }
-
-    Value& value (Tag tag)
-    {
-        AssertTopIsValue ();
-        StackValue& t = top ();
-        AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
-        return t.value.value;
-    }
-
-    void pop_label ()
-    {
-        if (size () < 1 || top ().tag != Tag_Label)
-            DumpStack ("AssertTopIsValue");
-        AssertFormat (size () >= 1, ("%" FORMAT_SIZE "X", size ()));
-        AssertFormat (top ().tag == Tag_Label, ("%X %X", top ().tag, Tag_Label));
-        pop ();
-    }
-
-    void pop_value ()
-    {
-        AssertTopIsValue ();
-        //int t = tag ();
-        pop ();
-        //printf ("pop_value tag:%s depth:%" FORMAT_SIZE "X\n", TagToString (t), size ());
-    }
-
-    void push_value (const StackValue& value)
-    {
-        AssertFormat (value.tag == Tag_Value, ("%X %X", value.tag, Tag_Value));
-        push (value);
-        //printf ("push_value tag:%s value:%X depth:%" FORMAT_SIZE "X\n", TagToString (value.value.tag), value.value.value.i32, size ());
-    }
-
-    void push_label (const StackValue& value)
-    {
-        AssertFormat (value.tag == Tag_Label, ("%X %X", value.tag, Tag_Label));
-        push (value);
-        //printf ("push_label depth:%" FORMAT_SIZE "X\n", size ());
-    }
-
-    void push_frame (const StackValue& value)
-    {
-        AssertFormat (value.tag == Tag_Frame, ("%X %X", value.tag, Tag_Frame));
-        push (value);
-        //printf ("push_frame depth:%" FORMAT_SIZE "X\n", size ());
-    }
-
-    // type specific pushers
-
-    void push_i32 (int32_t i)
-    {
-        StackValue value (Tag_i32);
-        value.value.value.i32 = i;
-        push_value (value);
-    }
-
-    void push_i64 (int64_t i)
-    {
-        StackValue value (Tag_i64);
-        value.value.value.i64 = i;
-        push_value (value);
-    }
-
-    void push_u32 (uint32_t i)
-    {
-        push_i32 ((int32_t)i);
-    }
-
-    void push_u64 (uint64_t i)
-    {
-        push_i64 ((int64_t)i);
-    }
-
-    void push_f32 (float i)
-    {
-        StackValue value (Tag_f32);
-        value.value.value.f32 = i;
-        push_value (value);
-    }
-
-    void push_f64 (double i)
-    {
-        StackValue value (Tag_f64);
-        value.value.value.f64 = i;
-        push_value (value);
-    }
-
-    void push_bool (bool b)
-    {
-        push_i32 (b);
-    }
-
-    // accessors, check tag, return ref
-
-    int32_t& i32 ()
-    {
-        return value (Tag_i32).i32;
-    }
-
-    int64_t& i64 ()
-    {
-        return value (Tag_i64).i64;
-    }
-
-    uint32_t& u32 ()
-    {
-        return value (Tag_i32).u32;
-    }
-
-    uint64_t& u64 ()
-    {
-        return value (Tag_i64).u64;
-    }
-
-    float& f32 ()
-    {
-        return value (Tag_f32).f32;
-    }
-
-    double& f64 ()
-    {
-        return value (Tag_f64).f64;
-    }
-
-    void DumpStack (PCSTR prefix)
-    {
-        const size_t n = size ();
-        printf ("stack@%s: %" FORMAT_SIZE "X ", prefix, n);
-        for (size_t i = 0; i != n; ++i)
-        {
-            printf ("%s:", TagToString (begin () [(ssize_t)i].tag));
-            switch (begin () [(ssize_t)i].tag)
-            {
-            case Tag_Label:
-                break;
-            case Tag_Frame:
-                break;
-            case Tag_Value:
-                printf ("%s", TagToString (begin () [(ssize_t)i].value.tag));
-                break;
-            default:; //todo
-            }
-            printf (" ");
-        }
-        printf ("\n");
-    }
-
-    void AssertTopIsValue ()
-    {
-        if (size () < 1 || top ().tag != Tag_Value)
-            DumpStack ("AssertTopIsValue");
-        AssertFormat (size () >= 1, ("%" FORMAT_SIZE "X", size ()));
-        AssertFormat (top ().tag == Tag_Value, ("%X %X", top ().tag, Tag_Value));
-    }
-
-    // setter, changes tag, returns ref
-
-    Value& set (Tag tag)
-    {
-        AssertTopIsValue ();
-        StackValue& t = top ();
-        TaggedValue& v = t.value;
-        v.tag = tag;
-        return v.value;
-    }
-
-    // type-specific setters
-
-    void set_i32 (int32_t a)
-    {
-        set (Tag_i32).i32 = a;
-    }
-
-    void set_u32 (uint32_t a)
-    {
-        set (Tag_i32).u32 = a;
-    }
-
-    void set_bool (bool a)
-    {
-        set_i32 (a);
-    }
-
-    void set_i64 (int64_t a)
-    {
-        set (Tag_i64).i64 = a;
-    }
-
-    void set_u64 (uint64_t a)
-    {
-        set (Tag_i64).u64 = a;
-    }
-
-    void set_f32 (float a)
-    {
-        set (Tag_f32).f32 = a;
-    }
-
-    void set_f64 (double a)
-    {
-        set (Tag_f64).f64 = a;
-    }
-
-    // type specific poppers
-
-    int32_t pop_i32 ()
-    {
-        int32_t a = i32 ();
-        pop_value ();
-        return a;
-    }
-
-    uint32_t pop_u32 ()
-    {
-        uint32_t a = u32 ();
-        pop_value ();
-        return a;
-    }
-
-    int64_t pop_i64 ()
-    {
-        int64_t a = i64 ();
-        pop_value ();
-        return a;
-    }
-
-    uint64_t pop_u64 ()
-    {
-        uint64_t a = u64 ();
-        pop_value ();
-        return a;
-    }
-
-    float pop_f32 ()
-    {
-        float a = f32 ();
-        pop_value ();
-        return a;
-    }
-
-    double pop_f64 ()
-    {
-        double a = f64 ();
-        pop_value ();
-        return a;
-    }
-};
+#include "w3Frame.h"
+#include "w3Stack.h"
 
 #define INTERP(x) void interp_ ## x ();
 
@@ -1150,50 +697,11 @@ static_assert (bits_for_uint (sizeof (instructionNames)) == 12, "");
 //struct ImportTable;
 //struct ImportMemory;
 
-struct ExternalValue // external to a module, an export instance
-{
-    union
-    {
-        FuncAddr* func;
-        TableAddr* table;
-        MemAddr* mem;
-        GlobalAddr* global;
-    };
-};
-
-struct ExportInstance // work in progress
-{
-    WasmString name;
-    ExternalValue external_value;
-};
-
-struct ModuleInstance // work in progress
-{
-    ModuleInstance (Module* mod);
-    ModuleInstance () : module(0) { }
-
-    Module* module;
-    std::vector <uint8_t> memory;
-    std::vector <FuncAddr*> funcs;
-    std::vector <TableAddr*> tables;
-    //std::vector <NenAddr*> mem; // mem [0] => memory for now
-    std::vector <StackValue> globals;
-    std::vector <ExportInstance> exports;
-};
-
-struct FunctionInstance // work in progress
-{
-    ModuleInstance* module_instance;
-    FunctionType* function_type;
-    void* host_code; // TODO
-    Code* code; // TODO
-};
-
-struct SectionTraits
-{
-    void (Module::*read)(uint8_t** cursor);
-    PCSTR name;
-};
+#include "w3ExternalValue.h"
+#include "w3ExportInstance.h"
+#include "w3ModuleInstance.h"
+#include "w3FunctionInstance.h"
+#include "w3SectionTraits.h"
 
 extern const SectionTraits section_traits [ ] =
 {
@@ -1217,23 +725,7 @@ SECTIONS
 
 };
 
-// TODO once we have Validate, Interp, Jit, CppGen,
-// we might invert this structure and have a class per instruction with those 4 virtual functions.
-// Or we will token-paste those names on to the instruction names,
-// in order to avoid virtual function call cost. Let's get Interp working first.
-struct Wasm
-{
-    DecodedInstruction* instr; // TODO make local variable
-
-    Wasm () : instr (0) { }
-
-    virtual ~Wasm () { }
-
-    virtual void Reserved () = 0;
-#undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) void name () { abort (); }
-#include "w3instructions.h"
-};
+#include "w3Wasm.h"
 
 void Overflow (void)
 {

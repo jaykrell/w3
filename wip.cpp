@@ -1896,7 +1896,7 @@ struct ModuleInstance // work in progress
     std::vector <uint8_t> memory;
     std::vector <FuncAddr*> funcs;
     std::vector <TableAddr*> tables;
-    //std::vector <NenAddr*> mem; // mem [0] => memory for now
+    //std::vector <MemAddr*> mem; // mem [0] => memory for now
     std::vector <StackValue> globals;
     std::vector <ExportInstance> exports;
 };

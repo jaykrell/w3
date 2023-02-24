@@ -35,43 +35,9 @@ struct FunctionType
     }
 };
 
-typedef enum BuiltinString {
-    BuiltinString_none = 0,
-    BuiltinString_main,
-    BuiltinString_start,
-} BuiltinString;
-
-//todo eliminate this? remove std::string?
-struct WasmString
-{
-    PCH data {};
-    size_t size {};
-    std::string storage {};
-    BuiltinString builtin {};
-    bool builtinStorage {};
-
-    PCH c_str ()
-    {
-        if (!data)
-        {
-            data = (PCH)storage.c_str ();
-        }
-        else if (data != storage.c_str ())
-        {
-            storage = std::string (data, size);
-            data = (PCH)storage.c_str ();
-        }
-        return data;
-    }
-};
-
-struct Section
-{
-    uint32_t id {};
-    WasmString name {};
-    size_t payload_size {};
-    uint8_t* payload {};
-};
+#include "w3BuiltinString.h"
+#include "w3WasmString.h"
+#include "w3Section.h"
 
 typedef enum ImportTag {    // aka desc
     ImportTag_Function = 0, // aka type
