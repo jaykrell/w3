@@ -275,18 +275,6 @@ AssertFailed (const char* expr)
 #define AssertFormat(x, extra) ((x) || (AssertFailedFormat (#x, StringFormat extra), 0))
 
 template <class T>
-const T& Min (const T& a, const T& b)
-{
-    return (a <= b) ? a : b;
-}
-
-template <class T>
-const T& Max (const T& a, const T& b)
-{
-    return (a >= b) ? a : b;
-}
-
-template <class T>
 void WasmStdConstructN (T* a, size_t n)
 {
     for (size_t i = 0; i < n; ++i)
@@ -678,7 +666,7 @@ IntGetPrecision (int64_t a)
 {
     // How many bits needed to represent.
     // i.e. so leading bit is extendible sign bit, or 64
-    return Min (64u, 1 + UIntGetPrecision (int_split_sign_magnitude_t (a).u));
+    return std::min (64u, 1 + UIntGetPrecision (int_split_sign_magnitude_t (a).u));
 }
 
 static
@@ -782,7 +770,7 @@ uint32_t
 IntToHex_GetLength_AtLeast8 (int64_t a)
 {
     uint32_t len = IntToHex_GetLength (a);
-    return Max (len, 8u);
+    return std::max (len, 8u);
 }
 
 static
@@ -790,7 +778,7 @@ uint32_t
 UIntToHex_GetLength_AtLeast8 (uint64_t a)
 {
     uint32_t const len = UIntToHex_GetLength (a);
-    return Max (len, 8u);
+    return std::max (len, 8u);
 }
 
 static
@@ -846,7 +834,7 @@ struct stdout_stream : stream
         while (size > 0)
         {
             // TODO: Use smaller number for Win32 console?
-            uint32_t const n = (uint32_t)Min (size, (((size_t)1) << 30));
+            uint32_t const n = (uint32_t)std::min (size, (((size_t)1) << 30));
 #ifdef _WIN32
             ::_write (_fileno (stdout), pc, n);
 #else
@@ -867,7 +855,7 @@ struct stderr_stream : stream
         const char* pc = (const char*)bytes;
         while (size > 0)
         {
-            uint32_t const n = (uint32_t)Min (size, (((size_t)1) << 30));
+            uint32_t const n = (uint32_t)std::min (size, (((size_t)1) << 30));
 #ifdef _WIN32
             ::_write (_fileno (stderr), pc, n);
 #else
@@ -3951,28 +3939,28 @@ INTERP (Min_f32)
 {
     const float z2 = pop_f32 ();
     float& z1 = f32 ();
-    z1 = Min (z1, z2);
+    z1 = std::min (z1, z2);
 }
 
 INTERP (Min_f64)
 {
     const double z2 = pop_f64 ();
     double& z1 = f64 ();
-    z1 = Min (z1, z2);
+    z1 = std::min (z1, z2);
 }
 
 INTERP (Max_f32)
 {
     const float z2 = pop_f32 ();
     float& z1 = f32 ();
-    z1 = Max (z1, z2);
+    z1 = std::max (z1, z2);
 }
 
 INTERP (Max_f64)
 {
     const double z2 = pop_f64 ();
     double& z1 = f64 ();
-    z1 = Max (z1, z2);
+    z1 = std::max (z1, z2);
 }
 
 INTERP (Copysign_f32)
@@ -5507,28 +5495,28 @@ INTERP (Min_f32)
 {
     const float z2 = pop_f32 ();
     float& z1 = f32 ();
-    z1 = Min (z1, z2);
+    z1 = std::min (z1, z2);
 }
 
 INTERP (Min_f64)
 {
     const double z2 = pop_f64 ();
     double& z1 = f64 ();
-    z1 = Min (z1, z2);
+    z1 = std::min (z1, z2);
 }
 
 INTERP (Max_f32)
 {
     const float z2 = pop_f32 ();
     float& z1 = f32 ();
-    z1 = Max (z1, z2);
+    z1 = std::max (z1, z2);
 }
 
 INTERP (Max_f64)
 {
     const double z2 = pop_f64 ();
     double& z1 = f64 ();
-    z1 = Max (z1, z2);
+    z1 = std::max (z1, z2);
 }
 
 INTERP (Copysign_f32)

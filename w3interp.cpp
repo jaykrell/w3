@@ -1187,28 +1187,28 @@ INTERP (Min_f32)
 {
     const float z2 = pop_f32 ();
     float& z1 = f32 ();
-    z1 = Min (z1, z2);
+    z1 = std::min (z1, z2);
 }
 
 INTERP (Min_f64)
 {
     const double z2 = pop_f64 ();
     double& z1 = f64 ();
-    z1 = Min (z1, z2);
+    z1 = std::min (z1, z2);
 }
 
 INTERP (Max_f32)
 {
     const float z2 = pop_f32 ();
     float& z1 = f32 ();
-    z1 = Max (z1, z2);
+    z1 = std::max (z1, z2);
 }
 
 INTERP (Max_f64)
 {
     const double z2 = pop_f64 ();
     double& z1 = f64 ();
-    z1 = Max (z1, z2);
+    z1 = std::max (z1, z2);
 }
 
 INTERP (Copysign_f32)

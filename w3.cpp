@@ -128,16 +128,6 @@ size_t string_vformat_length (PCSTR format, va_list va)
 #pragma warning (pop)
 #endif
 
-template <class T> const T& Min (const T& a, const T& b)
-{
-    return (a <= b) ? a : b;
-}
-
-template <class T> const T& Max (const T& a, const T& b)
-{
-    return (a >= b) ? a : b;
-}
-
 template <class T> void WasmStdConstructN (T* a, size_t n)
 {
     for (size_t i = 0; i < n; ++i)
@@ -310,7 +300,7 @@ uint32_t IntGetPrecision (int64_t a)
 {
     // How many bits needed to represent.
     // i.e. so leading bit is extendible sign bit, or 64
-    return Min (64u, 1 + UIntGetPrecision (int_split_sign_magnitude_t (a).u));
+    return std::min (64u, 1 + UIntGetPrecision (int_split_sign_magnitude_t (a).u));
 }
 
 uint32_t UIntToDec_GetLength (uint64_t b)
@@ -392,13 +382,13 @@ uint32_t IntToHex8 (int64_t a, PCH buf)
 uint32_t IntToHex_GetLength_AtLeast8 (int64_t a)
 {
     uint32_t len = IntToHex_GetLength (a);
-    return Max (len, 8u);
+    return std::max (len, 8u);
 }
 
 uint32_t UIntToHex_GetLength_AtLeast8 (uint64_t a)
 {
     uint32_t const len = UIntToHex_GetLength (a);
-    return Max (len, 8u);
+    return std::max (len, 8u);
 }
 
 uint32_t IntToHex_AtLeast8 (int64_t a, PCH buf)
@@ -450,7 +440,7 @@ struct stdout_stream : Stream
         while (size > 0)
         {
             // TODO: Use smaller number for Win32 console?
-            uint32_t const n = (uint32_t)Min (size, (((size_t)1) << 30));
+            uint32_t const n = (uint32_t)std::min (size, (((size_t)1) << 30));
 #ifdef _WIN32
             ::_write (_fileno (stdout), pc, n);
 #else
@@ -471,7 +461,7 @@ struct stderr_stream : Stream
         PCSTR pc = (PCSTR)bytes;
         while (size > 0)
         {
-            uint32_t const n = (uint32_t)Min (size, (((size_t)1) << 30));
+            uint32_t const n = (uint32_t)std::min (size, (((size_t)1) << 30));
 #ifdef _WIN32
             ::_write (_fileno (stderr), pc, n);
 #else

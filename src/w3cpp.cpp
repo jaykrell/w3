@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <errno.h>
 #if _WIN32
+#define NOMINMAX 1
 #include <windows.h>
 #include <io.h>
 #else
