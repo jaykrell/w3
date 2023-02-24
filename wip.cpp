@@ -1,7 +1,7 @@
-// A WebAssembly implementation and experimentation platform.
-// portable
-// simple? Always striving for the right level of complexity -- not too simple.
-// efficient? (not yet)
+// A WebAssembly codebase by Jay Krell
+//
+// https://webassembly.github.io/spec/core/binary/index.html
+// https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
 
 #define _CRT_SECURE_NO_WARNINGS 1
 
@@ -296,13 +296,13 @@ struct GlobalAddr // TODO
 };
 
 // This should probabably be combined with ResultType, and called Tag.
-typedef enum ValueType : uint8_t
+enum ValueType : uint8_t
 {
     Tag_i32 = 0x7F,
     Tag_i64 = 0x7E,
     Tag_f32 = 0x7D,
     Tag_f64 = 0x7C,
-} ValueType;
+};
 
 static
 std::string

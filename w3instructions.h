@@ -1,7 +1,7 @@
-// A WebAssembly implementation and experimentation platform.
-// portable
-// simple? Always striving for the right level of complexity -- not too simple.
-// efficient? (not yet)
+// A WebAssembly codebase by Jay Krell
+//
+// https://webassembly.github.io/spec/core/binary/index.html
+// https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
 
 INSTRUCTION (0x00, 1, 0, Unreach,   Imm_none,     0, 0, Tag_none, Tag_none, Tag_none, Tag_none)
 INSTRUCTION (0x01, 1, 0, Nop,       Imm_none,     0, 0, Tag_none, Tag_none, Tag_none, Tag_none)

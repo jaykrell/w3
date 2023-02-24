@@ -1,3 +1,8 @@
+// A WebAssembly codebase by Jay Krell
+//
+// https://webassembly.github.io/spec/core/binary/index.html
+// https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
+
 #pragma once
 
 #define _DARWIN_USE_64_BIT_INODE 1
@@ -269,21 +274,8 @@ enum Type : uint8_t
     Type_f64 = 0x7C,
 };
 
-union Value
-{
-    int32_t i32;
-    uint32_t u32;
-    uint64_t u64;
-    int64_t i64;
-    float f32;
-    double f64;
-};
-
-struct TaggedValue
-{
-    ValueType tag;
-    Value value;
-};
+#include "w3Value.h"
+#include "w3TaggedValue.h"
 
 // This should probabably be combined with ValueType, and called Tag.
 enum ResultType : uint8_t
