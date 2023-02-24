@@ -8,9 +8,9 @@
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) name,
 
-enum InstructionEnum : int //TODO: underlying type?
+typedef enum InstructionEnum
 {
 #include "w3Instructions.h"
-};
+} InstructionEnum;
 
 #undef INSTRUCTION

@@ -86,8 +86,6 @@ struct Import
     //};
 };
 
-enum InstructionEnum;
-
 struct DecodedInstructionZeroInit // ZeroMem-compatible part
 {
     DecodedInstructionZeroInit()

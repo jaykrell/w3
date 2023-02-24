@@ -6,8 +6,8 @@
 #pragma once
 
 #include "w3InstructionNames.h"
+#include "w3InstructionEnum.h"
 
-enum InstructionEnum : int; //TODO: underlying type?
 typedef struct Module Module;
 
 struct InstructionEncoding

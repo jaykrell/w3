@@ -1584,10 +1584,10 @@ INTERP (FBinOp)
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) name,
 
-enum InstructionEnum
+typedef enum InstructionEnum
 {
 #include __FILE__
-};
+} InstructionEnum;
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) char name [ sizeof (#name) ];

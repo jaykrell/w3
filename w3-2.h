@@ -342,7 +342,8 @@ enum Immediate : uint8_t
     Imm_label       ,     // read_varuint32
 };
 
-enum InstructionEnum : uint16_t;
+#include "w3InstructionEnum.h"
+
 struct InstructionNames;
 
 #define BITS_FOR_UINT_HELPER(a, x) (a) >= (1u << x) ? (x) + 1 :
