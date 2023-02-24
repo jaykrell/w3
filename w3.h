@@ -10,21 +10,19 @@
 #include <assert.h>
 #include <errno.h>
 #include <memory.h>
+#include <stack>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <string>
+#include <vector>
+#include "w3Tag.h"
+#include "w3Label.h"
 
-typedef char* PCH;
-typedef const char* PCSTR;
 std::string StringFormat (PCSTR format, ...);
 void ThrowString (const std::string& a);
-
-typedef ptrdiff_t ssize_t;
-
-#include "w3Tag.h"
 
 #define _DARWIN_USE_64_BIT_INODE 1
 //#define __DARWIN_ONLY_64_BIT_INO_T 1
@@ -81,8 +79,6 @@ struct Stack;
 struct StackValue;
 struct Stream;
 struct Variable; //local, global, temp
-
-#include "w3Label.h"
 
 char TagChar(Tag t); //todo: short string?
 

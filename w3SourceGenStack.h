@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <stack>
-#include <string>
+//#include <stack> TODO: namespace
+//#include <string>
 #include "w3SourceGenValue.h"
 
 struct SourceGenStack : std::stack<SourceGenValue>

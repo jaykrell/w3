@@ -57,6 +57,10 @@
 #include "ieee.h"
 #include "math_private.h"
 
+typedef char* PCH;
+typedef const char* PCSTR;
+typedef ptrdiff_t ssize_t;
+
 #ifdef __cplusplus
 extern "C"
 {

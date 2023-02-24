@@ -8,18 +8,10 @@
 #include "w3Handle.h"
 #include "w3MemoryMappedFile.h"
 #include "w3Module.h"
-
-#include <stack>
-#include <string>
-#include <vector>
-#include <memory>
-
 #include "ieee.h"
 #include "math_private.h"
-
 extern const float wasm_hugef = 1.0e30F;
 extern const double wasm_huged = 1.0e300;
-
 #include "w3Value.h"
 #include "w3TaggedValue.h"
 #include "w3StackValue.h"

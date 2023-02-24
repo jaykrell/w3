@@ -103,19 +103,18 @@ extern const double wasm_huged = 1.0e300;
 #define _ISOC99_SOURCE
 #endif
 
-#include <math.h>
-#include <assert.h>
-#include <errno.h>
-#include <memory.h>
-#include <stdarg.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-
-#include <string>
-#include <vector>
-#include <memory>
+//#include <math.h>
+//#include <assert.h>
+//#include <errno.h>
+//#include <memory.h>
+//#include <stdarg.h>
+//#include <stddef.h>
+//#include <stdio.h>
+//#include <string.h>
+//#include <stdlib.h>
+//#include <string>
+//#include <vector>
+//#include <memory>
 
 #if _WIN32
 

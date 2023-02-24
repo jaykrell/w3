@@ -13,26 +13,6 @@
 //#define _LARGEFILE64_SOURCE
 
 #ifdef _MSC_VER
-#pragma warning (disable:4201) // nameless struct/union
-#pragma warning (disable:4355) // this used in base member initializer list
-#pragma warning (disable:4100) // unused parameter
-#pragma warning (disable:4371) // layout change from previous compiler version
-#pragma warning (disable:4505) // unused static function
-#pragma warning (disable:4514) // unused function
-#pragma warning (disable:4668) // #if not_defined is #if 0
-#pragma warning (disable:4710) // function not inlined
-#pragma warning (disable:4820) // padding
-#pragma warning (push) // TODO
-#pragma warning (disable:4571) // catch(...)
-#pragma warning (disable:4626) // assignment implicitly deleted
-#pragma warning (disable:4625) // copy constructor implicitly deleted
-#pragma warning (disable:4668) // #if not_defined as #if 0
-#pragma warning (disable:4774) // printf used without constant format
-#pragma warning (disable:4820) // ucrt\malloc.h(45): warning C4820: '_heapinfo': '4' bytes padding added after data member '_heapinfo::_useflag'
-#pragma warning (disable:5039) // exception handling and function pointers
-#endif
-
-#ifdef _MSC_VER
 #include <intrin.h>
 #endif
 
@@ -81,7 +61,6 @@ typedef ptrdiff_t ssize_t;
 
 #ifdef _MSC_VER
 #include <malloc.h> // for _alloca
-#pragma warning (pop)
 #endif
 
 namespace w3

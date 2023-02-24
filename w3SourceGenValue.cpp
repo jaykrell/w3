@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <string>
+//#include <string> TODO: namespace
 #include "w3Tag.h"
 
 // TODO templatize on existance of string and possibly label

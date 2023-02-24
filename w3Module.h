@@ -5,8 +5,8 @@
 
 #include "w3.h"
 #include "w3MemoryMappedFile.h"
-#include <string>
-#include <vector>
+//#include <string> TODO: namespace
+//#include <vector>
 #include "w3InstrEnum.h"
 #include "w3InstrEncoding.h"
 
