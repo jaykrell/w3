@@ -119,6 +119,14 @@ OBJS=   w3Fd.$O \
         w3MemoryMappedFile.$O \
         w3Module.$O \
         w3rt.$O \
+        isinf.$O \
+        isnan.$O \
+        s_floor.$O \
+        s_floorf.$O \
+        s_round.$O \
+        s_roundf.$O \
+        s_trunc.$O \
+        s_truncf.$O \
 
 $(win): w3.cpp $(OBJS)
 	@-del $(@R).pdb $(@R).ilk

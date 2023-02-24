@@ -8,22 +8,8 @@
 
 #pragma once
 
-#define _CRT_SECURE_NO_WARNINGS 1
+#include "w3-1.h"
 
-#ifdef _MSC_VER
-#pragma warning (disable:4127) // conditional expression is constant
-#pragma warning (disable:4365) // integer type mixups
-#pragma warning (disable:4480) // non-standard extension
-#pragma warning (disable:4571) // catch(...)
-#pragma warning (disable:4616) // disable unknown warning (for older compiler)
-#pragma warning (disable:4619) // disable unknown warning (for older compiler)
-#pragma warning (disable:4668) // #if not_defined vs. #if 0
-#pragma warning (disable:4820) // padding added
-#pragma warning (disable:5045) // compiler will/did insert Spectre mitigation
-#pragma warning (disable:5264) // const variable not used
-#endif
-
-#include <math.h>
 #include <assert.h>
 #include <errno.h>
 #include <memory.h>

@@ -54,8 +54,8 @@ typedef unsigned __int64 uint64_t;
 #include "ieee.h"
 #include "math_private.h"
 
-static const float wasm_hugef = 1.0e30F;
-static const double wasm_huged = 1.0e300;
+extern const float wasm_hugef = 1.0e30F;
+extern const double wasm_huged = 1.0e300;
 
 #include "s_floor.c"
 #include "s_floorf.c"

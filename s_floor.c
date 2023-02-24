@@ -20,7 +20,7 @@
  */
 
 #if 0
-
+#include "w3-1.h"
 double wasm_floord (double x)
 {
 	int32_t i0,i1,jj0;

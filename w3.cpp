@@ -16,16 +16,8 @@
 
 #include "ieee.h"
 #include "math_private.h"
-static const float wasm_hugef = 1.0e30F;
-static const double wasm_huged = 1.0e300;
-#include "s_floor.c"
-#include "s_floorf.c"
-#include "isnan.c"
-#include "isinf.c"
-#include "s_trunc.c"
-#include "s_truncf.c"
-#include "s_round.c"
-#include "s_roundf.c"
+extern const float wasm_hugef = 1.0e30F;
+extern const double wasm_huged = 1.0e300;
 
 void ThrowString (const std::string& a)
 {
