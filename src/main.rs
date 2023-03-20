@@ -5,9 +5,18 @@
 
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
+#![allow(non_snake_case)]
 #![allow(non_upper_case_globals)]
+#![allow(unused_mut)]
+#![allow(unused_imports)]
 
 extern crate libc;
+use std::env;
+use std::fs::File;
+use std::io::Read;
+mod w3Module;
+
+#[macro_use] extern crate educe;
 
 #[repr(u8)]
 enum Imm // Immediate
@@ -43,7 +52,7 @@ enum Type
 // TODO put this in .rs.
 //struct InstructionEncoding
 //enum InstructionEnum;
-include!(concat!(env!("OUT_DIR"), "/wasm_instructions.rs"));
+//include!(concat!(env!("OUT_DIR"), "/wasm_instructions.rs"));
 
 const hugef: f32 = 1.0e30f32;
 const huged: f64 = 1.0e300f64;
@@ -71,7 +80,7 @@ struct Handle
 }
 
 #[repr(C)]
-pub struct File
+pub struct w3File
 {
 #[cfg(windows)]
 	handle: Handle,
@@ -81,18 +90,18 @@ pub struct File
 }
 
 extern "C" {
-    pub fn File_Size (file: &File) -> i64;
-    pub fn File_Cleanup (file: &File);
+    pub fn File_Size (file: &w3File) -> i64;
+    pub fn File_Cleanup (file: &w3File);
 }
 
-impl File {
-	fn size (self:&File) -> i64
+impl w3File {
+	fn size (self:&w3File) -> i64
 	{
 		unsafe {
 			File_Size (self)
 		}
 	}
-	fn drop (self:&File)
+	fn drop (self:&w3File)
 	{
 		unsafe {
 			File_Cleanup (self)
@@ -103,9 +112,9 @@ impl File {
 #[cfg(windows)]
 #[allow(non_snake_case)]
 pub mod windows {
-	#[link(name = "kernel32")]
 	mod kernel32 {
-		extern {
+		#[link(name = "kernel32")]
+		extern "C" {
 			pub fn IsDebuggerPresent () -> u32;
 			pub fn DebugBreak();
 		}
@@ -136,8 +145,6 @@ mod posix {
 #[cfg(not(windows))]
 use posix::*;
 
-use std::env;
-
 macro_rules! Xd {
 	($x:expr) => {
 		println!("{} {}", stringify!($x), $x);
@@ -155,10 +162,19 @@ fn main()
 		argc += 1
 	}
 
-	println!("{}", std::mem::size_of::<File>());
+	println!("{}", std::mem::size_of::<w3File>());
 
 	Xd! (123);
 	Xd! (0x123);
 	// Xs!
 	// Xx!
+
+	let args: Vec<String> = env::args().collect();
+	let file_path = &args[1];
+    println!("file_path:{}", file_path);
+	let mut file = File::open(file_path).unwrap();
+
+    let mut module = w3Module::T::default();
+    //let byte = module.read_byte();
+    println!("j:{} k:{}", module.j, module.k);
 }

@@ -354,18 +354,18 @@ struct InstructionEncoding
 
 #undef INSTRUCTION
 #define INSTRUCTION(xbyte0, xfixed_size, xbyte1, xname, ximm, xpop, xpush, xin0, xin1, xin2, xout0)	\
-InstructionEncoding{											\
-			byte0: xbyte0,									\
-			fixed_size: xfixed_size,							\
-			imm: ximm,									\
-			pop: xpop,									\
-			push: xpush,									\
-			name: InstructionEnum::xname,							\
-			stack_in0: xin0,								\
-			stack_in1: xin1,								\
-			stack_in2: xin2,								\
-			stack_out0: xout0,								\
-			str: #xname \
+InstructionEncoding{                \
+    byte0: xbyte0,                  \
+    fixed_size: xfixed_size,        \
+    imm: ximm,                      \
+    pop: xpop,                      \
+    push: xpush,                    \
+    name: InstructionEnum::xname,   \
+    stack_in0: xin0,                \
+    stack_in1: xin1,                \
+    stack_in2: xin2,                \
+    stack_out0: xout0,              \
+    str: #xname \
 },
 const instructionEncode : [ InstructionEncoding ; 256 ] = [
 #include __FILE__
