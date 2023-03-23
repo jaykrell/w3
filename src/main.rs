@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::Read;
 mod w3Module;
 
-#[macro_use] extern crate educe;
+// #[macro_use] extern crate educe;
 
 #[repr(u8)]
 enum Imm // Immediate
@@ -176,5 +176,5 @@ fn main()
 
     let mut module = w3Module::T::default();
     //let byte = module.read_byte();
-    println!("j:{} k:{}", module.j, module.k);
+    //println!("j:{} k:{}", module.j, module.k);
 }

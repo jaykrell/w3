@@ -8,10 +8,10 @@ include = ["src/w3cpp.cpp"]
 [dependencies]
 libc = "*"
 fs = "*"
-memmap = "*"
-vec = "*"
-derivative = "*"
-educe = "*"
+#memmap = "*"
+#vec = "*"
+#derivative = "*"
+#educe = "*"
 
 [build-dependencies]
 cc = "1.0"
