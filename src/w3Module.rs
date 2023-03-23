@@ -104,31 +104,30 @@ impl T {
             return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", file_path, file_size)));
         }
         let mut reader = io::BufReader::new(file);
-        let mut buf_magic = [0; 4];
-        let mut buf_version = [0; 4];
-        reader.buffer().read_exact(&mut buf_magic)?;
-        reader.buffer().read_exact(&mut buf_version)?;
-        let magic = T::u32le(&buf_magic);
-        let expected_magic = T::u32le(&[0, 'a' as u8, 's' as u8, 'm' as u8]);
-        let version = T::u32le(&buf_version);
+        let mut buf = [0; 4];
+        reader.buffer().read_exact(&mut buf)?;
+        let magic = T::u32le(&buf);
+        reader.buffer().read_exact(&mut buf)?;
+        let version = T::u32le(&buf);
+        let expected_magic = T::u32le(&[0, 'a' as u8, 's' as u8, 'm' as u8]); // "\0wasm"
         if magic != expected_magic {
             return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect magic: {} {}", file_path, magic)));
         }
         if version != 1 {
             return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect version: {} {}", file_path, version)));
         }
-        if file_size > 8 {
-    /*
-        uint8_t* cursor = base + 8;
-        while (cursor < end)
-            read_section (&cursor);
-
-        Assert (cursor == end);
-    */
-        } else {
-            // Valid module with no sections.
-        }
         self.reader = Some(reader);
+        if file_size == 8 {
+            // Valid module with no sections.
+        } else {
+        /*
+            uint8_t* cursor = base + 8;
+            while (cursor < end)
+                read_section (&cursor);
+
+            Assert (cursor == end);
+        */
+        }
         Ok(())
     }
 }
