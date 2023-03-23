@@ -79,4 +79,38 @@ impl T {
     fn read_varint64 (&mut self) -> io::Result<i64> {
 		self.read_varint(64)
     }
+
+	fn read_module (_file_name: String)
+	{
+	/*
+		mmf.read (file_name);
+		base = (uint8_t*)mmf.base;
+		file_size = mmf.file.get_file_size ();
+		end = file_size + (uint8_t*)base;
+
+		if (file_size < 8)
+			ThrowString (StringFormat ("too small %s", file_name));
+
+		uintLE32& magic = (uintLE32&)*base;
+		uintLE32& version = (uintLE32&)*(base + 4);
+		printf ("magic: %X\n", (uint32_t)magic);
+		printf ("version: %X\n", (uint32_t)version);
+
+		if (memcmp (&magic,"\0asm", 4))
+			ThrowString (StringFormat ("incorrect magic: %X", (uint32_t)magic));
+
+		if (version != 1)
+			ThrowString (StringFormat ("incorrect version: %X", (uint32_t)version));
+
+		// Valid module with no sections.
+		if (file_size == 8)
+			return;
+
+		uint8_t* cursor = base + 8;
+		while (cursor < end)
+			read_section (&cursor);
+
+		Assert (cursor == end);
+	*/
+	}
 }
