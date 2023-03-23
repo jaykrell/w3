@@ -15,14 +15,14 @@ impl Default for T {
 }
 
 impl T {
-    fn get_byte(&mut self) -> io::Result<u64> {
+    fn read_byte(&mut self) -> io::Result<u64> {
 		let mut buffer = [0; 1];
 		self.reader.as_mut().unwrap().buffer().read_exact(&mut buffer)?;
 		Ok(buffer[0] as u64)
 	}
 
-    fn get_varuint7 (&mut self) -> io::Result<u64> {
-		let result = self.get_byte ();
+    fn read_varuint7 (&mut self) -> io::Result<u64> {
+		let result = self.read_byte ();
 		match result {
 			Ok(i) => {
 				if (i & 0x80) != 0 {
@@ -34,15 +34,15 @@ impl T {
 		}
     }
 
-    fn get_varuint32 (&mut self) -> io::Result<u64> {
-		self.get_varuint64()
+    fn read_varuint32 (&mut self) -> io::Result<u64> {
+		self.read_varuint64()
     }
 
-    fn get_varuint64 (&mut self) -> io::Result<u64> {
+    fn read_varuint64 (&mut self) -> io::Result<u64> {
 		let mut result: u64 = 0;
 		let mut shift: u32 = 0;
 		loop {
-			let byte = self.get_byte().unwrap();
+			let byte = self.read_byte().unwrap();
 			result |= ((byte & 0x7F) as u64) << shift;
 			if (byte & 0x80) == 0 {
 				return Ok(result);
@@ -51,12 +51,12 @@ impl T {
 		}
 	}
 
-    fn get_varint (&mut self, size: u32) -> io::Result<i64> {
+    fn read_varint (&mut self, size: u32) -> io::Result<i64> {
 		let mut result: i64 = 0;
 		let mut shift: u32 = 0;
 		let mut byte: u64;
 		loop {
-			byte = self.get_byte().unwrap();
+			byte = self.read_byte().unwrap();
 			result |= ((byte & 0x7F) as i64) << shift;
 			shift += 7;
 			if (byte & 0x80) == 0 {
@@ -72,11 +72,11 @@ impl T {
 		Ok(result)
     }
 
-    fn get_varint32 (&mut self) -> io::Result<i64> {
-		self.get_varint(64)
+    fn read_varint32 (&mut self) -> io::Result<i64> {
+		self.read_varint(64)
     }
 
-    fn get_varint64 (&mut self) -> io::Result<i64> {
-		self.get_varint(64)
+    fn read_varint64 (&mut self) -> io::Result<i64> {
+		self.read_varint(64)
     }
 }
