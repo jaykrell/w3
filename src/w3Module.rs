@@ -1,3 +1,8 @@
+// A WebAssembly codebase by Jay Krell
+//
+// https://webassembly.github.io/spec/core/binary/index.html
+// https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
+
 use std::io;
 use std::fmt;
 use std::io::{BufReader, Read, Error, ErrorKind};
