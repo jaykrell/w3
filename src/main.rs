@@ -12,6 +12,7 @@
 
 extern crate libc;
 use std::env;
+use std::mem;
 use std::fs::File;
 use std::io::Read;
 mod w3Module;
@@ -169,12 +170,12 @@ fn main()
 	// Xs!
 	// Xx!
 
-	let args: Vec<String> = env::args().collect();
-	let file_path = &args[1];
+	let mut args: Vec<String> = env::args().collect();
+	let mut file_path = mem::take(&mut args[1]);
     println!("file_path:{}", file_path);
-	let mut file = File::open(file_path).unwrap();
+	//let mut file = File::open(file_path).unwrap();
 
-    let mut module = w3Module::T::default();
+    let mut module = w3Module::T::open_for_read(file_path);
     //let byte = module.read_byte();
     //println!("j:{} k:{}", module.j, module.k);
 }

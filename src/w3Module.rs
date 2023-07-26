@@ -16,23 +16,15 @@ macro_rules! trace {
 }
 
 pub struct T {
-    reader: Option<BufReader<File>>,
+    reader: BufReader<File>,
     file_path: String,
-}
-
-impl Default for T {
-    fn default() -> T {
-        T {
-            reader: None,
-            file_path: String::new(),
-        }
-    }
+    file_size: i64,
 }
 
 impl T {
     fn read_byte(&mut self) -> io::Result<u64> {
         let mut buffer = [0; 1];
-        self.reader.as_mut().unwrap().buffer().read_exact(&mut buffer)?;
+        self.reader.buffer().read_exact(&mut buffer)?;
         Ok(buffer[0] as u64)
     }
 
@@ -162,18 +154,21 @@ impl T {
     */
     }
 
-    fn read_module (&mut self, file_path: String) -> io::Result<()> {
-        self.file_path = file_path;
-        let file = File::open(&self.file_path)?;
-        let file_size = file.metadata()?.len();
+    pub fn open_for_read (file_path: String) -> io::Result<T> {
+        let file = File::open(&file_path).unwrap();
+        let file_size = file.metadata().unwrap().len() as i64;
         if file_size < 8 {
-            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", self.file_path, file_size)));
+            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", &file_path, file_size)));
         }
         let mut reader = io::BufReader::new(file);
+        Ok(T { reader, file_path, file_size })
+    }
+
+    fn read_module (&mut self) -> io::Result<()> {
         let mut buf = [0; 4];
-        reader.buffer().read_exact(&mut buf)?;
+        self.reader.buffer().read_exact(&mut buf)?;
         let magic = T::u32le(&buf);
-        reader.buffer().read_exact(&mut buf)?;
+        self.reader.buffer().read_exact(&mut buf)?;
         let version = T::u32le(&buf);
         let expected_magic = T::u32le(&[0, 'a' as u8, 's' as u8, 'm' as u8]); // "\0wasm"
         if magic != expected_magic {
@@ -182,8 +177,7 @@ impl T {
         if version != 1 {
             return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect version: {} {}", self.file_path, version)));
         }
-        self.reader = Some(reader);
-        if file_size == 8 {
+        if self.file_size == 8 {
             // Valid module with no sections.
         } else {
         /*
