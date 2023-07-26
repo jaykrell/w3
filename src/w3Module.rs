@@ -5,18 +5,26 @@
 
 extern crate libc;
 use std::io;
-use std::fmt;
-use std::io::{BufReader, Read, Error, ErrorKind};
+use std::io::{BufReader, Read, ErrorKind};
 use std::fs::File;
+use std::error::Error;
+
+macro_rules! trace {
+    () => {
+        println!("{}({})", file!(), line!());
+    };
+}
 
 pub struct T {
     reader: Option<BufReader<File>>,
+    file_path: Option<String>,
 }
 
 impl Default for T {
     fn default() -> T {
         T {
             reader: None,
+            file_path: None,
         }
     }
 }
@@ -97,11 +105,69 @@ impl T {
         b
     }
 
-    fn read_module (&mut self, file_path: &String) -> io::Result<()> {
-        let file = File::open(file_path)?;
+    fn read_section (&mut self) -> Result<(), Box<dyn Error>> {
+        let id = self.read_varuint7()?;
+        trace!();
+        if id > 11 {
+            return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path.as_ref().unwrap(), id)));
+        }
+        trace!();
+        return Err(Box::<dyn Error>::from(""));
+
+        /*
+
+    const size_t payload_size = read_varuint32 (cursor);
+    printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, (long_t)payload_size);
+    payload = *cursor;
+    uint32_t name_size = 0;
+    PCH local_name = 0;
+    if (id == 0)
+    {
+        name_size = read_varuint32 (cursor);
+        local_name = (PCH)*cursor;
+        if (local_name + name_size > (PCH)end)
+            ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
+    }
+    if (payload + payload_size > end)
+        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%" FORMAT_SIZE "X base:%p end:%p", __LINE__, id, payload, (long_t)payload_size, base, end)); // UNDONE context
+
+    printf("%s(%d)\n", __FILE__, __LINE__);
+
+    *cursor = payload + payload_size;
+
+    if (id == 0)
+    {
+        if (name_size < INT_MAX)
+            printf ("skipping custom section:.%.*s\n", (int)name_size, local_name);
+        // UNDONE custom sections
+        return;
+    }
+
+    printf("%s(%d)\n", __FILE__, __LINE__);
+
+    Section& section = sections [id];
+    section.id = id;
+    section.name.data = local_name;
+    section.name.size = name_size;
+    section.payload_size = payload_size;
+    section.payload = payload;
+
+    printf("%s(%d) %d\n", __FILE__, __LINE__, (int)id);
+    //DebugBreak ();
+
+    (this->*section_traits [id].read) (&payload);
+
+    if (payload != *cursor)
+        ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, *cursor));
+    */
+    }
+
+    fn read_module (&mut self, file_path: String) -> io::Result<()> {
+        self.file_path = Some(file_path);
+        let file = File::open(&self.file_path.as_ref().unwrap())?;
         let file_size = file.metadata()?.len();
         if file_size < 8 {
-            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", file_path, file_size)));
+            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", &self.file_path.as_ref().unwrap(), file_size)));
         }
         let mut reader = io::BufReader::new(file);
         let mut buf = [0; 4];
@@ -111,10 +177,10 @@ impl T {
         let version = T::u32le(&buf);
         let expected_magic = T::u32le(&[0, 'a' as u8, 's' as u8, 'm' as u8]); // "\0wasm"
         if magic != expected_magic {
-            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect magic: {} {}", file_path, magic)));
+            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect magic: {} {}", &self.file_path.as_ref().unwrap(), magic)));
         }
         if version != 1 {
-            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect version: {} {}", file_path, version)));
+            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect version: {} {}", self.file_path.as_ref().unwrap(), version)));
         }
         self.reader = Some(reader);
         if file_size == 8 {
