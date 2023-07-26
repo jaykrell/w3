@@ -154,30 +154,30 @@ impl T {
     */
     }
 
-    pub fn open_for_read (file_path: String) -> io::Result<T> {
+    pub fn read_module (file_path: String) -> io::Result<T> {
+
         let file = File::open(&file_path).unwrap();
         let file_size = file.metadata().unwrap().len() as i64;
         if file_size < 8 {
             return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", &file_path, file_size)));
         }
         let mut reader = io::BufReader::new(file);
-        Ok(T { reader, file_path, file_size })
-    }
 
-    fn read_module (&mut self) -> io::Result<()> {
+        let this = T { reader, file_path, file_size };
+
         let mut buf = [0; 4];
-        self.reader.buffer().read_exact(&mut buf)?;
+        this.reader.buffer().read_exact(&mut buf)?;
         let magic = T::u32le(&buf);
-        self.reader.buffer().read_exact(&mut buf)?;
+        this.reader.buffer().read_exact(&mut buf)?;
         let version = T::u32le(&buf);
         let expected_magic = T::u32le(&[0, 'a' as u8, 's' as u8, 'm' as u8]); // "\0wasm"
         if magic != expected_magic {
-            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect magic: {} {}", self.file_path, magic)));
+            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect magic: {} {}", this.file_path, magic)));
         }
         if version != 1 {
-            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect version: {} {}", self.file_path, version)));
+            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect version: {} {}", this.file_path, version)));
         }
-        if self.file_size == 8 {
+        if this.file_size == 8 {
             // Valid module with no sections.
         } else {
         /*
@@ -188,6 +188,6 @@ impl T {
             Assert (cursor == end);
         */
         }
-        Ok(())
+        Ok(this)
     }
 }

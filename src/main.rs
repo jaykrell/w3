@@ -175,7 +175,7 @@ fn main()
     println!("file_path:{}", file_path);
     //let mut file = File::open(file_path).unwrap();
 
-    let mut module = w3Module::T::open_for_read(file_path);
+    let mut module = w3Module::T::read_module(file_path);
     //let byte = module.read_byte();
     //println!("j:{} k:{}", module.j, module.k);
 }
