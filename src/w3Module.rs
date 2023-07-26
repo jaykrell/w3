@@ -17,14 +17,14 @@ macro_rules! trace {
 
 pub struct T {
     reader: Option<BufReader<File>>,
-    file_path: Option<String>,
+    file_path: String,
 }
 
 impl Default for T {
     fn default() -> T {
         T {
             reader: None,
-            file_path: None,
+            file_path: String::new(),
         }
     }
 }
@@ -109,7 +109,7 @@ impl T {
         let id = self.read_varuint7()?;
         trace!();
         if id > 11 {
-            return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path.as_ref().unwrap(), id)));
+            return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id)));
         }
         trace!();
         return Err(Box::<dyn Error>::from(""));
@@ -163,11 +163,11 @@ impl T {
     }
 
     fn read_module (&mut self, file_path: String) -> io::Result<()> {
-        self.file_path = Some(file_path);
-        let file = File::open(&self.file_path.as_ref().unwrap())?;
+        self.file_path = file_path;
+        let file = File::open(&self.file_path)?;
         let file_size = file.metadata()?.len();
         if file_size < 8 {
-            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", &self.file_path.as_ref().unwrap(), file_size)));
+            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", self.file_path, file_size)));
         }
         let mut reader = io::BufReader::new(file);
         let mut buf = [0; 4];
@@ -177,10 +177,10 @@ impl T {
         let version = T::u32le(&buf);
         let expected_magic = T::u32le(&[0, 'a' as u8, 's' as u8, 'm' as u8]); // "\0wasm"
         if magic != expected_magic {
-            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect magic: {} {}", &self.file_path.as_ref().unwrap(), magic)));
+            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect magic: {} {}", self.file_path, magic)));
         }
         if version != 1 {
-            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect version: {} {}", self.file_path.as_ref().unwrap(), version)));
+            return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect version: {} {}", self.file_path, version)));
         }
         self.reader = Some(reader);
         if file_size == 8 {
