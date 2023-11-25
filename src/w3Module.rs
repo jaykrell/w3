@@ -9,16 +9,81 @@ use std::io::{BufReader, Read, ErrorKind};
 use std::fs::File;
 use std::error::Error;
 
+enum SectionKind {
+    custom,     // 0
+    types,      // 1
+    import,     // 2
+    function,   // 3
+    table,      // 4
+    memory,     // 5
+    global,     // 6
+    export,     // 7
+    start,      // 8
+    element,    // 9
+    code,       // 10
+    data,       // 11
+    data_count, // 12
+}
+
+#[repr(u8)]
+enum Tag {
+    none = 0,   // allow for zero-init
+    bool = 1,   // aka i32
+    any  = 2,   // often has constraints
+
+    // These are from the file format. These are the primary
+    // types in WebAssembly, prior to the addition of SIMD.
+    i32 = 0x7F,
+    i64 = 0x7E,
+    f32 = 0x7D,
+    f64 = 0x7C,
+
+    //todo: comment
+    empty = 0x40, // ResultType, void
+
+    //internal, any value works..not clearly needed
+    // A heterogenous conceptual WebAssembly stack contains Values, Frames, and Labels.
+    Value = 0x80,   // i32, i64, f32, f64
+    Label = 0x81,   // branch target
+    Frame = 0x82,   // return address + locals + params
+
+    //todo: comment
+    FuncRef = 0x70,
+
+    //codegen temp
+    //intptr = 3,
+    //uintptr = 4,
+    //pch = 5,
+}
+
+// TODO
+//WasmError { }
+
 macro_rules! trace {
     () => {
         println!("{}({})", file!(), line!());
     };
 }
 
+#[derive(Clone)]
+struct FunctionType {
+    // CONSIDER pointer into memory mapped file
+    parameters: std::vec::Vec<Tag>,
+    results: std::vec::Vec<Tag>,
+
+/*    bool operator == (const FunctionType& other) const
+    {
+        return parameters == other.parameters && results == other.results;
+    }*/
+}
+
+static function_type_default: FunctionType;
+
 pub struct T {
     reader: BufReader<File>,
     file_path: String,
     file_size: i64,
+    function_type: std::vec::Vec<FunctionType>,
 }
 
 impl T {
@@ -97,6 +162,27 @@ impl T {
         b
     }
 
+    fn read_section_custom (&mut self) -> io::Result<i64> {
+        nil
+    }
+
+    fn read_section_types (&mut self) -> Result<(), Box<dyn Error>> {
+        let size = self.read_varuint32 ();
+        self.function_type.resize(size, function_type_default);
+    /*
+        printf ("reading section 1\n");
+        function_types.resize (size);
+        for (size_t i = 0; i < size; ++i)
+        {
+            const uint32_t marker = read_byte (cursor);
+            if (marker != 0x60)
+                ThrowString ("malformed2 in Types::read");
+            read_function_type (function_types [i], cursor);
+        }
+        printf ("read section 1\n");
+        */
+    }
+
     fn read_section (&mut self) -> Result<(), Box<dyn Error>> {
         let id = self.read_varuint7()?;
         trace!();
@@ -104,6 +190,8 @@ impl T {
             return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id)));
         }
         trace!();
+        switch id {
+        }
         return Err(Box::<dyn Error>::from(""));
 
         /*
@@ -163,7 +251,7 @@ impl T {
         }
         let mut reader = io::BufReader::new(file);
 
-        let this = T { reader, file_path, file_size };
+        let this = T { reader, file_path, file_size, Vec<FunctionType>::new(); };
 
         let mut buf = [0; 4];
         this.reader.buffer().read_exact(&mut buf)?;
