@@ -96,13 +96,18 @@ pub struct T {
 
 impl T {
     fn read_byte(&mut self) -> io::Result<u64> {
+        trace!();
         let mut buffer = [0; 1];
+        trace!();
         self.reader.buffer().read_exact(&mut buffer)?;
+        trace!();
         Ok(buffer[0] as u64)
     }
 
     fn read_varuint7 (&mut self) -> io::Result<u64> {
+        trace!();
         let result = self.read_byte ();
+        trace!();
         match result {
             Ok(i) => {
                 if (i & 0x80) != 0 {
@@ -174,10 +179,10 @@ impl T {
     }
 
     fn read_section_types (&mut self) -> () /* Result<(), Box<dyn Error>> */ {
+        println! ("reading section 1\n");
         let size = self.read_varuint32 ().unwrap () as usize;
         self.function_type.resize(size, FunctionType::new());
     /*
-        printf ("reading section 1\n");
         function_types.resize (size);
         for (size_t i = 0; i < size; ++i)
         {
@@ -192,11 +197,12 @@ impl T {
 
     fn read_section (&mut self) -> Result<(), Box<dyn Error>> {
         let id = self.read_varuint7()?;
-        trace!();
+        //trace!();
+        println! ("reading section {}\n", id);
         if id > 11 {
             return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id)));
         }
-        //trace!();
+        trace!();
         match id {
         /*
             SectionKind::custom =>
@@ -255,19 +261,19 @@ impl T {
     }
 
     pub fn read_module (file_path: String) -> io::Result<T> {
-
         let file = File::open(&file_path).unwrap();
         let file_size = file.metadata().unwrap().len() as i64;
+        println! ("file_size:{}", file_size);
         if file_size < 8 {
             return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", &file_path, file_size)));
         }
-        let this = T {
+        let mut this = T {
             reader: io::BufReader::new(file),
             file_path,
             file_size,
             function_type: std::vec::Vec::<FunctionType>::new() };
         let mut buf = [0; 4];
-        this.reader.buffer().read_exact(&mut buf)?;
+        this.reader.read_exact(&mut buf)?;
         let magic = T::u32le(&buf);
         this.reader.buffer().read_exact(&mut buf)?;
         let version = T::u32le(&buf);
@@ -280,7 +286,9 @@ impl T {
         }
         if this.file_size == 8 {
             // Valid module with no sections.
+            println! ("no sections\n");
         } else {
+            this.read_section ();
         /*
             uint8_t* cursor = base + 8;
             while (cursor < end)

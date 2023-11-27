@@ -176,6 +176,10 @@ fn main()
     //let mut file = File::open(file_path).unwrap();
 
     let mut module = w3Module::T::read_module(file_path);
+    match module {
+        Err(e) => { println!("Error reading module {}", e) }
+        Ok(_) => todo!()
+    }
     //let byte = module.read_byte();
     //println!("j:{} k:{}", module.j, module.k);
 }
