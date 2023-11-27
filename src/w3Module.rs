@@ -181,7 +181,7 @@ impl T {
     }
 
     fn read_section_types (&mut self) -> Result<(), Box<dyn Error>> {
-        println! ("reading section 1\n");
+        println! ("reading section 1");
         let size = self.read_varuint32 ().unwrap () as usize;
         self.function_type.resize(size, FunctionType::new());
         trace!();
@@ -200,7 +200,7 @@ impl T {
 
     fn read_section (&mut self) -> Result<(), Box<dyn Error>> {
         let id_int = self.read_varuint7()?;
-        println! ("reading section {}\n", id_int);
+        println! ("reading section {}", id_int);
         trace!();
         if id_int > 11 {
             trace!();
@@ -288,7 +288,7 @@ impl T {
         }
         if this.file_size == 8 {
             // Valid module with no sections.
-            println! ("no sections\n");
+            println! ("no sections");
         } else {
             this.read_section ();
         /*
