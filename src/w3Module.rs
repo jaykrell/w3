@@ -8,7 +8,9 @@ use std::io;
 use std::io::{BufReader, Read, ErrorKind};
 use std::fs::File;
 use std::error::Error;
+use std::convert::TryFrom;
 
+#[repr(isize)]
 enum SectionKind {
     custom,     // 0
     types,      // 1
@@ -178,12 +180,13 @@ impl T {
     fn read_section_custom (&mut self) -> () /* io::Result<i64> */ {
     }
 
-    fn read_section_types (&mut self) -> () /* Result<(), Box<dyn Error>> */ {
+    fn read_section_types (&mut self) -> Result<(), Box<dyn Error>> {
         println! ("reading section 1\n");
         let size = self.read_varuint32 ().unwrap () as usize;
         self.function_type.resize(size, FunctionType::new());
+        trace!();
+        todo!();
     /*
-        function_types.resize (size);
         for (size_t i = 0; i < size; ++i)
         {
             const uint32_t marker = read_byte (cursor);
@@ -196,24 +199,23 @@ impl T {
     }
 
     fn read_section (&mut self) -> Result<(), Box<dyn Error>> {
-        let id = self.read_varuint7()?;
-        //trace!();
-        println! ("reading section {}\n", id);
-        if id > 11 {
-            return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id)));
+        let id_int = self.read_varuint7()?;
+        println! ("reading section {}\n", id_int);
+        trace!();
+        if id_int > 11 {
+            trace!();
+            return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id_int)));
         }
         trace!();
+        let id : SectionKind = unsafe { std::mem::transmute(id_int) };
+        trace!();
         match id {
-        /*
-            SectionKind::custom =>
-            SectionKind::types => */
+            SectionKind::custom => todo!(),
+            SectionKind::types  => self.read_section_types(),
             _ =>
-              return Err(Box::new(io::Error::new(ErrorKind::InvalidData, format!("Wasm unknown section kind: {} {}", self.file_path, id)))),
+              return Err(Box::new(io::Error::new(ErrorKind::InvalidData, format!("Wasm unknown section kind: {} {}", self.file_path, id_int)))),
         }
-        //return Err(Box::<dyn Error>::from(""));
-
         /*
-
     const size_t payload_size = read_varuint32 (cursor);
     printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, (long_t)payload_size);
     payload = *cursor;
