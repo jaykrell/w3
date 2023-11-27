@@ -25,8 +25,11 @@ enum SectionKind {
     data_count, // 12
 }
 
+#[derive(Default)]
 #[repr(u8)]
+#[derive(Clone)]
 enum Tag {
+    #[default]
     none = 0,   // allow for zero-init
     bool = 1,   // aka i32
     any  = 2,   // often has constraints
@@ -65,6 +68,7 @@ macro_rules! trace {
     };
 }
 
+#[derive(Default)]
 #[derive(Clone)]
 struct FunctionType {
     // CONSIDER pointer into memory mapped file
@@ -77,7 +81,11 @@ struct FunctionType {
     }*/
 }
 
-static function_type_default: FunctionType;
+impl FunctionType {
+    fn new() -> Self {
+        Default::default()
+    }
+}
 
 pub struct T {
     reader: BufReader<File>,
@@ -107,7 +115,7 @@ impl T {
     }
 
     fn read_varuint32 (&mut self) -> io::Result<u64> {
-        self.read_varuint64()
+        self.read_varuint64 ()
     }
 
     fn read_varuint64 (&mut self) -> io::Result<u64> {
@@ -162,13 +170,12 @@ impl T {
         b
     }
 
-    fn read_section_custom (&mut self) -> io::Result<i64> {
-        nil
+    fn read_section_custom (&mut self) -> () /* io::Result<i64> */ {
     }
 
-    fn read_section_types (&mut self) -> Result<(), Box<dyn Error>> {
-        let size = self.read_varuint32 ();
-        self.function_type.resize(size, function_type_default);
+    fn read_section_types (&mut self) -> () /* Result<(), Box<dyn Error>> */ {
+        let size = self.read_varuint32 ().unwrap () as usize;
+        self.function_type.resize(size, FunctionType::new());
     /*
         printf ("reading section 1\n");
         function_types.resize (size);
@@ -189,10 +196,15 @@ impl T {
         if id > 11 {
             return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id)));
         }
-        trace!();
-        switch id {
+        //trace!();
+        match id {
+        /*
+            SectionKind::custom =>
+            SectionKind::types => */
+            _ =>
+              return Err(Box::new(io::Error::new(ErrorKind::InvalidData, format!("Wasm unknown section kind: {} {}", self.file_path, id)))),
         }
-        return Err(Box::<dyn Error>::from(""));
+        //return Err(Box::<dyn Error>::from(""));
 
         /*
 
@@ -235,7 +247,7 @@ impl T {
     printf("%s(%d) %d\n", __FILE__, __LINE__, (int)id);
     //DebugBreak ();
 
-    (this->*section_traits [id].read) (&payload);
+    (self->*section_traits [id].read) (&payload);
 
     if (payload != *cursor)
         ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, *cursor));
@@ -249,10 +261,11 @@ impl T {
         if file_size < 8 {
             return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", &file_path, file_size)));
         }
-        let mut reader = io::BufReader::new(file);
-
-        let this = T { reader, file_path, file_size, Vec<FunctionType>::new(); };
-
+        let this = T {
+            reader: io::BufReader::new(file),
+            file_path,
+            file_size,
+            function_type: std::vec::Vec::<FunctionType>::new() };
         let mut buf = [0; 4];
         this.reader.buffer().read_exact(&mut buf)?;
         let magic = T::u32le(&buf);
