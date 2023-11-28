@@ -10,21 +10,21 @@ use std::fs::File;
 use std::error::Error;
 use std::convert::TryFrom;
 
-#[repr(isize)]
-enum SectionKind {
-    custom,     // 0
-    types,      // 1
-    import,     // 2
-    function,   // 3
-    table,      // 4
-    memory,     // 5
-    global,     // 6
-    export,     // 7
-    start,      // 8
-    element,    // 9
-    code,       // 10
-    data,       // 11
-    data_count, // 12
+struct SectionKind;
+impl SectionKind {
+    const custom     : u64 = 0;
+    const types      : u64 = 1;
+    const import     : u64 = 2;
+    const function   : u64 = 3;
+    const table      : u64 = 4;
+    const memory     : u64 = 5;
+    const global     : u64 = 6;
+    const export     : u64 = 7;
+    const start      : u64 = 8;
+    const element    : u64 = 9;
+    const code       : u64 = 10;
+    const data       : u64 = 11;
+    const data_count : u64 = 12;
 }
 
 #[derive(Default)]
@@ -94,6 +94,7 @@ pub struct T {
     file_path: String,
     file_size: i64,
     function_type: std::vec::Vec<FunctionType>,
+    offset: i64
 }
 
 impl T {
@@ -102,6 +103,7 @@ impl T {
         let mut buffer = [0; 1];
         trace!();
         self.reader.buffer().read_exact(&mut buffer)?;
+        self.offset += 1;
         trace!();
         Ok(buffer[0] as u64)
     }
@@ -199,21 +201,19 @@ impl T {
     }
 
     fn read_section (&mut self) -> Result<(), Box<dyn Error>> {
-        let id_int = self.read_varuint7()?;
-        println! ("reading section {}", id_int);
+        let id = self.read_varuint7()?;
+        println! ("reading section {}", id);
         trace!();
-        if id_int > 11 {
+        if id > 11 {
             trace!();
-            return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id_int)));
+            return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id)));
         }
         trace!();
-        let id : SectionKind = unsafe { std::mem::transmute(id_int) };
-        trace!();
         match id {
-            SectionKind::custom => todo!(),
-            SectionKind::types  => self.read_section_types(),
+            SectionKind::custom => self.read_section_types(),
+            SectionKind::types => self.read_section_types(),
             _ =>
-              return Err(Box::new(io::Error::new(ErrorKind::InvalidData, format!("Wasm unknown section kind: {} {}", self.file_path, id_int)))),
+              return Err(Box::new(io::Error::new(ErrorKind::InvalidData, format!("Wasm unknown section kind: {} {}", self.file_path, id)))),
         }
         /*
     const size_t payload_size = read_varuint32 (cursor);
@@ -273,7 +273,8 @@ impl T {
             reader: io::BufReader::new(file),
             file_path,
             file_size,
-            function_type: std::vec::Vec::<FunctionType>::new() };
+            function_type: std::vec::Vec::<FunctionType>::new(),
+            offset: 0 };
         let mut buf = [0; 4];
         this.reader.read_exact(&mut buf)?;
         let magic = T::u32le(&buf);
@@ -290,14 +291,10 @@ impl T {
             // Valid module with no sections.
             println! ("no sections");
         } else {
-            this.read_section ();
-        /*
-            uint8_t* cursor = base + 8;
-            while (cursor < end)
-                read_section (&cursor);
-
-            Assert (cursor == end);
-        */
+            while this.offset < this.file_size {
+                let _ = this.read_section ();
+            }
+            //assert_eq!(this.offset == this.file_size, "");
         }
         Ok(this)
     }
