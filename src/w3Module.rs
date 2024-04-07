@@ -127,8 +127,10 @@ impl T {
     fn read_varuint64 (&mut self) -> io::Result<u64> {
         let mut result: u64 = 0;
         let mut shift: u32 = 0;
+		println! ("read_varuint64_1");
         loop {
-            let byte = self.read_byte().unwrap();
+            let byte = self.read_byte()?;
+		    println! ("read_varuint64_2 {}", byte);
             result |= ((byte & 0x7F) as u64) << shift;
             if (byte & 0x80) == 0 {
                 return Ok(result);
@@ -231,6 +233,7 @@ impl T {
             //trace!();
             if marker != 0x60 {
               println! ("read_section_types4 offset:{} size:{} marker:{}", self.offset, size, marker);
+              println! ("malformed2 in Types::read {} {}", self.file_path, marker);
               return Err(Box::<dyn Error>::from(format!("malformed2 in Types::read {} {}", self.file_path, marker)));
             }
             trace!();
@@ -251,62 +254,25 @@ impl T {
             return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id)));
         }
         //trace!();
+		let payload_size = self.read_varuint32 ()? as i64;
+		let payload = self.offset;
+        println! ("reading section id:{} offset:{} payload_size:{}", id, self.offset, payload_size);
         match id {
             SectionKind::custom => self.read_section_custom (),
             SectionKind::types => self.read_section_types (),
             _ =>
               return Err(Box::new(io::Error::new(ErrorKind::InvalidData, format!("Wasm unknown section kind: {} {}", self.file_path, id)))),
-        }
-        /*
-    const size_t payload_size = read_varuint32 (cursor);
-    printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, (long_t)payload_size);
-    payload = *cursor;
-    uint32_t name_size = 0;
-    PCH local_name = 0;
-    if (id == 0)
-    {
-        name_size = read_varuint32 (cursor);
-        local_name = (PCH)*cursor;
-        if (local_name + name_size > (PCH)end)
-            ThrowString (StringFormat ("malformed %d", __LINE__)); // UNDONE context (move to module or section)
-    }
-    if (payload + payload_size > end)
-        ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%" FORMAT_SIZE "X base:%p end:%p", __LINE__, id, payload, (long_t)payload_size, base, end)); // UNDONE context
-
-    printf("%s(%d)\n", __FILE__, __LINE__);
-
-    *cursor = payload + payload_size;
-
-    if (id == 0)
-    {
-        if (name_size < INT_MAX)
-            printf ("skipping custom section:.%.*s\n", (int)name_size, local_name);
-        // UNDONE custom sections
-        return;
-    }
-
-    printf("%s(%d)\n", __FILE__, __LINE__);
-
-    Section& section = sections [id];
-    section.id = id;
-    section.name.data = local_name;
-    section.name.size = name_size;
-    section.payload_size = payload_size;
-    section.payload = payload;
-
-    printf("%s(%d) %d\n", __FILE__, __LINE__, (int)id);
-    //DebugBreak ();
-
-    (self->*section_traits [id].read) (&payload);
-
-    if (payload != *cursor)
-        ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, *cursor));
-    */
-    }
+        };
+		if payload + payload_size != self.offset {
+			// TODO: error reporting and handling
+            return Err(Box::new(io::Error::new(ErrorKind::InvalidData, "Wasm malformed section did not read all of payload")));
+		};
+		Ok(())
+	}
 
     pub fn read_module (file_path: String) -> io::Result<T> {
-        let file = File::open(&file_path).unwrap();
-        let file_size = file.metadata().unwrap().len() as i64;
+        let file = File::open(&file_path)?;
+        let file_size = file.metadata()?.len() as i64;
         println! ("file_size:{}", file_size);
         if file_size < 8 {
             return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm too small {} {}", &file_path, file_size)));
@@ -316,7 +282,7 @@ impl T {
             file_path,
             file_size,
             function_type: std::vec::Vec::<FunctionType>::new(),
-            offset: 0 };
+            offset: 8 };
         let mut buf = [0; 4];
         this.reader.read_exact(&mut buf)?;
         let magic = T::u32le(&buf);

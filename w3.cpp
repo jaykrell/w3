@@ -279,6 +279,8 @@ uint64_t read_varuint64 (uint8_t** cursor, const uint8_t* end)
     while (true)
     {
         const uint32_t byte = read_byte (cursor, end);
+		//printf ("read_varuint64_2:%X\n", byte);
+        //abort ();
         result |= (byte & 0x7F) << shift;
         if ((byte & 0x80) == 0)
             return result;
@@ -288,16 +290,7 @@ uint64_t read_varuint64 (uint8_t** cursor, const uint8_t* end)
 
 uint32_t read_varuint32 (uint8_t** cursor, const uint8_t* end)
 {
-    uint32_t result = 0;
-    uint32_t shift = 0;
-    while (true)
-    {
-        const uint32_t byte = read_byte (cursor, end);
-        result |= (byte & 0x7F) << shift;
-        if ((byte & 0x80) == 0)
-            return result;
-        shift += 7;
-    }
+    return read_varuint64(cursor, end);
 }
 
 uint8_t read_varuint7 (uint8_t** cursor, const uint8_t* end)
