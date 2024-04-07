@@ -179,15 +179,47 @@ impl T {
         b
     }
 
-    fn read_section_custom (&mut self) -> () /* io::Result<i64> */ {
+    fn read_section_custom (&self) -> Result<(), Box<dyn Error>> {
+        println! ("reading custom 0");
+        todo!();
+    }
+
+/*
+    void Module::read_vector_ValueType (std::vector <Tag>& result, uint8_t** cursor) {
+        const size_t size = read_varuint32 (cursor);
+        result.resize (size);
+        for (size_t i = 0; i < size; ++i) {
+            result [i] = read_valuetype (cursor);
+        }
+    }
+*/
+
+    fn read_function_type (&mut self, i: usize) -> Result<(), Box<dyn Error>> {
+        println! ("reading function_type:{i}");
+        todo!();
+
+void Module::read_function_type (FunctionType& functionType, uint8_t** cursor)
+{
+    read_vector_ValueType (functionType.parameters, cursor);
+    read_vector_ValueType (functionType.results, cursor);
+}
+*/
     }
 
     fn read_section_types (&mut self) -> Result<(), Box<dyn Error>> {
-        println! ("reading section 1");
-        let size = self.read_varuint32 ().unwrap () as usize;
+        println! ("read_section_types {}", self.offset);
+        let size = self.read_varuint32 ()? as usize;
         self.function_type.resize(size, FunctionType::new());
         trace!();
-        todo!();
+        for i in 0..size {
+            trace!();
+            let marker = self.read_byte ()?;
+            if marker != 0x60 {
+              return Err(Box::<dyn Error>::from(format!("malformed2 in Types::read {} {}", self.file_path, marker)));
+            }
+            self.read_function_type (i)?;
+        }
+        Ok();
     /*
         for (size_t i = 0; i < size; ++i)
         {
@@ -202,7 +234,7 @@ impl T {
 
     fn read_section (&mut self) -> Result<(), Box<dyn Error>> {
         let id = self.read_varuint7()?;
-        println! ("reading section {}", id);
+        println! ("reading section {} {}", id, self.offset);
         trace!();
         if id > 11 {
             trace!();
@@ -210,8 +242,8 @@ impl T {
         }
         trace!();
         match id {
-            SectionKind::custom => self.read_section_types(),
-            SectionKind::types => self.read_section_types(),
+            SectionKind::custom => self.read_section_custom (),
+            SectionKind::types => self.read_section_types (),
             _ =>
               return Err(Box::new(io::Error::new(ErrorKind::InvalidData, format!("Wasm unknown section kind: {} {}", self.file_path, id)))),
         }
