@@ -99,7 +99,7 @@ impl T {
         //trace!();
         let mut buffer = [0; 1];
         //trace!();
-        self.reader.buffer().read_exact(&mut buffer)?;
+        self.reader.read_exact(&mut buffer)?;
         self.offset += 1;
         //trace!();
         Ok(buffer[0] as u64)
@@ -286,7 +286,7 @@ impl T {
         let mut buf = [0; 4];
         this.reader.read_exact(&mut buf)?;
         let magic = T::u32le(&buf);
-        this.reader.buffer().read_exact(&mut buf)?;
+        this.reader.read_exact(&mut buf)?;
         let version = T::u32le(&buf);
         let expected_magic = T::u32le(&[0, 'a' as u8, 's' as u8, 'm' as u8]); // "\0asm"
         if magic != expected_magic {
