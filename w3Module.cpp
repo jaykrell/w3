@@ -137,7 +137,7 @@ void Module::read_globals (uint8_t** cursor)
 
 void Module::read_functions (uint8_t** cursor)
 {
-    printf ("reading section 3\n");
+    printf ("reading section 3 offset:%" FORMAT_SIZE "X\n", (long_t)(*cursor - this->base));
     const size_t old = functions.size ();
     Assert (old == import_function_count);
     const size_t size = read_varuint32 (cursor);
@@ -155,7 +155,7 @@ void Module::read_functions (uint8_t** cursor)
 
 void Module::read_imports (uint8_t** cursor)
 {
-    printf ("reading section 2\n");
+    printf ("reading section 2 offset:%" FORMAT_SIZE "X\n", (long_t)(*cursor - this->base));
     const size_t size = read_varuint32 (cursor);
     imports.resize (size);
     // TODO two passes to limit realloc?
@@ -222,12 +222,14 @@ void Module::read_function_type (FunctionType& functionType, uint8_t** cursor)
 
 void Module::read_types (uint8_t** cursor)
 {
-    printf ("reading section 1\n");
+    printf ("read_types1 offset:%" FORMAT_SIZE "X\n", (long_t)(*cursor - this->base));
     const size_t size = read_varuint32 (cursor);
     function_types.resize (size);
     for (size_t i = 0; i < size; ++i)
     {
+        printf ("read_types2 before marker offset:%" FORMAT_SIZE "X\n", (long_t)(*cursor - this->base));
         const uint32_t marker = read_byte (cursor);
+        printf ("read_types3 marker:%X offset:%" FORMAT_SIZE "X\n", marker, (long_t)(*cursor - this->base));
         if (marker != 0x60)
             ThrowString ("malformed2 in Types::read");
         read_function_type (function_types [i], cursor);
@@ -659,7 +661,7 @@ void Module::read_section (uint8_t** cursor)
     if (id > 11)
         ThrowString (StringFormat ("malformed line:%d id:%X payload:%p base:%p end:%p", __LINE__, id, payload, base, end)); // UNDONE context
 
-    printf("%s(%d)\n", __FILE__, __LINE__);
+    printf ("%s(%d) read_section offset:%" FORMAT_SIZE "X\n", __FILE__, __LINE__, (long_t)(*cursor - this->base));
 
     const size_t payload_size = read_varuint32 (cursor);
     printf ("%s payload_size:%" FORMAT_SIZE "X\n", __func__, (long_t)payload_size);
@@ -676,7 +678,7 @@ void Module::read_section (uint8_t** cursor)
     if (payload + payload_size > end)
         ThrowString (StringFormat ("malformed line:%d id:%X payload:%p payload_size:%" FORMAT_SIZE "X base:%p end:%p", __LINE__, id, payload, (long_t)payload_size, base, end)); // UNDONE context
 
-    printf("%s(%d)\n", __FILE__, __LINE__);
+    printf ("%s(%d) read_section offset:%" FORMAT_SIZE "X\n", __FILE__, __LINE__, (long_t)(*cursor - this->base));
 
     *cursor = payload + payload_size;
 

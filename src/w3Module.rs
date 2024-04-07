@@ -27,14 +27,11 @@ impl SectionKind {
     const data_count : u64 = 12;
 }
 
-#[derive(Default)]
-#[repr(u8)]
-#[derive(Clone)]
+#[derive(Debug, Clone)] // Derive the Clone trait
 enum Tag {
-    #[default]
-    none = 0,   // allow for zero-init
-    bool = 1,   // aka i32
-    any  = 2,   // often has constraints
+    none = 0, // allow for zero-init
+    bool = 1, // aka i32
+    any  = 2, // often has constraints
 
     // These are from the file format. These are the primary
     // types in WebAssembly, prior to the addition of SIMD.
@@ -48,9 +45,9 @@ enum Tag {
 
     //internal, any value works..not clearly needed
     // A heterogenous conceptual WebAssembly stack contains Values, Frames, and Labels.
-    Value = 0x80,   // i32, i64, f32, f64
-    Label = 0x81,   // branch target
-    Frame = 0x82,   // return address + locals + params
+    Value = 0x80, // i32, i64, f32, f64
+    Label = 0x81, // branch target
+    Frame = 0x82, // return address + locals + params
 
     //todo: comment
     FuncRef = 0x70,
@@ -99,19 +96,19 @@ pub struct T {
 
 impl T {
     fn read_byte(&mut self) -> io::Result<u64> {
-        trace!();
+        //trace!();
         let mut buffer = [0; 1];
-        trace!();
+        //trace!();
         self.reader.buffer().read_exact(&mut buffer)?;
         self.offset += 1;
-        trace!();
+        //trace!();
         Ok(buffer[0] as u64)
     }
 
     fn read_varuint7 (&mut self) -> io::Result<u64> {
-        trace!();
+        //trace!();
         let result = self.read_byte ();
-        trace!();
+        //trace!();
         match result {
             Ok(i) => {
                 if (i & 0x80) != 0 {
@@ -179,59 +176,81 @@ impl T {
         b
     }
 
-    fn read_section_custom (&self) -> Result<(), Box<dyn Error>> {
+    fn read_section_custom (&mut self) -> Result<(), Box<dyn Error>> {
         println! ("reading custom 0");
         todo!();
     }
 
-/*
-    void Module::read_vector_ValueType (std::vector <Tag>& result, uint8_t** cursor) {
-        const size_t size = read_varuint32 (cursor);
-        result.resize (size);
-        for (size_t i = 0; i < size; ++i) {
-            result [i] = read_valuetype (cursor);
+    fn read_valuetype (&mut self) -> Result<Tag, Box<dyn Error>> {
+        let value_type = self.read_byte ()? as u8;
+        const a: u8 = Tag::i32 as u8;
+        const b: u8 = Tag::i64 as u8;
+        const c: u8 = Tag::f32 as u8;
+        const d: u8 = Tag::f64 as u8;
+        match value_type {
+            a => return Ok(Tag::i32),
+            b => return Ok(Tag::i64),
+            c => return Ok(Tag::i32),
+            d => return Ok(Tag::f64),
+            _ => return Err(Box::<dyn Error>::from(format!("invalid Tag:{}", value_type)))
         }
     }
-*/
+
+    fn read_vector_ValueType (&mut self) -> Result<std::vec::Vec<Tag>, Box<dyn Error>> {
+        println! ("read_vector_ValueType1 offset:{}", self.offset);
+        let size = self.read_varuint32 ().unwrap () as usize;
+        let mut result = vec![Tag::none; size];
+        for i in 0..size {
+            result [i] = self.read_valuetype ().unwrap ();
+        }
+        println! ("read_vector_ValueType2 offset:{}", self.offset);
+		Ok(result)
+    }
 
     fn read_function_type (&mut self, i: usize) -> Result<(), Box<dyn Error>> {
-        println! ("reading function_type:{i}");
-        todo!();
-
-/*void Module::read_function_type (FunctionType& functionType, uint8_t** cursor)
-{
-    read_vector_ValueType (functionType.parameters, cursor);
-    read_vector_ValueType (functionType.results, cursor);
-}
-*/
+        println! ("reading read_function_type i:{} offset:{}", i, self.offset);
+		let parameters = self.read_vector_ValueType ()?;
+        println! ("reading read_function_type i:{} offset:{}", i, self.offset);
+		let results = self.read_vector_ValueType ()?;
+        println! ("reading read_function_type i:{} offset:{}", i, self.offset);
+	    self.function_type[i] = FunctionType {parameters: parameters, results: results};
+        println! ("read_function_type ok i:{} offset:{}", i, self.offset);
+		Ok(())
     }
 
     fn read_section_types (&mut self) -> Result<(), Box<dyn Error>> {
-        println! ("read_section_types {}", self.offset);
+        println! ("read_section_types1 offset:{}", self.offset);
         let size = self.read_varuint32 ()? as usize;
+        println! ("read_section_types2 offset:{} size:{}", self.offset, size);
+        //trace!();
         self.function_type.resize(size, FunctionType::new());
-        trace!();
+        //trace!();
         for i in 0..size {
-            trace!();
+            //trace!();
             let marker = self.read_byte ()?;
+            //trace!();
             if marker != 0x60 {
+              println! ("read_section_types4 offset:{} size:{} marker:{}", self.offset, size, marker);
               return Err(Box::<dyn Error>::from(format!("malformed2 in Types::read {} {}", self.file_path, marker)));
             }
+            trace!();
             self.read_function_type (i)?;
+            trace!();
         }
-        println! ("read section 1");
+        trace!();
+        println! ("read_section_types3 ok id:1 offset:{}", self.offset);
         Ok(())
     }
 
     fn read_section (&mut self) -> Result<(), Box<dyn Error>> {
-        let id = self.read_varuint7()?;
-        println! ("reading section {} {}", id, self.offset);
-        trace!();
+        let id = self.read_varuint7 ()?;
+        println! ("reading section id:{} offset:{}", id, self.offset);
+        //trace!();
         if id > 11 {
-            trace!();
+            //trace!();
             return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id)));
         }
-        trace!();
+        //trace!();
         match id {
             SectionKind::custom => self.read_section_custom (),
             SectionKind::types => self.read_section_types (),
