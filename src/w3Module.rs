@@ -198,7 +198,7 @@ impl T {
         println! ("reading function_type:{i}");
         todo!();
 
-void Module::read_function_type (FunctionType& functionType, uint8_t** cursor)
+/*void Module::read_function_type (FunctionType& functionType, uint8_t** cursor)
 {
     read_vector_ValueType (functionType.parameters, cursor);
     read_vector_ValueType (functionType.results, cursor);
@@ -219,17 +219,8 @@ void Module::read_function_type (FunctionType& functionType, uint8_t** cursor)
             }
             self.read_function_type (i)?;
         }
-        Ok();
-    /*
-        for (size_t i = 0; i < size; ++i)
-        {
-            const uint32_t marker = read_byte (cursor);
-            if (marker != 0x60)
-                ThrowString ("malformed2 in Types::read");
-            read_function_type (function_types [i], cursor);
-        }
-        printf ("read section 1\n");
-        */
+        println! ("read section 1");
+        Ok(())
     }
 
     fn read_section (&mut self) -> Result<(), Box<dyn Error>> {
@@ -312,7 +303,7 @@ void Module::read_function_type (FunctionType& functionType, uint8_t** cursor)
         let magic = T::u32le(&buf);
         this.reader.buffer().read_exact(&mut buf)?;
         let version = T::u32le(&buf);
-        let expected_magic = T::u32le(&[0, 'a' as u8, 's' as u8, 'm' as u8]); // "\0wasm"
+        let expected_magic = T::u32le(&[0, 'a' as u8, 's' as u8, 'm' as u8]); // "\0asm"
         if magic != expected_magic {
             return Err(io::Error::new(ErrorKind::InvalidData, format!("Wasm incorrect magic: {} {}", this.file_path, magic)));
         }
