@@ -179,7 +179,8 @@ impl T {
     }
 
     fn read_section_custom (&mut self) -> Result<(), Box<dyn Error>> {
-        println! ("reading custom 0");
+        println! ("read_section_custom0");
+        let name_size = self.read_varuint32 ();
         todo!();
     }
 
