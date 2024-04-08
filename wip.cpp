@@ -5,6 +5,18 @@
 
 #define _CRT_SECURE_NO_WARNINGS 1
 
+#include <assert.h>
+#include <algorithm>
+#include <vector>
+#include <string>
+#include <stdio.h>
+using std::min;
+using std::max;
+using std::vector;
+using std::string;
+#include "w3.h"
+#include "w3-2.h"
+
 extern const float wasm_hugef = 1.0e30F;
 extern const double wasm_huged = 1.0e300;
 
@@ -91,13 +103,13 @@ StringFormat (const char* format, ...)
 }
 
 void
-ThrowInt (int i, const char* a = "")
+ThrowInt (int i, const char* a)
 {
     ThrowString (StringFormat ("error 0x%08X %s", i, a));
 }
 
 void
-ThrowErrno (const char* a = "")
+ThrowErrno (const char* a)
 {
     ThrowInt (errno, a);
 }
@@ -105,14 +117,14 @@ ThrowErrno (const char* a = "")
 #if _WIN32
 
 void
-throw_Win32Error (int err, const char* a = "")
+throw_Win32Error (int err, const char* a)
 {
     ThrowInt (err, a);
 
 }
 
 void
-throw_GetLastError (const char* a = "")
+throw_GetLastError (const char* a)
 {
     ThrowInt ((int)GetLastError (), a);
 
@@ -229,7 +241,6 @@ StringFormatVa (const char* format, va_list va)
     return &s [0];
 }
 
-const uint32_t PageSize = (1UL << 16);
 const uint32_t PageShift = 16;
 
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
@@ -246,43 +257,6 @@ Unpack4 (const void* a)
 {
     return (Unpack2 ((char*)a + 2) << 16) | Unpack2 (a);
 }
-
-template <uint32_t N> struct uintLEn_to_native_exact;
-template <uint32_t N> struct uintLEn_to_native_fast;
-
-template <> struct uintLEn_to_native_exact<16> { typedef uint16_t T; };
-template <> struct uintLEn_to_native_exact<32> { typedef uint32_t T; };
-template <> struct uintLEn_to_native_exact<64> { typedef uint64_t T; };
-template <> struct uintLEn_to_native_fast<16> { typedef uint32_t T; };
-template <> struct uintLEn_to_native_fast<32> { typedef uint32_t T; };
-template <> struct uintLEn_to_native_fast<64> { typedef uint64_t T; };
-
-template <uint32_t N>
-struct uintLEn // unsigned little endian integer, size n bits
-{
-    union
-    {
-        typename uintLEn_to_native_exact<N>::T native;
-        unsigned char data [N / 8];
-    };
-
-    operator typename uintLEn_to_native_fast<N>::T ()
-    {
-#if BYTE_ORDER == LITTLE_ENDIAN
-    return native;
-#else
-        typename uintLEn_to_native_fast<N>::T a = 0;
-        for (uint32_t i = N / 8; i; )
-            a = (a << 8) | data [--i];
-        return a;
-#endif
-    }
-    void operator= (uint32_t);
-};
-
-//typedef uintLEn<16> uintLE16;
-typedef uintLEn<32> uintLE32;
-//typedef uintLEn<64> uintLE64;
 
 // C++98 workaround for what C++11 offers.
 struct explicit_operator_bool

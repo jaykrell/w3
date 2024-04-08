@@ -4,6 +4,8 @@
 // https://webassembly.github.io/spec/core/_download/WebAssembly.pdf
 
 #pragma once
+#include <stdint.h>
+typedef ptrdiff_t ssize_t;
 
 #define _DARWIN_USE_64_BIT_INODE 1
 //#define __DARWIN_ONLY_64_BIT_INO_T 1
@@ -137,15 +139,6 @@ enum struct TypeTag : uint8_t
     f64 = 0x7C, // defined by wasm
     string = 0x80, // sourcegen extension
     label  = 0x81, // sourcegen extension, needed?
-};
-
-// This should probabably be combined with ResultType, and called Tag.
-enum ValueType : uint8_t
-{
-    ValueType_i32 = 0x7F,
-    ValueType_i64 = 0x7E,
-    ValueType_f32 = 0x7D,
-    ValueType_f64 = 0x7C,
 };
 
 std::string StringFormatVa (const char* format, va_list va);
@@ -354,12 +347,13 @@ struct InstructionNames;
    BITS_FOR_UINT_HELPER (a,  9) BITS_FOR_UINT_HELPER (a,  8) BITS_FOR_UINT_HELPER (a,  7) BITS_FOR_UINT_HELPER (a,  6) BITS_FOR_UINT_HELPER (a,  5) \
    BITS_FOR_UINT_HELPER (a,  4) BITS_FOR_UINT_HELPER (a,  3) BITS_FOR_UINT_HELPER (a,  2) BITS_FOR_UINT_HELPER (a,  1) BITS_FOR_UINT_HELPER (a,  0) 1)
 
-#if (_MSC_VER && _MSC_VER <= 1700) || __WATCOMC__
+#if 1 // (_MSC_VER && _MSC_VER <= 1700) || __WATCOMC__
 
 #define bits_for_uint(x) BITS_FOR_UINT (x)
 
 #else
 
+#undef bits_for_uint
 constexpr int bits_for_uint (uint32_t a)
 {
     return

@@ -192,9 +192,6 @@ std::string StringFormatVa (PCSTR format, va_list va)
     return &s [0];
 }
 
-//const uint32_t PageSize = (1UL << 16);
-const uint32_t PageShift = 16;
-
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
 
 struct Stream

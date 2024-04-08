@@ -6,7 +6,7 @@
 #pragma once
 
 #include "w3-1.h"
-
+typedef ptrdiff_t ssize_t;
 #include <assert.h>
 #include <errno.h>
 #include <memory.h>
@@ -139,8 +139,8 @@ typedef void (explicit_operator_bool::*bool_type) () const;
 
 #if _WIN32
 
-void throw_Win32Error (int err, PCSTR a = "");
-void throw_GetLastError (PCSTR a = "");
+void throw_Win32Error (int err, PCSTR a);
+void throw_GetLastError (PCSTR a);
 
 #endif
 
