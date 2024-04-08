@@ -127,10 +127,10 @@ impl T {
     fn read_varuint64 (&mut self) -> io::Result<u64> {
         let mut result: u64 = 0;
         let mut shift: u32 = 0;
-		println! ("read_varuint64_1");
+        println! ("read_varuint64_1");
         loop {
             let byte = self.read_byte()?;
-		    println! ("read_varuint64_2 {}", byte);
+            println! ("read_varuint64_2 {}", byte);
             result |= ((byte & 0x7F) as u64) << shift;
             if (byte & 0x80) == 0 {
                 return Ok(result);
@@ -207,18 +207,18 @@ impl T {
             result [i] = self.read_valuetype ().unwrap ();
         }
         println! ("read_vector_ValueType2 offset:{}", self.offset);
-		Ok(result)
+        Ok(result)
     }
 
     fn read_function_type (&mut self, i: usize) -> Result<(), Box<dyn Error>> {
         println! ("reading read_function_type i:{} offset:{}", i, self.offset);
-		let parameters = self.read_vector_ValueType ()?;
+        let parameters = self.read_vector_ValueType ()?;
         println! ("reading read_function_type i:{} offset:{}", i, self.offset);
-		let results = self.read_vector_ValueType ()?;
+        let results = self.read_vector_ValueType ()?;
         println! ("reading read_function_type i:{} offset:{}", i, self.offset);
-	    self.function_type[i] = FunctionType {parameters: parameters, results: results};
+        self.function_type[i] = FunctionType {parameters: parameters, results: results};
         println! ("read_function_type ok i:{} offset:{}", i, self.offset);
-		Ok(())
+    	Ok(())
     }
 
     fn read_section_types (&mut self) -> Result<(), Box<dyn Error>> {
@@ -255,8 +255,8 @@ impl T {
             return Err(Box::<dyn Error>::from(format!("malformed file:{} section-id:{}", self.file_path, id)));
         }
         //trace!();
-		let payload_size = self.read_varuint32 ()? as i64;
-		let payload = self.offset;
+        let payload_size = self.read_varuint32 ()? as i64;
+        let payload = self.offset;
         println! ("reading section id:{} offset:{} payload_size:{}", id, self.offset, payload_size);
         match id {
             SectionKind::custom => self.read_section_custom (),
@@ -264,12 +264,12 @@ impl T {
             _ =>
               return Err(Box::new(io::Error::new(ErrorKind::InvalidData, format!("Wasm unknown section kind: {} {}", self.file_path, id)))),
         };
-		if payload + payload_size != self.offset {
-			// TODO: error reporting and handling
+        if payload + payload_size != self.offset {
+            // TODO: error reporting and handling
             return Err(Box::new(io::Error::new(ErrorKind::InvalidData, "Wasm malformed section did not read all of payload")));
-		};
-		Ok(())
-	}
+        };
+        Ok(())
+    }
 
     pub fn read_module (file_path: String) -> io::Result<T> {
         let file = File::open(&file_path)?;
