@@ -143,9 +143,6 @@ enum struct TypeTag : uint8_t
 
 std::string StringFormatVa (const char* format, va_list va);
 
-const uint32_t PageSize = (1UL << 16);
-const uint32_t PageShift = 16;
-
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
 
 uint32_t GetUint16LE (const void* a);

@@ -87,3 +87,6 @@ int wasm_isnand (double x);
 #ifdef __cplusplus
 } // extern "C"
 #endif
+
+const uint32_t PageSize = (1UL << 16);
+const uint32_t PageShift = 16;

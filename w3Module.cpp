@@ -718,13 +718,13 @@ void Module::read_module (PCSTR file_name)
     if (file_size < 8)
         ThrowString (StringFormat ("too small %s", file_name));
 
-    uintLE32& magic = (uintLE32&)*base;
-    uintLE32& version = (uintLE32&)*(base + 4);
-    printf ("magic: %X\n", (uint32_t)magic);
-    printf ("version: %X\n", (uint32_t)version);
+    uint32_t magic = GetUint32LE(base);
+    uint32_t version = GetUint32LE(base + 4);
+    printf ("magic: %X\n", magic);
+    printf ("version: %X\n", version);
 
     if (memcmp (&magic,"\0asm", 4))
-        ThrowString (StringFormat ("incorrect magic: %X", (uint32_t)magic));
+        ThrowString (StringFormat ("incorrect magic: %X", magic));
 
     if (version != 1)
         ThrowString (StringFormat ("incorrect version: %X", (uint32_t)version));

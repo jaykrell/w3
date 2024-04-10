@@ -285,9 +285,10 @@ uint64_t read_varuint64 (uint8_t** cursor, const uint8_t* end)
     }
 }
 
+// TODO: range check, errors
 uint32_t read_varuint32 (uint8_t** cursor, const uint8_t* end)
 {
-    return read_varuint64(cursor, end);
+    return (uint32_t)read_varuint64(cursor, end);
 }
 
 uint8_t read_varuint7 (uint8_t** cursor, const uint8_t* end)
