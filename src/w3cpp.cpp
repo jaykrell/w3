@@ -123,9 +123,9 @@ struct Fd
     }
 };
 
-struct Handle
+struct w3Handle
 {
-    Handle () : handle (0) { }
+    w3Handle () : handle (0) { }
 
 #if 0 // C++11
     explicit operator bool () { return valid (); } // C++11
@@ -135,12 +135,12 @@ struct Handle
         return valid () ? &explicit_operator_bool::True : NULL;
     }
 #endif
-    ~Handle ()
+    ~w3Handle ()
     {
         cleanup ();
     }
 
-    Handle (void* h) : handle (h) { }
+    w3Handle (void* h) : handle (h) { }
 
     void operator = (void* h)
     {
@@ -182,7 +182,7 @@ struct Handle
 };
 
 #if _WIN32
-struct File : Handle
+struct File : w3Handle
 #else
 struct File : Fd
 #endif
@@ -261,7 +261,7 @@ struct MemoryMappedFile
 
         // FIXME check for size==0 and >4GB.
         size = (size_t)file.size ();
-        Handle h2 = CreateFileMappingW (file, 0, PAGE_READONLY, 0, 0, 0);
+        w3Handle h2 = CreateFileMappingW (file, 0, PAGE_READONLY, 0, 0, 0);
         if (!h2)
             //throw_GetLastError (StringFormat ("CreateFileMapping (%s)", a).c_str ());
             return Error ();

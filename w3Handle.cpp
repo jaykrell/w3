@@ -8,9 +8,9 @@
 
 #ifdef _WIN32
 
-// TODO Handle vs. Win32File etc.
+// TODO w3Handle vs. Win32File etc.
 
-uint64_t Handle::get_file_size (PCSTR file_name)
+uint64_t w3Handle::get_file_size (PCSTR file_name)
 {
     DWORD hi = 0;
     DWORD lo = GetFileSize (h, &hi);
@@ -23,53 +23,53 @@ uint64_t Handle::get_file_size (PCSTR file_name)
     return (((uint64_t)hi) << 32) | lo;
 }
 
-Handle::Handle (void* a) : h (a)
+w3Handle::w3Handle (void* a) : h (a)
 {
 }
 
-Handle::Handle () : h (0)
+w3Handle::w3Handle () : h (0)
 {
 }
 
-void* Handle::get ()
+void* w3Handle::get ()
 {
     return h;
 }
 
-bool Handle::valid () const
+bool w3Handle::valid () const
 {
     return static_valid (h);
 }
 
-bool Handle::static_valid (void* h)
+bool w3Handle::static_valid (void* h)
 {
     return h && h != INVALID_HANDLE_VALUE;
 }
 
-Handle::operator void* ()
+w3Handle::operator void* ()
 {
     return get ();
 }
 
-void Handle::static_cleanup (void* h)
+void w3Handle::static_cleanup (void* h)
 {
     if (static_valid (h))
         CloseHandle (h);
 }
 
-void* Handle::detach ()
+void* w3Handle::detach ()
 {
     void* const a = h;
     h = 0;
     return a;
 }
 
-void Handle::cleanup ()
+void w3Handle::cleanup ()
 {
     static_cleanup (detach ());
 }
 
-Handle& Handle::operator= (void* a)
+w3Handle& w3Handle::operator= (void* a)
 {
     if (h == a) return *this;
     cleanup ();
@@ -79,23 +79,23 @@ Handle& Handle::operator= (void* a)
 
 #if 0 // C++11
 
-Handle::operator bool ()
+w3Handle::operator bool ()
 {
     return valid ();
 }
 
 #else
 
-Handle::operator explicit_operator_bool::T () const
+w3Handle::operator explicit_operator_bool::T () const
 {
     return valid () ? &explicit_operator_bool::True : NULL;
 }
 
 #endif
 
-bool Handle::operator ! () { return !valid (); }
+bool w3Handle::operator ! () { return !valid (); }
 
-Handle::~Handle ()
+w3Handle::~w3Handle ()
 {
     if (valid ()) CloseHandle (h);
     h = 0;

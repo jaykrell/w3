@@ -27,7 +27,7 @@ void MemoryMappedFile::read (PCSTR a)
     if (!file) throw_GetLastError (StringFormat ("CreateFileA (%s)", a).c_str ());
     // FIXME check for size==0 and >4GB.
     size = (size_t)file.get_file_size (a);
-    Handle h2 = CreateFileMappingW (file, 0, PAGE_READONLY, 0, 0, 0);
+    w3Handle h2 = CreateFileMappingW (file, 0, PAGE_READONLY, 0, 0, 0);
     if (!h2) throw_GetLastError (StringFormat ("CreateFileMapping (%s)", a).c_str ());
     base = MapViewOfFile (h2, FILE_MAP_READ, 0, 0, 0);
     if (!base)

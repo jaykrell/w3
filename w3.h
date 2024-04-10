@@ -68,7 +68,7 @@ struct Fd;
 struct Frame; // work in progress
 struct Function;
 struct FunctionType;
-struct Handle;
+struct w3Handle;
 struct Label;
 struct MemoryMappedFile;
 struct Module;

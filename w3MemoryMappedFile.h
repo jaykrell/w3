@@ -16,7 +16,7 @@ struct MemoryMappedFile
     void* base {};
     size_t size {};
 #ifdef _WIN32
-    Handle file {};
+    w3Handle file {};
 #else
     Fd file {};
 #endif

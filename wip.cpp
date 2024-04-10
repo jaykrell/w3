@@ -63,9 +63,6 @@ extern const double wasm_huged = 1.0e300;
 #include <malloc.h> // for _alloca
 #endif
 
-namespace w3
-{
-
 #if 0
 void
 AssertFailed (const char* file, int line, const char* expr)
@@ -269,9 +266,9 @@ typedef void (explicit_operator_bool::*bool_type) () const;
 
 
 #if _WIN32
-struct Handle
+struct w3Handle
 {
-    // TODO Handle vs. win32file_t, etc.
+    // TODO w3Handle vs. win32file_t, etc.
 
     uint64_t get_file_size (const char* file_name = "")
     {
@@ -288,8 +285,8 @@ struct Handle
 
     void* h;
 
-    Handle (void* a) : h (a) { }
-    Handle () : h (0) { }
+    w3Handle (void* a) : h (a) { }
+    w3Handle () : h (0) { }
 
     void* get () { return h; }
 
@@ -317,7 +314,7 @@ struct Handle
         static_cleanup (detach ());
     }
 
-    Handle& operator= (void* a)
+    w3Handle& operator= (void* a)
     {
         if (h == a) return *this;
         cleanup ();
@@ -336,7 +333,7 @@ struct Handle
 
     bool operator ! () { return !valid (); }
 
-    ~Handle ()
+    ~w3Handle ()
     {
         if (valid ()) CloseHandle (h);
         h = 0;
@@ -424,7 +421,7 @@ struct MemoryMappedFile
     void* base;
     size_t size;
 #if _WIN32
-    Handle file;
+    w3Handle file;
 #else
     Fd file;
 #endif
@@ -451,7 +448,7 @@ struct MemoryMappedFile
         if (!file) throw_GetLastError (StringFormat ("CreateFileA (%s)", a).c_str ());
         // FIXME check for size==0 and >4GB.
         size = (size_t)file.get_file_size (a);
-        Handle h2 = CreateFileMappingW (file, 0, PAGE_READONLY, 0, 0, 0);
+        w3Handle h2 = CreateFileMappingW (file, 0, PAGE_READONLY, 0, 0, 0);
         if (!h2) throw_GetLastError (StringFormat ("CreateFileMapping (%s)", a).c_str ());
         base = MapViewOfFile (h2, FILE_MAP_READ, 0, 0, 0);
         if (!base)
@@ -5321,10 +5318,6 @@ INTERP (f64_Reinterpret_i64_)
 {
     tag (Tag_i64) = Tag_f64;
 }
-
-}
-
-using namespace w3; // TODO C or C++?
 
 int
 main (int argc, char** argv)

@@ -63,9 +63,6 @@ typedef ptrdiff_t ssize_t;
 #include <malloc.h> // for _alloca
 #endif
 
-namespace w3
-{
-
 struct StackValueZeroInit; // work in progress
 struct StackValue;
 struct StackBase;
@@ -85,7 +82,7 @@ struct stream;
 struct stdout_stream;
 struct stderr_stream;
 
-struct Handle; // e.g. Win32 CreateFile result, with destructor
+struct w3Handle; // e.g. Win32 CreateFile result, with destructor
 struct Fd; // e.g. open result, with destructor
 struct MemoryMappedFile; // e.g. mmap result, with destructor
 
@@ -428,5 +425,3 @@ struct Interp;
 struct SourceGen;
 struct RustGen;
 struct CGen;
-
-}

@@ -7,16 +7,16 @@
 
 #ifdef _WIN32
 
-struct Handle
+struct w3Handle
 {
-    // TODO Handle vs. win32file_t, etc.
+    // TODO w3Handle vs. win32file_t, etc.
 
     uint64_t get_file_size (PCSTR file_name = "");
 
     void* h {};
 
-    Handle (void* a);
-    Handle ();
+    w3Handle (void* a);
+    w3Handle ();
 
     void* get ();
 
@@ -32,7 +32,7 @@ struct Handle
 
     void cleanup ();
 
-    Handle& operator= (void* a);
+    w3Handle& operator= (void* a);
 
 #if 0 // C++11
     explicit operator bool (); // C++11
@@ -42,7 +42,7 @@ struct Handle
 
     bool operator ! ();
 
-    ~Handle ();
+    ~w3Handle ();
 };
 #endif
 
