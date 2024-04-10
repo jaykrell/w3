@@ -82,8 +82,8 @@ struct Variable; //local, global, temp
 
 char TagChar(Tag t); //todo: short string?
 
-uint32_t GetUint16LE (const void* a);
-uint32_t GetUint32LE (const void* a);
+uint32_t Unpack2 (const void* a);
+uint32_t Unpack4 (const void* a);
 uint64_t SignExtend (uint64_t value, uint32_t bits);
 size_t ssize_magnitude (ssize_t i);
 size_t int_magnitude (ssize_t i); //todo remove
@@ -217,3 +217,7 @@ struct uintLEn // unsigned little endian integer, size n bits
     }
     void operator= (uint32_t);
 };
+
+//typedef uintLEn<16> uintLE16;
+typedef uintLEn<32> uintLE32;
+//typedef uintLEn<64> uintLE64;
