@@ -10,7 +10,7 @@
 #include "w3InstructionEnum.h"
 #include "w3InstructionEncoding.h"
 
-struct Function // section3
+struct w3Function // section3
 {
     // Functions are split between two sections: types in section3, locals/body in section10
     size_t function_index {}; // TODO needed?
@@ -22,14 +22,14 @@ struct Function // section3
 
 // Initial representation of X and XSection are the same.
 // This might evolve, i.e. into separate TypesSection and Types,
-// or just Types that is not Section.
-struct FunctionType
+// or just Types that is not w3Section.
+struct w3FunctionType
 {
     // CONSIDER pointer into mmf
-    std::vector <Tag> parameters;
-    std::vector <Tag> results;
+    std::vector <w3Tag> parameters;
+    std::vector <w3Tag> results;
 
-    bool operator == (const FunctionType& other) const
+    bool operator == (const w3FunctionType& other) const
     {
         return parameters == other.parameters && results == other.results;
     }
@@ -39,14 +39,14 @@ struct FunctionType
 #include "w3WasmString.h"
 #include "w3Section.h"
 
-typedef enum ImportTag {    // aka desc
-    ImportTag_Function = 0, // aka type
-    ImportTag_Table = 1,
-    ImportTag_Memory = 2,
-    ImportTag_Global = 3,
-} ImportTag, ExportTag;
+typedef enum w3ImportTag {    // aka desc
+    w3ImportTag_Function = 0, // aka type
+    w3ImportTag_Table = 1,
+    w3ImportTag_Memory = 2,
+    w3ImportTag_Global = 3,
+} w3ImportTag, w3ExportTag;
 
-struct Limits
+struct w3Limits
 {
     // TODO size_t? null?
     uint32_t min {};
@@ -54,43 +54,43 @@ struct Limits
     bool hasMax {};
 };
 
-struct MemoryType
+struct w3MemoryType
 {
-    Limits limits {};
+    w3Limits limits {};
 };
 
-struct GlobalType
+struct w3GlobalType
 {
-    Tag value_type {};
+    w3Tag value_type {};
     bool is_mutable {};
 };
 
-struct TableType
+struct w3TableType
 {
-    Tag elementType {};
-    Limits limits {};
+    w3Tag elementType {};
+    w3Limits limits {};
 };
 
-struct Import
+struct w3Import
 {
     WasmString module {};
     WasmString name {};
-    ImportTag tag {(ImportTag)-1};
+    w3ImportTag tag {(w3ImportTag)-1};
     // TODO virtual functions to model union
     //union
     //{
-        TableType table {};
+        w3TableType table {};
         uint32_t function {};
-        MemoryType memory {};
-        GlobalType global {};
+        w3MemoryType memory {};
+        w3GlobalType global {};
     //};
 };
 
-struct DecodedInstructionZeroInit // ZeroMem-compatible part
+struct w3DecodedInstructionZeroInit // ZeroMem-compatible part
 {
-    DecodedInstructionZeroInit()
+    w3DecodedInstructionZeroInit()
     {
-        static DecodedInstructionZeroInit a;
+        static w3DecodedInstructionZeroInit a;
         *this = a;
     }
     union
@@ -119,12 +119,12 @@ struct DecodedInstructionZeroInit // ZeroMem-compatible part
     };
 
     uint64_t file_offset; // to match up with disasm output, unsigned for hex
-    InstructionEnum name;
-    Tag blockType;
+    w3InstructionEnum name;
+    w3Tag blockType;
     int id; //sourcegen
 };
 
-struct DecodedInstruction : DecodedInstructionZeroInit
+struct w3DecodedInstruction : w3DecodedInstructionZeroInit
 {
     size_t Arity() const
     {
@@ -136,22 +136,22 @@ struct DecodedInstruction : DecodedInstructionZeroInit
 
 struct Global
 {
-    GlobalType global_type {};
-    std::vector <DecodedInstruction> init {};
+    w3GlobalType global_type {};
+    std::vector <w3DecodedInstruction> init {};
 };
 
-struct Element
+struct w3Element
 {
     uint32_t table {};
-    std::vector <DecodedInstruction> offset_instructions {};
+    std::vector <w3DecodedInstruction> offset_instructions {};
     uint32_t offset {};
     std::vector <uint32_t> functions {};
 };
 
-struct Export
+struct w3Export
 {
     WasmString name {};
-    ExportTag tag {};
+    w3ExportTag tag {};
     bool is_start {};
     bool is_main {};
     union
@@ -163,57 +163,57 @@ struct Export
     };
 };
 
-struct Data // section11
+struct w3Data // section11
 {
     uint32_t memory {};
-    std::vector <DecodedInstruction> expr {};
+    std::vector <w3DecodedInstruction> expr {};
     void* bytes {};
 };
 
-struct Code
+struct w3Code
 // The code to a function.
 // Functions are split between section3 and section10.
 // Instructions are in section10.
-// Function code is decoded upon first (or only) visit.
+// w3Function code is decoded upon first (or only) visit.
 {
     size_t size {};
     uint8_t* cursor {};
-    std::vector <Tag> locals {}; // params in FunctionType
-    std::vector <DecodedInstruction> decoded_instructions {}; // section10
+    std::vector <w3Tag> locals {}; // params in w3FunctionType
+    std::vector <w3DecodedInstruction> decoded_instructions {}; // section10
     bool import {};
 };
 
-struct Module
+struct w3Module
 {
     std::string name {};
 
-    virtual ~Module();
+    virtual ~w3Module();
 
-    MemoryMappedFile mmf {};
+    w3MemoryMappedFile mmf {};
     uint8_t* base {};
     uint64_t file_size {};
     uint8_t* end {};
-    Section sections [12] {};
-    //std::vector <std::shared_ptr<Section>> custom_sections; // FIXME
+    w3Section sections [12] {};
+    //std::vector <std::shared_ptr<w3Section>> custom_sections; // FIXME
 
     // The order can be take advantage of.
     // For example global is read before any code,
     // so the index of any global.get/set can be validated right away.
-    std::vector <FunctionType> function_types; // section1 function signatures
-    std::vector <Import> imports; // section2
-    std::vector <Function> functions; // section3 and section10 function declarations
-    std::vector <TableType> tables; // section4 indirect tables
+    std::vector <w3FunctionType> function_types; // section1 function signatures
+    std::vector <w3Import> imports; // section2
+    std::vector <w3Function> functions; // section3 and section10 function declarations
+    std::vector <w3TableType> tables; // section4 indirect tables
     std::vector <Global> globals; // section6
-    std::vector <Export> exports; // section7
-    std::vector <Element> elements; // section9 table initialization
-    std::vector <Code> code; // section10
-    std::vector <Data> data; // section11 memory initialization
-    Limits memory_limits;
+    std::vector <w3Export> exports; // section7
+    std::vector <w3Element> elements; // section9 table initialization
+    std::vector <w3Code> code; // section10
+    std::vector <w3Data> data; // section11 memory initialization
+    w3Limits memory_limits;
 
     int instructionId {}; //sourcegen
 
-    Export* start {};
-    Export* main {};
+    w3Export* start {};
+    w3Export* main {};
 
     size_t import_function_count {};
     size_t import_table_count {};
@@ -232,18 +232,18 @@ struct Module
     uint32_t read_varuint32 (uint8_t** cursor);
 
     void read_vector_varuint32 (std::vector <uint32_t>&, uint8_t** cursor);
-    Limits read_limits (uint8_t** cursor);
-    MemoryType read_memorytype (uint8_t** cursor);
-    GlobalType read_globaltype (uint8_t** cursor);
-    TableType read_tabletype (uint8_t** cursor);
-    Tag read_valuetype (uint8_t** cursor);
-    Tag read_blocktype(uint8_t** cursor);
-    Tag read_elementtype (uint8_t** cursor);
+    w3Limits read_limits (uint8_t** cursor);
+    w3MemoryType read_memorytype (uint8_t** cursor);
+    w3GlobalType read_globaltype (uint8_t** cursor);
+    w3TableType read_tabletype (uint8_t** cursor);
+    w3Tag read_valuetype (uint8_t** cursor);
+    w3Tag read_blocktype(uint8_t** cursor);
+    w3Tag read_elementtype (uint8_t** cursor);
     bool read_mutable (uint8_t** cursor);
     void read_section (uint8_t** cursor);
     void read_module (PCSTR file_name);
-    void read_vector_ValueType (std::vector <Tag>& result, uint8_t** cursor);
-    void read_function_type (FunctionType& functionType, uint8_t** cursor);
+    void read_vector_ValueType (std::vector <w3Tag>& result, uint8_t** cursor);
+    void read_function_type (w3FunctionType& functionType, uint8_t** cursor);
 
     virtual void read_types (uint8_t** cursor);
     virtual void read_imports (uint8_t** cursor);

@@ -10,20 +10,20 @@
 #include "w3StackValue.h"
 #include "w3ExportInstance.h"
 
-struct Module;
-struct FuncAddr;
-struct TableAddr;
+struct w3Module;
+struct w3FuncAddr;
+struct w3TableAddr;
 
-struct ModuleInstance // work in progress
+struct w3ModuleInstance // work in progress
 {
-    ModuleInstance (Module* mod);
-    ModuleInstance () : module(0) { }
+    w3ModuleInstance (w3Module* mod);
+    w3ModuleInstance () : module(0) { }
 
-    Module* module;
+    w3Module* module;
     std::vector <uint8_t> memory;
-    std::vector <FuncAddr*> funcs;
-    std::vector <TableAddr*> tables;
-    //std::vector <MemAddr*> mem; // mem [0] => memory for now
-    std::vector <StackValue> globals;
-    std::vector <ExportInstance> exports;
+    std::vector <w3FuncAddr*> funcs;
+    std::vector <w3TableAddr*> tables;
+    //std::vector <w3MemAddr*> mem; // mem [0] => memory for now
+    std::vector <w3StackValue> globals;
+    std::vector <w3ExportInstance> exports;
 };

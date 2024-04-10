@@ -5,7 +5,7 @@
 
 #pragma once
 
-// Immediate is part of InstructionEncoding.
+// Immediate is part of w3InstructionEncoding.
 typedef enum Immediate
 {
     Imm_none = 0,

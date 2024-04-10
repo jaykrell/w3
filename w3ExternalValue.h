@@ -5,19 +5,19 @@
 
 #pragma once
 
-struct FuncAddr;
-struct TableAddr;
-struct MemAddr;
-struct GlobalAddr;
+struct w3FuncAddr;
+struct w3TableAddr;
+struct w3MemAddr;
+struct w3GlobalAddr;
 
-struct ExternalValue // external to a module, an export instance
+struct w3ExternalValue // external to a module, an export instance
 {
     union
     {
-        FuncAddr* func;
-        TableAddr* table;
-        MemAddr* mem;
-        GlobalAddr* global;
+        w3FuncAddr* func;
+        w3TableAddr* table;
+        w3MemAddr* mem;
+        w3GlobalAddr* global;
     };
 };
 

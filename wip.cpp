@@ -188,24 +188,24 @@ AssertFailed (const char* expr)
 //template <class T> void WasmStdCopyConstruct1toN (T* to, const T& from, size_t n) { for (size_t i = 0; i < n; ++i) new (to++) T (from); }
 //template <class T> void WasmStdCopyConstruct1 (T& to, const T& from) { WasmStdCopyConstruct1toN (&to, from, 1u); }
 
-struct FuncAddr // TODO
+struct w3FuncAddr // TODO
 {
 };
 
-struct TableAddr // TODO
+struct w3TableAddr // TODO
 {
 };
 
-struct MemAddr // TODO
+struct w3MemAddr // TODO
 {
 };
 
-struct GlobalAddr // TODO
+struct w3GlobalAddr // TODO
 {
 };
 
-// This should probabably be combined with ResultType, and called Tag.
-enum ValueType : uint8_t
+// This should probabably be combined with w3ResultType, and called w3Tag.
+enum w3ValueType : uint8_t
 {
     Tag_i32 = 0x7F,
     Tag_i64 = 0x7E,
@@ -341,7 +341,7 @@ struct w3Handle
 };
 #endif
 
-struct Fd
+struct w3Fd
 {
     int fd;
 
@@ -398,9 +398,9 @@ struct Fd
         static_cleanup (detach ());
     }
 
-    Fd (int a = -1) : fd (a) { }
+    w3Fd (int a = -1) : fd (a) { }
 
-    Fd& operator = (int a)
+    w3Fd& operator = (int a)
     {
         if (fd == a) return *this;
         cleanup ();
@@ -408,13 +408,13 @@ struct Fd
         return *this;
     }
 
-    ~Fd ()
+    ~w3Fd ()
     {
         cleanup ();
     }
 };
 
-struct MemoryMappedFile
+struct w3MemoryMappedFile
 {
 // TODO allow for redirection to built-in data (i.e. filesystem emulation with builtin BCL)
 // TODO allow for systems that must read, not mmap
@@ -423,11 +423,11 @@ struct MemoryMappedFile
 #if _WIN32
     w3Handle file;
 #else
-    Fd file;
+    w3Fd file;
 #endif
-    MemoryMappedFile () : base (0), size (0) { }
+    w3MemoryMappedFile () : base (0), size (0) { }
 
-    ~MemoryMappedFile ()
+    ~w3MemoryMappedFile ()
     {
         if (!base)
             return;
@@ -465,9 +465,9 @@ struct MemoryMappedFile
     }
 };
 
-struct stream
+struct w3stream
 {
-    virtual ~stream() { }
+    virtual ~w3stream() { }
 
     virtual void write (const void* bytes, size_t size) = 0;
 
@@ -491,7 +491,7 @@ struct stream
     }
 };
 
-struct stdout_stream : stream
+struct w3stdout_stream : w3stream
 {
     virtual void write (const void* bytes, size_t size)
     {
@@ -512,7 +512,7 @@ struct stdout_stream : stream
     }
 };
 
-struct stderr_stream : stream
+struct w3stderr_stream : w3stream
 {
     // TODO: Refactor with stdout.
     virtual void write (const void* bytes, size_t size)
@@ -646,7 +646,7 @@ union Value
 
 struct TaggedValue
 {
-    ValueType tag;
+    w3ValueType tag;
     union
     {
         int32_t i32;
@@ -693,21 +693,21 @@ TypeToString (int tag)
     return "unknown";
 }
 
-typedef enum TableElementType : uint32_t
+typedef enum w3TableElementType : uint32_t
 {
-    TableElementType_funcRef = 0x70,
-} TableElementType;
+    w3TableElementType_funcRef = 0x70,
+} w3TableElementType;
 
 typedef enum LimitsTag // specific to tabletype?
 {
-    LimitsTag_min = 0,
-    Limits_minMax = 1,
-} LimitsTag;
+    w3LimitsTag_min = 0,
+    w3Limits_minMax = 1,
+} w3LimitsTag;
 
-struct Limits
+struct w3Limits
 {
     // TODO size_t? null?
-    Limits () : min (0), max (0), hasMax (false) { }
+    w3Limits () : min (0), max (0), hasMax (false) { }
 
     uint32_t min;
     uint32_t max;
@@ -716,31 +716,31 @@ struct Limits
 
 const uint32_t FunctionTypeTag = 0x60;
 
-struct TableType
+struct w3TableType
 {
-    TableType () : elementType ((TableElementType)0) { }
+    w3TableType () : elementType ((w3TableElementType)0) { }
 
-    TableElementType elementType;
-    Limits limits;
+    w3TableElementType elementType;
+    w3Limits limits;
 
-    bool operator < (const TableType&) const; // workaround old compiler
-    bool operator == (const TableType&) const; // workaround old compiler
-    bool operator != (const TableType&) const; // workaround old compiler
+    bool operator < (const w3TableType&) const; // workaround old compiler
+    bool operator == (const w3TableType&) const; // workaround old compiler
+    bool operator != (const w3TableType&) const; // workaround old compiler
 };
 
 // Globals are mutable or constant.
-typedef enum Mutable
+typedef enum w3Mutable
 {
-    Mutable_constant = 0, // aka false
-    Mutable_variable = 1, // aka true
-} Mutable;
+    w3Mutable_constant = 0, // aka false
+    w3Mutable_variable = 1, // aka true
+} w3Mutable;
 
-struct Runtime;
-struct Stack;
-struct StackValue;
-struct ModuleInstance;
-struct Module;
-struct Section;
+struct w3Runtime;
+struct w3Stack;
+struct w3StackValue;
+struct w3ModuleInstance;
+struct w3Module;
+struct w3Section;
 
 // The stack shall use _alloca in a non-recursive interpreter loop.
 // This requires some care and macros. Macros that reference locals.
@@ -754,102 +754,102 @@ struct Section;
 // Such decomposition will also be good for conversion to JIT, LLVM, C++, etc.
 // It is only interpreter, perhaps, that has overwhelming efficiency concern.
 //
-// StackValue initial_stack[1];
+// w3StackValue initial_stack[1];
 // int stack_depth;
-// StackValue* stack = initial_stack;
-// StackValue* min_stack = initial_stack;
+// w3StackValue* stack = initial_stack;
+// w3StackValue* min_stack = initial_stack;
 
-typedef struct FunctionType FunctionType;
-typedef struct Function Function;
-typedef struct Code Code;
-typedef struct Frame Frame; // work in progress
-typedef struct DecodedInstruction DecodedInstruction;
+typedef struct w3FunctionType w3FunctionType;
+typedef struct w3Function w3Function;
+typedef struct w3Code w3Code;
+typedef struct w3Frame w3Frame; // work in progress
+typedef struct w3DecodedInstruction w3DecodedInstruction;
 
-typedef enum StackTag
+typedef enum w3StackTag
 {
     StackTag_Value = 1, // i32, i64, f32, f64
     StackTag_Label,     // branch target
     StackTag_Frame,     // return address + locals + params
-} StackTag;
+} w3StackTag;
 
 const char*
-StackTagToString (StackTag tag)
+StackTagToString (w3StackTag tag)
 {
     switch (tag)
     {
     case StackTag_Value: return "Value(1)";
     case StackTag_Label: return "Label(2)";
-    case StackTag_Frame: return "Frame(3)";
+    case StackTag_Frame: return "w3Frame(3)";
     }
     return "unknown";
 }
 
-typedef struct LabelValue
+typedef struct w3LabelValue
 {
     size_t arity, continuation;
-} LabelValue;
+} w3LabelValue;
 
 
-struct StackValue : StackValueZeroInit
+struct w3StackValue : w3StackValueZeroInit
 {
     void Init ();
 
-    StackValue()
+    w3StackValue()
     {
         Init ();
     }
 
-    StackValue (StackTag t)
+    w3StackValue (w3StackTag t)
     {
         Init ();
         tag = t;
     }
 
-    StackValue (ValueType t)
+    w3StackValue (w3ValueType t)
     {
         Init ();
         tag = StackTag_Value;
         value.tag = t;
     }
 
-    StackValue (TaggedValue t)
+    w3StackValue (TaggedValue t)
     {
         Init ();
         tag = StackTag_Value;
         value = t;
     }
 
-    StackValue (Frame* f)
+    w3StackValue (w3Frame* f)
     {
         Init ();
         tag = StackTag_Frame;
  //     frame = f;
     }
 
-    bool operator < (const StackValue&) const; // workaround old compiler
-    bool operator == (const StackValue&) const; // workaround old compiler
-    bool operator != (const StackValue&) const; // workaround old compiler
+    bool operator < (const w3StackValue&) const; // workaround old compiler
+    bool operator == (const w3StackValue&) const; // workaround old compiler
+    bool operator != (const w3StackValue&) const; // workaround old compiler
 };
 
 // TODO consider a vector instead, but it affects frame.locals staying valid across push/pop
-//typedef std::deque <StackValue> StackBaseBase;
-typedef std::vector <StackValue> StackBaseBase;
+//typedef std::deque <w3StackValue> w3StackBaseBase;
+typedef std::vector <w3StackValue> w3StackBaseBase;
 
-struct StackBase : private StackBaseBase
+struct w3StackBase : private w3StackBaseBase
 {
-    typedef StackBaseBase base;
-    typedef StackBaseBase::iterator iterator;
-    StackValue& back () { return base::back (); }
-    StackValue& front () { return base::front (); }
+    typedef w3StackBaseBase base;
+    typedef w3StackBaseBase::iterator iterator;
+    w3StackValue& back () { return base::back (); }
+    w3StackValue& front () { return base::front (); }
     iterator begin () { return base::begin (); }
     iterator end () { return base::end (); }
     bool empty () const { return base::empty (); }
     void resize (size_t newsize) { base::resize (newsize); }
     size_t size () { return base::size (); }
-    StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
+    w3StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
 
 
-    void push (const StackValue& a)
+    void push (const w3StackValue& a)
     {   // While ultimately a stack of values, labels, and frames, values dominate,
         // so the usage is made convenient for them.
         push_back (a);
@@ -860,57 +860,57 @@ struct StackBase : private StackBaseBase
         pop_back ();
     }
 
-    StackValue& top ()
+    w3StackValue& top ()
     {   // While ultimately a stack of values, labels, and frames, values dominate,
         // so the usage is made convenient for them.
         return back ();
     }
 };
 
-struct Interp;
+struct w3Interp;
 
-struct Frame
+struct w3Frame
 {
     // FUTURE spec return_arity
     size_t function_index {}; // replace with pointer?
-    ModuleInstance* module_instance {};
-    Module* module {};
-//    Frame* next; // TODO remove this; it is on stack
-    Code* code {};
+    w3ModuleInstance* module_instance {};
+    w3Module* module {};
+//    w3Frame* next; // TODO remove this; it is on stack
+    w3Code* code {};
     size_t param_count {};
     size_t local_only_count {};
     size_t param_and_local_count {};
-    ValueType* local_only_types {};
-    ValueType* param_types {};
-    FunctionType* function_type {};
+    w3ValueType* local_only_types {};
+    w3ValueType* param_types {};
+    w3FunctionType* function_type {};
     // TODO locals/params
     // This should just be stack pointer, to another stack,
     // along with type information (module->module->locals_types[])
 
-    Interp* interp {};
+    w3Interp* interp {};
     size_t locals {}; // index in stack to start of params and locals, params first
 
-    StackValue& Local (size_t index);
+    w3StackValue& Local (size_t index);
 };
 
 // work in progress
-struct Stack : private StackBase
+struct w3Stack : private w3StackBase
 {
-    Stack () { }
+    w3Stack () { }
 
     // old compilers lack using.
-    typedef StackBase base;
+    typedef w3StackBase base;
     typedef base::iterator iterator;
     void pop () { base::pop (); }
-    StackValue& top () { return base::top (); }
-    StackValue& back () { return base::back (); }
-    StackValue& front () { return base::front (); }
+    w3StackValue& top () { return base::top (); }
+    w3StackValue& back () { return base::back (); }
+    w3StackValue& front () { return base::front (); }
     iterator begin () { return base::begin (); }
     iterator end () { return base::end (); }
     bool empty () const { return base::empty (); }
     void resize (size_t newsize) { base::resize (newsize); }
     size_t size () { return base::size (); }
-    StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
+    w3StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
 
     void reserve (size_t n)
     {
@@ -919,32 +919,32 @@ struct Stack : private StackBase
 
     // While ultimately a stack of values, labels, and frames, values dominate.
 
-    ValueType& tag (ValueType tag)
+    w3ValueType& tag (w3ValueType tag)
     {
         AssertTopIsValue ();
-        StackValue& t = top ();
+        w3StackValue& t = top ();
         AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
         return t.value.tag;
     }
 
-    ValueType& tag ()
+    w3ValueType& tag ()
     {
         AssertTopIsValue ();
-        StackValue& t = top ();
+        w3StackValue& t = top ();
         return t.value.tag;
     }
 
     Value& value ()
     {
         AssertTopIsValue ();
-        StackValue& t = top ();
+        w3StackValue& t = top ();
         return t.value.value;
     }
 
-    Value& value (ValueType tag)
+    Value& value (w3ValueType tag)
     {
         AssertTopIsValue ();
-        StackValue& t = top ();
+        w3StackValue& t = top ();
         AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
         return t.value.value;
     }
@@ -966,21 +966,21 @@ struct Stack : private StackBase
         //printf ("pop_value tag:%s depth:%" FORMAT_SIZE "X\n", TypeToString (t), size ());
     }
 
-    void push_value (const StackValue& value)
+    void push_value (const w3StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Value, ("%X %X", value.tag, StackTag_Value));
         push (value);
         //printf ("push_value tag:%s value:%X depth:%" FORMAT_SIZE "X\n", TypeToString (value.value.tag), value.value.value.i32, size ());
     }
 
-    void push_label (const StackValue& value)
+    void push_label (const w3StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Label, ("%X %X", value.tag, StackTag_Label));
         push (value);
         //printf ("push_label depth:%" FORMAT_SIZE "X\n", size ());
     }
 
-    void push_frame (const StackValue& value)
+    void push_frame (const w3StackValue& value)
     {
         AssertFormat (value.tag == StackTag_Frame, ("%X %X", value.tag, StackTag_Frame));
         push (value);
@@ -991,14 +991,14 @@ struct Stack : private StackBase
 
     void push_i32 (int32_t i)
     {
-        StackValue value (Tag_i32);
+        w3StackValue value (Tag_i32);
         value.value.value.i32 = i;
         push_value (value);
     }
 
     void push_i64 (int64_t i)
     {
-        StackValue value (Tag_i64);
+        w3StackValue value (Tag_i64);
         value.value.value.i64 = i;
         push_value (value);
     }
@@ -1015,14 +1015,14 @@ struct Stack : private StackBase
 
     void push_f32 (float i)
     {
-        StackValue value (Tag_f32);
+        w3StackValue value (Tag_f32);
         value.value.value.f32 = i;
         push_value (value);
     }
 
     void push_f64 (double i)
     {
-        StackValue value (Tag_f64);
+        w3StackValue value (Tag_f64);
         value.value.value.f64 = i;
         push_value (value);
     }
@@ -1096,10 +1096,10 @@ struct Stack : private StackBase
 
     // setter, changes tag, returns ref
 
-    Value& set (ValueType tag)
+    Value& set (w3ValueType tag)
     {
         AssertTopIsValue ();
-        StackValue& t = top ();
+        w3StackValue& t = top ();
         TaggedValue& v = t.value;
         v.tag = tag;
         return v.value;
@@ -1265,17 +1265,17 @@ INTERP (FBinOp)
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) name,
 
-typedef enum InstructionEnum
+typedef enum w3InstructionEnum
 {
 #include __FILE__
-} InstructionEnum;
+} w3InstructionEnum;
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) char name [ sizeof (#name) ];
-typedef struct InstructionNames
+typedef struct w3InstructionNames
 {
 #include __FILE__
-} InstructionNames;
+} w3InstructionNames;
 
 #if 0 // Split string up for old compiler.
 const char instructionNames [ ] =
@@ -1358,7 +1358,7 @@ static_assert (bits_for_uint (sizeof (instructionNames)) == 12, "");
 
 #define InstructionName(i) (&instructionNames.data [instructionEncode [i].string_offset])
 
-struct InstructionEncoding
+struct w3InstructionEncoding
 {
     uint8_t byte0;
     //uint8_t byte1;              // FIXME always 0 if fixed_size > 1
@@ -1366,16 +1366,16 @@ struct InstructionEncoding
     Immediate immediate;
     uint8_t pop           : 2;    // required minimum stack in
     uint8_t push          : 1;
-    InstructionEnum name;
+    w3InstructionEnum name;
     uint32_t string_offset : bits_for_uint (sizeof (instructionNames));
     Type stack_in0  ; // type of stack [0] upon input, if pop >= 1
     Type stack_in1  ; // type of stack [1] upon input, if pop >= 2
     Type stack_in2  ; // type of stack [2] upon input, if pop == 3
     Type stack_out0 ; // type of stack [1] upon input, if push == 1
-    void (*interp) (Module*); // Module* wrong
+    void (*interp) (w3Module*); // w3Module* wrong
 };
 
-struct DecodedInstructionZeroInit // ZeroMem-compatible part
+struct w3DecodedInstructionZeroInit // ZeroMem-compatible part
 {
     union
     {
@@ -1404,13 +1404,13 @@ struct DecodedInstructionZeroInit // ZeroMem-compatible part
     };
 
     uint64_t file_offset; // to match up with disasm output, unsigned for hex
-    InstructionEnum name;
-    Tag blockType;
+    w3InstructionEnum name;
+    w3Tag blockType;
 };
 
-struct DecodedInstruction : DecodedInstructionZeroInit
+struct w3DecodedInstruction : w3DecodedInstructionZeroInit
 {
-    DecodedInstruction () : DecodedInstructionZeroInit {}
+    w3DecodedInstruction () : w3DecodedInstructionZeroInit {}
     {
     }
 
@@ -1423,25 +1423,25 @@ struct DecodedInstruction : DecodedInstructionZeroInit
 };
 
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) { byte0, fixed_size, imm, pop, push, name, offsetof (InstructionNames, name), in0, in1, in2, out0 },
-const InstructionEncoding instructionEncode [ ] = {
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) { byte0, fixed_size, imm, pop, push, name, offsetof (w3InstructionNames, name), in0, in1, in2, out0 },
+const w3InstructionEncoding instructionEncode [ ] = {
 #include __FILE__
 };
 
 static_assert (sizeof (instructionEncode) / sizeof (instructionEncode [0]) == 256, "not 256 instructions");
 
-typedef enum BuiltinString {
-    BuiltinString_none = 0,
-    BuiltinString_main,
-    BuiltinString_start,
-} BuiltinString;
+typedef enum w3BuiltinString {
+    w3BuiltinString_none = 0,
+    w3BuiltinString_main,
+    w3BuiltinString_start,
+} w3BuiltinString;
 
 struct WasmString
 {
     WasmString() :
         data (0),
         size (0),
-        builtin (BuiltinString_none),
+        builtin (w3BuiltinString_none),
         builtinStorage (false)
     {
     }
@@ -1449,7 +1449,7 @@ struct WasmString
     char* data;
     size_t size;
     std::string storage;
-    BuiltinString builtin ;
+    w3BuiltinString builtin ;
     bool builtinStorage;
 
     char* c_str ()
@@ -1467,7 +1467,7 @@ struct WasmString
     }
 };
 
-struct Section
+struct w3Section
 {
     uint32_t id;
     WasmString name;
@@ -1475,9 +1475,9 @@ struct Section
     uint8_t* payload;
 };
 
-struct ModuleBase // workaround old compiler (?)
+struct w3ModuleBase // workaround old compiler (?)
 {
-    virtual ~ModuleBase() { }
+    virtual ~w3ModuleBase() { }
     virtual void read_types (uint8_t** cursor) = 0;
     virtual void read_imports (uint8_t** cursor) = 0;
     virtual void read_functions (uint8_t** cursor) = 0;
@@ -1491,103 +1491,103 @@ struct ModuleBase // workaround old compiler (?)
     virtual void read_data (uint8_t** cursor) = 0;
 };
 
-struct SectionTraits
+struct w3SectionTraits
 {
-    void (ModuleBase::*read)(uint8_t** cursor);
+    void (w3ModuleBase::*read)(uint8_t** cursor);
     const char* name;
 };
 
-typedef enum ImportTag { // aka desc
-    ImportTag_Function = 0, // aka type
-    ImportTag_Table = 1,
-    ImportTag_Memory = 2,
-    ImportTag_Global = 3,
-} ImportTag, ExportTag;
+typedef enum w3ImportTag { // aka desc
+    w3ImportTag_Function = 0, // aka type
+    w3ImportTag_Table = 1,
+    w3ImportTag_Memory = 2,
+    w3ImportTag_Global = 3,
+} w3ImportTag, w3ExportTag;
 
-#define ExportTag_Function ImportTag_Function
-#define ExportTag_Table ImportTag_Table
-#define ExportTag_Memory ImportTag_Memory
-#define ExportTag_Global ImportTag_Global
+#define w3ExportTag_Function w3ImportTag_Function
+#define w3ExportTag_Table    w3ImportTag_Table
+#define w3ExportTag_Memory   w3ImportTag_Memory
+#define w3ExportTag_Global   w3ImportTag_Global
 
-struct MemoryType
+struct w3MemoryType
 {
-    Limits limits;
+    w3Limits limits;
 };
 
-struct ImportFunction
-{
-};
-
-struct ImportTable
+struct w3ImportFunction
 {
 };
 
-struct ImportMemory
+struct w3ImportTable
 {
 };
 
-struct GlobalType
+struct w3ImportMemory
 {
-    ValueType value_type {};
+};
+
+struct w3GlobalType
+{
+    w3ValueType value_type {};
     bool is_mutable {};
 };
 
-struct Import
+struct w3Import
 {
-    Import() : tag ((ImportTag)-1) { }
+    w3Import() : tag ((w3ImportTag)-1) { }
 
     WasmString module;
     WasmString name;
-    ImportTag tag;
+    w3ImportTag tag;
     // TODO virtual functions to model union
     //union
     //{
-        TableType table;
+        w3TableType table;
         uint32_t function;
-        MemoryType memory;
-        GlobalType global;
+        w3MemoryType memory;
+        w3GlobalType global;
     //};
 };
 
-struct ExternalValue // external to a module, an export instance
+struct w3ExternalValue // external to a module, an export instance
 {
     union
     {
-        FuncAddr* func;
-        TableAddr* table;
-        MemAddr* mem;
-        GlobalAddr* global;
+        w3FuncAddr* func;
+        w3TableAddr* table;
+        w3MemAddr* mem;
+        w3GlobalAddr* global;
     };
 };
 
-struct ExportInstance // work in progress
+struct w3ExportInstance // work in progress
 {
     WasmString name;
-    ExternalValue external_value;
+    w3ExternalValue external_value;
 };
 
-struct ModuleInstance // work in progress
+struct w3ModuleInstance // work in progress
 {
-    ModuleInstance (Module* mod);
+    w3ModuleInstance (w3Module* mod);
 
-    Module* module;
+    w3Module* module;
     std::vector <uint8_t> memory;
-    std::vector <FuncAddr*> funcs;
-    std::vector <TableAddr*> tables;
-    //std::vector <MemAddr*> mem; // mem [0] => memory for now
-    std::vector <StackValue> globals;
-    std::vector <ExportInstance> exports;
+    std::vector <w3FuncAddr*> funcs;
+    std::vector <w3TableAddr*> tables;
+    //std::vector <w3MemAddr*> mem; // mem [0] => memory for now
+    std::vector <w3StackValue> globals;
+    std::vector <w3ExportInstance> exports;
 };
 
-struct FunctionInstance // work in progress
+struct w3FunctionInstance // work in progress
 {
-    ModuleInstance* module_instance;
-    FunctionType* function_type;
+    w3ModuleInstance* module_instance;
+    w3FunctionType* function_type;
     void* host_code; // TODO
-    Code* code; // TODO
+    w3Code* code; // TODO
 };
 
-struct Function // section3
+struct w3Function // section3
 {
     // Functions are split between two sections: types in section3, locals/body in section10
     size_t function_index {}; // TODO needed?
@@ -1599,33 +1599,33 @@ struct Function // section3
 
 struct Global
 {
-    GlobalType global_type;
-    std::vector <DecodedInstruction> init;
+    w3GlobalType global_type;
+    std::vector <w3DecodedInstruction> init;
 };
 
-struct Element
+struct w3Element
 {
     uint32_t table;
-    std::vector <DecodedInstruction> offset_instructions;
+    std::vector <w3DecodedInstruction> offset_instructions;
     uint32_t offset;
     std::vector <uint32_t> functions;
 };
 
-struct Export
+struct w3Export
 {
-    Export ()
+    w3Export ()
     {
     }
 
-    Export (const Export& e)
+    w3Export (const w3Export& e)
     {
         printf ("copy export %X %X %X %X\n", tag, is_main, is_start, table);
         *this = e;
     }
 
-    //void operator = (const Export& e);
+    //void operator = (const w3Export& e);
 
-    ExportTag tag {};
+    w3ExportTag tag {};
     WasmString name {};
     bool is_start {};
     bool is_main {};
@@ -1638,52 +1638,52 @@ struct Export
     };
 };
 
-struct Data // section11
+struct w3Data // section11
 {
-    Data () : memory (0), bytes (0) { }
+    w3Data () : memory (0), bytes (0) { }
 
     uint32_t memory;
-    std::vector <DecodedInstruction> expr;
+    std::vector <w3DecodedInstruction> expr;
     void* bytes;
 };
 
-struct Code
+struct w3Code
 // The code to a function.
 // Functions are split between section3 and section10.
 // Instructions are in section10.
-// Function code is decoded upon first (or only) visit.
+// w3Function code is decoded upon first (or only) visit.
 {
-    Code () : size (0), cursor (0), import (false)
+    w3Code () : size (0), cursor (0), import (false)
     {
     }
 
     size_t size;
     uint8_t* cursor;
-    std::vector <ValueType> locals; // params in FunctionType
-    std::vector <DecodedInstruction> decoded_instructions; // section10
+    std::vector <w3ValueType> locals; // params in w3FunctionType
+    std::vector <w3DecodedInstruction> decoded_instructions; // section10
     bool import;
 };
 
 // Initial representation of X and XSection are the same.
 // This might evolve, i.e. into separate TypesSection and Types,
-// or just Types that is not Section.
-struct FunctionType
+// or just Types that is not w3Section.
+struct w3FunctionType
 {
     // CONSIDER pointer into mmf
-    std::vector <ValueType> parameters;
-    std::vector <ValueType> results;
+    std::vector <w3ValueType> parameters;
+    std::vector <w3ValueType> results;
 
-    bool operator == (const FunctionType& other) const
+    bool operator == (const w3FunctionType& other) const
     {
         return parameters == other.parameters && results == other.results;
     }
 };
 
-struct Module : ModuleBase
+struct w3Module : w3ModuleBase
 {
-    virtual ~Module() { }
+    virtual ~w3Module() { }
 
-    Module () : base (0), file_size (0), end (0), start (0), main (0),
+    w3Module () : base (0), file_size (0), end (0), start (0), main (0),
         import_function_count (0),
         import_table_count (0),
         import_memory_count (0),
@@ -1691,29 +1691,29 @@ struct Module : ModuleBase
     {
     }
 
-    MemoryMappedFile mmf;
+    w3MemoryMappedFile mmf;
     uint8_t* base;
     uint64_t file_size;
     uint8_t* end;
-    Section sections [12];
-    //std::vector <std::shared_ptr<Section>> custom_sections; // FIXME
+    w3Section sections [12];
+    //std::vector <std::shared_ptr<w3Section>> custom_sections; // FIXME
 
     // The order can be take advantage of.
     // For example global is read before any code,
     // so the index of any global.get/set can be validated right away.
-    std::vector <FunctionType> function_types; // section1 function signatures
-    std::vector <Import> imports; // section2
-    std::vector <Function> functions; // section3 and section10 function declarations
-    std::vector <TableType> tables; // section4 indirect tables
+    std::vector <w3FunctionType> function_types; // section1 function signatures
+    std::vector <w3Import> imports; // section2
+    std::vector <w3Function> functions; // section3 and section10 function declarations
+    std::vector <w3TableType> tables; // section4 indirect tables
     std::vector <Global> globals; // section6
-    std::vector <Export> exports; // section7
-    std::vector <Element> elements; // section9 table initialization
-    std::vector <Code> code; // section10
-    std::vector <Data> data; // section11 memory initialization
-    Limits memory_limits;
+    std::vector <w3Export> exports; // section7
+    std::vector <w3Element> elements; // section9 table initialization
+    std::vector <w3Code> code; // section10
+    std::vector <w3Data> data; // section11 memory initialization
+    w3Limits memory_limits;
 
-    Export* start;
-    Export* main;
+    w3Export* start;
+    w3Export* main;
 
     size_t import_function_count;
     size_t import_table_count;
@@ -1732,18 +1732,18 @@ struct Module : ModuleBase
     uint32_t read_varuint32 (uint8_t** cursor);
 
     void read_vector_varuint32 (std::vector <uint32_t>&, uint8_t** cursor);
-    Limits read_limits (uint8_t** cursor);
-    MemoryType read_memorytype (uint8_t** cursor);
-    GlobalType read_globaltype (uint8_t** cursor);
-    TableType read_tabletype (uint8_t** cursor);
-    ValueType read_valuetype (uint8_t** cursor);
-    Tag read_blocktype(uint8_t** cursor);
-    TableElementType read_elementtype (uint8_t** cursor);
+    w3Limits read_limits (uint8_t** cursor);
+    w3MemoryType read_memorytype (uint8_t** cursor);
+    w3GlobalType read_globaltype (uint8_t** cursor);
+    w3TableType read_tabletype (uint8_t** cursor);
+    w3ValueType read_valuetype (uint8_t** cursor);
+    w3Tag read_blocktype(uint8_t** cursor);
+    w3TableElementType read_elementtype (uint8_t** cursor);
     bool read_mutable (uint8_t** cursor);
     void read_section (uint8_t** cursor);
     void read_module (const char* file_name);
-    void read_vector_ValueType (std::vector <ValueType>& result, uint8_t** cursor);
-    void read_function_type (FunctionType& functionType, uint8_t** cursor);
+    void read_vector_ValueType (std::vector <w3ValueType>& result, uint8_t** cursor);
+    void read_function_type (w3FunctionType& functionType, uint8_t** cursor);
 
     virtual void read_types (uint8_t** cursor);
     virtual void read_imports (uint8_t** cursor);
@@ -1761,17 +1761,17 @@ struct Module : ModuleBase
     virtual void read_data (uint8_t** cursor);
 };
 
-InstructionEnum
-DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code);
+w3InstructionEnum
+DecodeInstructions (w3Module* module, std::vector <w3DecodedInstruction>& instructions, uint8_t** cursor, w3Code* code);
 
-void Module::read_data (uint8_t** cursor)
+void w3Module::read_data (uint8_t** cursor)
 {
     const size_t size1 = read_varuint32 (cursor);
     printf ("reading data11 size:%" FORMAT_SIZE "X\n", size1);
     data.resize (size1);
     for (size_t i = 0; i < size1; ++i)
     {
-        Data& a = data [i];
+        w3Data& a = data [i];
         a.memory = read_varuint32 (cursor);
         DecodeInstructions (this, a.expr, cursor, 0);
         const size_t size2 = read_varuint32 (cursor);
@@ -1784,7 +1784,7 @@ void Module::read_data (uint8_t** cursor)
     printf ("read data11 size:%" FORMAT_SIZE "X\n", size1);
 }
 
-void Module::read_code (uint8_t** cursor)
+void w3Module::read_code (uint8_t** cursor)
 {
     printf ("reading CodeSection10\n");
     const size_t size = read_varuint32 (cursor);
@@ -1796,7 +1796,7 @@ void Module::read_code (uint8_t** cursor)
     code.resize (old + size);
     for (size_t i = 0; i < size; ++i)
     {
-        Code& a = code [old + i];
+        w3Code& a = code [old + i];
         a.import = false;
         a.size = read_varuint32 (cursor);
         if (*cursor + a.size > end)
@@ -1811,14 +1811,14 @@ void Module::read_code (uint8_t** cursor)
     }
 }
 
-void Module::read_elements (uint8_t** cursor)
+void w3Module::read_elements (uint8_t** cursor)
 {
     const size_t size1 = read_varuint32 (cursor);
     printf ("reading section9 elements size1:%" FORMAT_SIZE "X\n", size1);
     elements.resize (size1);
     for (size_t i = 0; i < size1; ++i)
     {
-        Element& a = elements [i];
+        w3Element& a = elements [i];
         a.table = read_varuint32 (cursor);
         DecodeInstructions (this, a.offset_instructions, cursor, 0);
         const size_t size2 = read_varuint32 (cursor);
@@ -1833,7 +1833,7 @@ void Module::read_elements (uint8_t** cursor)
     printf ("read elements9 size:%" FORMAT_SIZE "X\n", size1);
 }
 
-void Module::read_exports (uint8_t** cursor)
+void w3Module::read_exports (uint8_t** cursor)
 {
     printf ("reading section 7\n");
     const size_t size = read_varuint32 (cursor);
@@ -1841,12 +1841,12 @@ void Module::read_exports (uint8_t** cursor)
     exports.resize (size);
     for (size_t i = 0; i < size; ++i)
     {
-        Export& a = exports [i];
+        w3Export& a = exports [i];
         a.name = read_string (cursor);
-        a.tag = (ExportTag)read_byte (cursor);
+        a.tag = (w3ExportTag)read_byte (cursor);
         a.function = read_varuint32 (cursor);
-        a.is_main = a.name.builtin == BuiltinString_main;
-        a.is_start = a.name.builtin == BuiltinString_start;
+        a.is_main = a.name.builtin == w3BuiltinString_main;
+        a.is_start = a.name.builtin == w3BuiltinString_start;
         printf ("read_export %" FORMAT_SIZE "X:%" FORMAT_SIZE "X %s tag:%X index:%X is_main:%X is_start:%X\n", i, size, a.name.c_str (), a.tag, a.function, a.is_main, a.is_start);
 
         if (a.is_start)
@@ -1863,7 +1863,7 @@ void Module::read_exports (uint8_t** cursor)
     printf ("read exports7 size:%" FORMAT_SIZE "X\n", size);
 }
 
-void Module::read_globals (uint8_t** cursor)
+void w3Module::read_globals (uint8_t** cursor)
 {
     //printf ("reading section 6\n");
     const size_t size = read_varuint32 (cursor);
@@ -1880,7 +1880,7 @@ void Module::read_globals (uint8_t** cursor)
     printf ("read globals6 size:%" FORMAT_SIZE "X\n", size);
 }
 
-void Module::read_functions (uint8_t** cursor)
+void w3Module::read_functions (uint8_t** cursor)
 {
     printf ("reading section 3\n");
     const size_t old = functions.size ();
@@ -1890,7 +1890,7 @@ void Module::read_functions (uint8_t** cursor)
     for (size_t i = 0; i < size; ++i)
     {
         printf ("read_function %" FORMAT_SIZE "X:%" FORMAT_SIZE "X\n", i, size);
-        Function& a = functions [old + i];
+        w3Function& a = functions [old + i];
         a.function_type_index = read_varuint32 (cursor);
         a.function_index = i + old; // TODO probably not needed
         a.import = false; // TODO probably not needed
@@ -1898,7 +1898,7 @@ void Module::read_functions (uint8_t** cursor)
     printf ("read section 3\n");
 }
 
-void Module::read_imports (uint8_t** cursor)
+void w3Module::read_imports (uint8_t** cursor)
 {
     printf ("reading section 2\n");
     const size_t size = read_varuint32 (cursor);
@@ -1906,15 +1906,15 @@ void Module::read_imports (uint8_t** cursor)
     // TODO two passes to limit realloc?
     for (size_t i = 0; i < size; ++i)
     {
-        Import& r = imports [i];
+        w3Import& r = imports [i];
         r.module = read_string (cursor);
         r.name = read_string (cursor);
-        ImportTag tag = r.tag = (ImportTag)read_byte (cursor);
+        w3ImportTag tag = r.tag = (w3ImportTag)read_byte (cursor);
         printf ("import %s.%s %X\n", r.module.c_str (), r.name.c_str (), (uint32_t)tag);
         switch (tag)
         {
             // TODO more specific import type and vtable?
-        case ImportTag_Function:
+        case w3ImportTag_Function:
             r.function = read_varuint32 (cursor); // TODO probably not needed
             ++import_function_count;
             // TODO for each import type
@@ -1923,20 +1923,20 @@ void Module::read_imports (uint8_t** cursor)
             functions.back ().function_type_index = r.function;
             functions.back ().import = true; // TODO needed?
             break;
-        case ImportTag_Table:
+        case w3ImportTag_Table:
             r.table = read_tabletype (cursor);
             ++import_table_count;
             break;
-        case ImportTag_Memory:
+        case w3ImportTag_Memory:
             r.memory = read_memorytype (cursor);
             ++import_memory_count;
             break;
-        case ImportTag_Global:
+        case w3ImportTag_Global:
             r.global = read_globaltype (cursor);
             ++import_global_count;
             break;
         default:
-            ThrowString ("invalid ImportTag");
+            ThrowString ("invalid w3ImportTag");
         }
     }
     printf ("read section 2 import_function_count:%" FORMAT_SIZE "X import_table_count:%" FORMAT_SIZE "X import_memory_count:%" FORMAT_SIZE "X import_global_count:%" FORMAT_SIZE "X\n",
@@ -1946,12 +1946,12 @@ void Module::read_imports (uint8_t** cursor)
         (long_t)import_global_count);
 
     // TODO fill in more about imports?
-    Code imported_code;
+    w3Code imported_code;
     imported_code.import = true;
     code.resize (import_function_count, imported_code);
 }
 
-void Module::read_vector_ValueType (std::vector <ValueType>& result, uint8_t** cursor)
+void w3Module::read_vector_ValueType (std::vector <w3ValueType>& result, uint8_t** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     result.resize (size);
@@ -1959,13 +1959,13 @@ void Module::read_vector_ValueType (std::vector <ValueType>& result, uint8_t** c
         result [i] = read_valuetype (cursor);
 }
 
-void Module::read_function_type (FunctionType& functionType, uint8_t** cursor)
+void w3Module::read_function_type (w3FunctionType& functionType, uint8_t** cursor)
 {
     read_vector_ValueType (functionType.parameters, cursor);
     read_vector_ValueType (functionType.results, cursor);
 }
 
-void Module::read_types (uint8_t** cursor)
+void w3Module::read_types (uint8_t** cursor)
 {
     printf ("reading section 1\n");
     const size_t size = read_varuint32 (cursor);
@@ -1980,8 +1980,8 @@ void Module::read_types (uint8_t** cursor)
     printf ("read section 1\n");
 }
 
-InstructionEnum
-DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code)
+w3InstructionEnum
+DecodeInstructions (w3Module* module, std::vector <w3DecodedInstruction>& instructions, uint8_t** cursor, w3Code* code)
 {
     uint32_t b0 = (uint32_t)Block;
     size_t index = 0;
@@ -1991,8 +1991,8 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
     while (b0 != (uint32_t)BlockEnd && b0 != (uint32_t)Else)
     {
         ++pc;
-        InstructionEncoding e;
-        DecodedInstruction i;
+        w3InstructionEncoding e;
+        w3DecodedInstruction i;
         b0 = module->read_byte (cursor); // TODO multi-byte instructions
         e = instructionEncode [b0];
         if (e.fixed_size == 0)
@@ -2019,7 +2019,7 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
             i.blockType = module->read_blocktype (cursor);
             index = instructions.size ();
             instructions.push_back (i);
-            InstructionEnum next;
+            w3InstructionEnum next;
             next = DecodeInstructions (module, instructions, cursor, code);
             Assert (next == BlockEnd || (i.name == If && next == Else));
             switch (b0)
@@ -2124,10 +2124,10 @@ DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructio
         if (e.immediate != Imm_sequence)
             instructions.push_back (i);
     }
-    return (InstructionEnum)b0;
+    return (w3InstructionEnum)b0;
 }
 
-void DecodeFunction (Module* module, Code* code, uint8_t** cursor)
+void DecodeFunction (w3Module* module, w3Code* code, uint8_t** cursor)
 {
     // read count of types
     // for each type
@@ -2137,14 +2137,14 @@ void DecodeFunction (Module* module, Code* code, uint8_t** cursor)
     for (size_t i = 0; i < local_type_count; ++i)
     {
         const size_t j = module->read_varuint32 (cursor);
-        ValueType value_type = module->read_valuetype (cursor);
+        w3ValueType value_type = module->read_valuetype (cursor);
         printf ("local_type_count %" FORMAT_SIZE "X-of-%" FORMAT_SIZE "X count:%" FORMAT_SIZE "X type:%X\n", i, local_type_count, j, value_type);
         code->locals.resize (code->locals.size () + j, value_type);
     }
     DecodeInstructions (module, code->decoded_instructions, cursor, code);
 }
 
-extern const SectionTraits section_traits [ ] =
+extern const w3SectionTraits section_traits [ ] =
 {
     { 0 },
 #define SECTIONS        \
@@ -2161,18 +2161,18 @@ extern const SectionTraits section_traits [ ] =
     SECTION (DataSection, read_data) \
 
 #undef SECTION
-#define SECTION(x, read) {&ModuleBase::read, #x},
+#define SECTION(x, read) {&w3ModuleBase::read, #x},
 SECTIONS
 
 };
 
-int32_t Module::read_i32 (uint8_t** cursor)
+int32_t w3Module::read_i32 (uint8_t** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
     return w3::read_varint32 (cursor, end);
 }
 
-int64_t Module::read_i64 (uint8_t** cursor)
+int64_t w3Module::read_i64 (uint8_t** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
     return (int64_t)w3::read_varint64 (cursor, end);
@@ -2183,7 +2183,7 @@ int64_t Module::read_i64 (uint8_t** cursor)
 #pragma warning (disable:4701) // uninitialized variable
 #endif
 
-float Module::read_f32 (uint8_t** cursor)
+float w3Module::read_f32 (uint8_t** cursor)
 // floats are not variably sized? Spec is unclear due to fancy notation
 // getting in the way.
 {
@@ -2196,7 +2196,7 @@ float Module::read_f32 (uint8_t** cursor)
     return u.f32;
 }
 
-double Module::read_f64 (uint8_t** cursor)
+double w3Module::read_f64 (uint8_t** cursor)
 // floats are not variably sized? Spec is unclear due to fancy notation
 // getting in the way.
 {
@@ -2213,13 +2213,13 @@ double Module::read_f64 (uint8_t** cursor)
 #pragma warning (pop)
 #endif
 
-uint8_t Module::read_varuint7 (uint8_t** cursor)
+uint8_t w3Module::read_varuint7 (uint8_t** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return w3::read_varuint7 (cursor, end);
 }
 
-uint8_t Module::read_byte (uint8_t** cursor)
+uint8_t w3Module::read_byte (uint8_t** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return w3::read_byte (cursor, end);
@@ -2227,7 +2227,7 @@ uint8_t Module::read_byte (uint8_t** cursor)
 
 // TODO efficiency
 // i.e. string_view or such pointing right into the mmap
-WasmString Module::read_string (uint8_t** cursor)
+WasmString w3Module::read_string (uint8_t** cursor)
 {
     const uint32_t size = read_varuint32 (cursor);
     if (size + *cursor > end)
@@ -2242,17 +2242,17 @@ WasmString Module::read_string (uint8_t** cursor)
         printf ("read_string %X:%.*s\n", size, (int)size, *cursor);
     if (size == 7 && !memcmp (*cursor, "$_start", 7))
     {
-        a.builtin = BuiltinString_start;
+        a.builtin = w3BuiltinString_start;
     }
     else if (size == 5 && !memcmp (*cursor, "_main", 5))
     {
-        a.builtin = BuiltinString_main;
+        a.builtin = w3BuiltinString_main;
     }
     *cursor += size;
     return a;
 }
 
-void Module::read_vector_varuint32 (std::vector <uint32_t>& result, uint8_t** cursor)
+void w3Module::read_vector_varuint32 (std::vector <uint32_t>& result, uint8_t** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     result.resize (size);
@@ -2260,15 +2260,15 @@ void Module::read_vector_varuint32 (std::vector <uint32_t>& result, uint8_t** cu
         result [i] = read_varuint32 (cursor);
 }
 
-uint32_t Module::read_varuint32 (uint8_t** cursor)
+uint32_t w3Module::read_varuint32 (uint8_t** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return w3::read_varuint32 (cursor, end);
 }
 
-Limits Module::read_limits (uint8_t** cursor)
+w3Limits w3Module::read_limits (uint8_t** cursor)
 {
-    Limits limits;
+    w3Limits limits;
     const uint32_t tag = read_byte (cursor);
     switch (tag)
     {
@@ -2286,14 +2286,14 @@ Limits Module::read_limits (uint8_t** cursor)
     return limits;
 }
 
-MemoryType Module::read_memorytype (uint8_t** cursor)
+w3MemoryType w3Module::read_memorytype (uint8_t** cursor)
 {
-    MemoryType m {};
+    w3MemoryType m {};
     m.limits = read_limits (cursor);
     return m;
 }
 
-bool Module::read_mutable (uint8_t** cursor)
+bool w3Module::read_mutable (uint8_t** cursor)
 {
     const uint32_t m = read_byte (cursor);
     switch (m)
@@ -2306,13 +2306,13 @@ bool Module::read_mutable (uint8_t** cursor)
     return m == 1;
 }
 
-ValueType Module::read_valuetype (uint8_t** cursor)
+w3ValueType w3Module::read_valuetype (uint8_t** cursor)
 {
     const uint32_t value_type = read_byte (cursor);
     switch (value_type)
     {
     default:
-        ThrowString (StringFormat ("invalid ValueType:%X", value_type));
+        ThrowString (StringFormat ("invalid w3ValueType:%X", value_type));
         break;
     case Tag_i32:
     case Tag_i64:
@@ -2320,10 +2320,10 @@ ValueType Module::read_valuetype (uint8_t** cursor)
     case Tag_f64:
         break;
     }
-    return (ValueType)value_type;
+    return (w3ValueType)value_type;
 }
 
-Tag Module::read_blocktype(uint8_t** cursor)
+w3Tag w3Module::read_blocktype(uint8_t** cursor)
 {
     const uint32_t block_type = read_byte (cursor);
     switch (block_type)
@@ -2338,35 +2338,35 @@ Tag Module::read_blocktype(uint8_t** cursor)
     case ResultType_empty:
         break;
     }
-    return (Tag)block_type;
+    return (w3Tag)block_type;
 }
 
-GlobalType Module::read_globaltype (uint8_t** cursor)
+w3GlobalType w3Module::read_globaltype (uint8_t** cursor)
 {
-    GlobalType globalType;
+    w3GlobalType globalType;
     globalType.value_type = read_valuetype (cursor);
     globalType.is_mutable = read_mutable (cursor);
     return globalType;
 }
 
-TableElementType Module::read_elementtype (uint8_t** cursor)
+w3TableElementType w3Module::read_elementtype (uint8_t** cursor)
 {
-    TableElementType elementType = (TableElementType)read_byte (cursor);
-    if (elementType != TableElementType_funcRef)
+    w3TableElementType elementType = (w3TableElementType)read_byte (cursor);
+    if (elementType != w3TableElementType_funcRef)
         ThrowString ("invalid elementType");
     return elementType;
 }
 
-TableType Module::read_tabletype (uint8_t** cursor)
+w3TableType w3Module::read_tabletype (uint8_t** cursor)
 {
-    TableType tableType;
+    w3TableType tableType;
     tableType.elementType = read_elementtype (cursor);
     tableType.limits = read_limits (cursor);
     printf ("read_tabletype:type:%X min:%X hasMax:%X max:%X\n", tableType.elementType, tableType.limits.min, tableType.limits.hasMax, tableType.limits.max);
     return tableType;
 }
 
-void Module::read_memory (uint8_t** cursor)
+void w3Module::read_memory (uint8_t** cursor)
 {
     printf ("reading section5\n");
     const size_t size = read_varuint32 (cursor);
@@ -2376,7 +2376,7 @@ void Module::read_memory (uint8_t** cursor)
     printf ("read section5 min:%X hasMax:%X max:%X\n", memory_limits.min, memory_limits.hasMax, memory_limits.max);
 }
 
-void Module::read_tables (uint8_t** cursor)
+void w3Module::read_tables (uint8_t** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     printf ("reading tables size:%" FORMAT_SIZE "X\n", size);
@@ -2386,7 +2386,7 @@ void Module::read_tables (uint8_t** cursor)
         tables [0] = read_tabletype (cursor);
 }
 
-void Module::read_section (uint8_t** cursor)
+void w3Module::read_section (uint8_t** cursor)
 {
     uint8_t* payload = *cursor;
     const uint32_t id = read_varuint7 (cursor);
@@ -2425,7 +2425,7 @@ void Module::read_section (uint8_t** cursor)
 
     printf("%s(%d)\n", __FILE__, __LINE__);
 
-    Section& section = sections [id];
+    w3Section& section = sections [id];
     section.id = id;
     section.name.data = name;
     section.name.size = name_size;
@@ -2441,7 +2441,7 @@ void Module::read_section (uint8_t** cursor)
         ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, *cursor));
 }
 
-void Module::read_module (const char* file_name)
+void w3Module::read_module (const char* file_name)
 {
     mmf.read (file_name);
     base = (uint8_t*)mmf.base;
@@ -2473,13 +2473,13 @@ void Module::read_module (const char* file_name)
     Assert (cursor == end);
 }
 
-// TODO once we have Validate, Interp, Jit, CppGen,
+// TODO once we have Validate, w3Interp, Jit, CppGen,
 // we might invert this structure and have a class per instruction with those 4 virtual functions.
 // Or we will token-paste those names on to the instruction names,
-// in order to avoid virtual function call cost. Let's get Interp working first.
+// in order to avoid virtual function call cost. Let's get w3Interp working first.
 struct IWasm
 {
-    DecodedInstruction* instr; // TODO make local variable
+    w3DecodedInstruction* instr; // TODO make local variable
 
     IWasm () : instr (0) { }
 
@@ -2497,41 +2497,41 @@ Overflow (void)
     Assert (!"Overflow");
 }
 
-struct Interp : Stack, IWasm
+struct w3Interp : w3Stack, IWasm
 {
 private:
-    Interp(const Interp&);
-    void operator =(const Interp&);
+    w3Interp(const w3Interp&);
+    void operator =(const w3Interp&);
 public:
-    Interp() : module (0), module_instance (0), frame (0), stack (*this)
+    w3Interp() : module (0), module_instance (0), frame (0), stack (*this)
     {
     }
 
     void* LoadStore (size_t size);
 
-    Module* module;                     // TODO multiple modules
-    ModuleInstance* module_instance;    // TODO multiple modules
-    Frame* frame;
+    w3Module* module;                     // TODO multiple modules
+    w3ModuleInstance* module_instance;    // TODO multiple modules
+    w3Frame* frame;
 
     // FIXME multiple modules
 
-    Stack& stack;
+    w3Stack& stack;
 
-    void Invoke (Function&);
+    void Invoke (w3Function&);
 
-    void interp (Module* mod, Export* emain = 0)
+    void interp (w3Module* mod, w3Export* emain = 0)
     {
-        Assert (mod && emain && emain->tag == ExportTag_Function);
+        Assert (mod && emain && emain->tag == w3ExportTag_Function);
         Assert (emain->function < mod->functions.size ());
         Assert (emain->function < mod->code.size ());
         Assert (mod->functions.size () == mod->code.size ());
 
-        Function& fmain = mod->functions [emain->function];
-        //Code& cmain = mod->code [emain->function];
+        w3Function& fmain = mod->functions [emain->function];
+        //w3Code& cmain = mod->code [emain->function];
 
         // instantiate module
         this->module = mod;
-        ModuleInstance instance (module);
+        w3ModuleInstance instance (module);
         this->module_instance = &instance;
 
         // Simulate call to initial function.
@@ -2549,30 +2549,30 @@ public:
     ;
 };
 
-struct RustGen : IWasm
+struct w3RustGen : IWasm
 {
 private:
-    RustGen(const RustGen&);
-    void operator =(const RustGen&);
+    w3RustGen(const w3RustGen&);
+    void operator =(const w3RustGen&);
 public:
 
-    virtual ~RustGen()
+    virtual ~w3RustGen()
     {
     }
 
-    RustGen() : module (0)
+    w3RustGen() : module (0)
     {
     }
 
     void* LoadStore (size_t size);
 
-    Module* module;
+    w3Module* module;
 
-    void interp (Module* mod, Export* emain = 0)
+    void interp (w3Module* mod, w3Export* emain = 0)
     {
         // instantiate module
         this->module = mod;
-        ModuleInstance instance (module);
+        w3ModuleInstance instance (module);
         //this->module_instance = &instance;
 
         // Simulate call to initial function.
@@ -2584,15 +2584,15 @@ public:
 
             printf("%d\n", (int)i);
 
-            Function& function = mod->functions[i];
+            w3Function& function = mod->functions[i];
             const size_t function_type_index = function.function_type_index;
 
             printf("%d\n", (int)function_type_index);
 
             Assert (function_type_index < module->function_types.size ());
-            FunctionType* function_type = &module->function_types [function_type_index];
+            w3FunctionType* function_type = &module->function_types [function_type_index];
 
-            Code* code = &module->code [function.function_index];
+            w3Code* code = &module->code [function.function_index];
             const size_t param_count = function_type->parameters.size ();
 
             uint8_t* cursor = code->cursor;
@@ -2629,7 +2629,7 @@ public:
             }
 
             instr = &code->decoded_instructions [0];
-            DecodedInstruction* end = instr + size;
+            w3DecodedInstruction* end = instr + size;
             for (; instr < end; ++instr)
             {
                 Assert (instr);
@@ -2915,7 +2915,7 @@ INTERP (Drop)
     pop_value ();
 }
 
-void Interp:: Reserved ()
+void w3Interp:: Reserved ()
 {
 #if _WIN32
     if (IsDebuggerPresent ()) DebugBreak();
@@ -3780,7 +3780,7 @@ INTERP (f64_Reinterpret_i64_)
 
 };
 
-StackValue& Frame::Local (size_t index)
+w3StackValue& w3Frame::Local (size_t index)
 {
     return interp->stack [locals + index];
 }
@@ -3789,7 +3789,7 @@ StackValue& Frame::Local (size_t index)
 //else
 //brtable
 
-void* Interp::LoadStore (size_t size)
+void* w3Interp::LoadStore (size_t size)
 {
     // TODO Not clear from spec and paper what to do here, despite
     // focused discussion on it.
@@ -3819,19 +3819,19 @@ void* Interp::LoadStore (size_t size)
 }
 
 #undef INTERP
-#define INTERP(x) void Interp::x ()
+#define INTERP(x) void w3Interp::x ()
 
 INTERP (Call)
 {
     // FIXME In the instruction table
     const size_t function_index = instr->u32;
     Assert (function_index < module->functions.size ());
-    Function* function = &module->functions [function_index];
+    w3Function* function = &module->functions [function_index];
     function->function_index = function_index; // TODO remove this
     Invoke (module->functions [function_index]);
 }
 
-void Interp::Invoke (Function& function)
+void w3Interp::Invoke (w3Function& function)
 {
     //__debugbreak ();
     // Decode function upon first call.
@@ -3840,8 +3840,8 @@ void Interp::Invoke (Function& function)
 
     const size_t function_type_index = function.function_type_index;
     Assert (function_type_index < module->function_types.size ());
-    FunctionType* function_type = &module->function_types [function_type_index];
-    Code* code = &module->code [function.function_index];
+    w3FunctionType* function_type = &module->function_types [function_type_index];
+    w3Code* code = &module->code [function.function_index];
     const size_t local_only_count = code->locals.size ();
     const size_t param_count = function_type->parameters.size ();
 
@@ -3859,7 +3859,7 @@ void Interp::Invoke (Function& function)
     // TODO cross-module calls
     // TODO calling embedding
     // setup frame
-    Frame frame_value;
+    w3Frame frame_value;
     frame_value.interp = this;
     frame_value.code = code;
     frame_value.module = this->module; // TODO cross module calls
@@ -3872,7 +3872,7 @@ void Interp::Invoke (Function& function)
     frame_value.param_types = param_count ? &function_type->parameters [0] : 0;
     frame_value.function_type = function_type;
 
-    StackValue ret (frame);
+    w3StackValue ret (frame);
     this->frame = &frame_value;
     push_frame (ret);
     DumpStack ("pushed_frame");
@@ -3917,7 +3917,7 @@ void Interp::Invoke (Function& function)
     // TODO reserve (size () + local_only_count);
     DumpStack ("push_locals_before");
     for (i = 0; i != local_only_count; ++i)
-        push_value (StackValue (code->locals [i]));
+        push_value (w3StackValue (code->locals [i]));
 
     DumpStack ("push_locals_after");
     // Provide for indexing locals.
@@ -3930,9 +3930,9 @@ void Interp::Invoke (Function& function)
 
     // TODO provide for separate depth -- i.e. here is now 0; locals/params cannot be popped
 
-    DecodedInstruction* previous = instr; // call/ret handling
+    w3DecodedInstruction* previous = instr; // call/ret handling
     instr = &code->decoded_instructions [0];
-    DecodedInstruction* end = instr + size;
+    w3DecodedInstruction* end = instr + size;
     for (; instr < end; ++instr) // Br subtracts one so this works.
     {
         Assert (instr);
@@ -3968,7 +3968,7 @@ void Interp::Invoke (Function& function)
 INTERP (Block)
 {
     // Label is end.
-    StackValue stack_value (StackTag_Label);
+    w3StackValue stack_value (StackTag_Label);
     stack_value.label.arity = instr->Arity ();
     stack_value.label.continuation = instr->label;
     push_label (stack_value);
@@ -4027,7 +4027,7 @@ INTERP (Global_get)
 {
     const size_t i = instr->u32;
     AssertFormat (i < module->globals.size (), ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, module->globals.size ()));
-    push_value (StackValue (module_instance->globals [i].value));
+    push_value (w3StackValue (module_instance->globals [i].value));
     AssertFormat (tag () == module->globals [i].global_type.value_type, ("%X %X", tag (), module->globals [i].global_type.value_type));
 }
 
@@ -4054,7 +4054,7 @@ INTERP (Local_get)
 {
     const size_t i = instr->u32;
     AssertFormat (i < frame->param_and_local_count, ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, frame->param_and_local_count));
-    push_value (StackValue (frame->Local (i)));
+    push_value (w3StackValue (frame->Local (i)));
     if (i < frame->param_count)
         AssertFormat (tag () == frame->param_types [i], ("%X %X", tag (), frame->param_types [i]));
     else
@@ -4068,7 +4068,7 @@ INTERP (If)
     const uint32_t condition = pop_u32 ();
 
     // Push the same label either way.
-    StackValue stack_value (StackTag_Label);
+    w3StackValue stack_value (StackTag_Label);
     stack_value.label.arity = instr->Arity ();
     stack_value.label.continuation = instr->if_end;
     push_label (stack_value);
@@ -4115,7 +4115,7 @@ INTERP (BlockEnd)
 
     // Skip any number of values until one label is found,
 
-    StackValue* p = &front ();
+    w3StackValue* p = &front ();
 
     while (j > 0 && p [j - 1].tag == StackTag_Value)
         --j;
@@ -4161,12 +4161,12 @@ INTERP (Ret)
     Assert (!empty ());
     Assert (frame);
 
-    FunctionType* function_type = frame->function_type;
+    w3FunctionType* function_type = frame->function_type;
     size_t arity = function_type->results.size ();
     Assert (arity == 0 || arity == 1);
     Assert (size () > arity);
 
-    StackValue result;
+    w3StackValue result;
     if (arity)
     {
         result = top ();
@@ -4204,7 +4204,7 @@ INTERP (Br)
     Assert (label);
     Assert (size () >= label);
 
-    StackValue* p = &front ();
+    w3StackValue* p = &front ();
     size_t initial_values = 0;
     size_t j = size ();
     size_t arity = 0;
@@ -4228,7 +4228,7 @@ INTERP (Br)
     Assert (j >= arity);
 
     // Get the result.
-    StackValue result;
+    w3StackValue result;
     if (arity)
     {
         result = top ();
@@ -4260,7 +4260,7 @@ INTERP (Select)
     }
     else
     {
-        const StackValue val2 = top ();
+        const w3StackValue val2 = top ();
         pop_value ();
         pop_value ();
         push_value (val2);
@@ -4278,15 +4278,15 @@ INTERP (Calli)
     // This seems like it could be validated earlier.
     Assert (function_index < module->functions.size ());
 
-    Function& function = module->functions [function_index];
+    w3Function& function = module->functions [function_index];
 
     const size_t type_index2 = function.function_type_index;
 
     Assert (type_index1 < module->function_types.size ());
     Assert (type_index2 < module->function_types.size ());
 
-    const FunctionType* type1 = &module->function_types [type_index1];
-    const FunctionType* type2 = &module->function_types [type_index2];
+    const w3FunctionType* type1 = &module->function_types [type_index1];
+    const w3FunctionType* type2 = &module->function_types [type_index2];
 
     Assert (type_index2 == type_index1 || *type1 == *type2);
 
@@ -4295,13 +4295,13 @@ INTERP (Calli)
     Invoke (function);
 }
 
-ModuleInstance::ModuleInstance (Module* mod) : module (mod)
+w3ModuleInstance::w3ModuleInstance (w3Module* mod) : module (mod)
 {
     // size memory
     memory.resize (module->memory_limits.min << PageShift, 0);
 
     // initialize memory TODO
-    globals.resize (mod->globals.size (), StackValue ()); // TODO intialize
+    globals.resize (mod->globals.size (), w3StackValue ()); // TODO intialize
 }
 
 INTERP (Unreach)
@@ -4462,7 +4462,7 @@ INTERP (Drop)
     pop_value ();
 }
 
-void Interp:: Reserved ()
+void w3Interp:: Reserved ()
 {
 #if _WIN32
     if (IsDebuggerPresent ()) DebugBreak();
@@ -5393,7 +5393,7 @@ main (int argc, char** argv)
     {
         // FIXME command line parsing
         // FIXME verbosity
-        Module module;
+        w3Module module;
 
         // Support --run-all-exports for wabt test suite.
 
@@ -5430,16 +5430,16 @@ main (int argc, char** argv)
             const size_t j = module.exports.size ();
             for (i = 0; i < j; ++i)
             {
-                Export* const xport = &module.exports [i];
-                if (xport->tag != ExportTag_Function)
+                w3Export* const xport = &module.exports [i];
+                if (xport->tag != w3ExportTag_Function)
                     continue;
-                Interp().interp (&module, xport);
+                w3Interp().interp (&module, xport);
             }
         }
 
         if (rust_gen)
         {
-            RustGen().interp (&module);
+            w3RustGen().interp (&module);
         }
     }
 #if 1

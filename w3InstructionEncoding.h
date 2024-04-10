@@ -8,9 +8,9 @@
 #include "w3InstructionNames.h"
 #include "w3InstructionEnum.h"
 
-typedef struct Module Module;
+typedef struct w3Module w3Module;
 
-struct InstructionEncoding
+struct w3InstructionEncoding
 {
     uint8_t byte0;
     //uint8_t byte1;              // FIXME always 0 if fixed_size > 1
@@ -18,14 +18,14 @@ struct InstructionEncoding
     Immediate immediate;
     uint8_t pop           : 2;    // required minimum stack in
     uint8_t push          : 1;
-    InstructionEnum name;
+    w3InstructionEnum name;
     uint32_t string_offset : bits_for_uint (sizeof (instructionNames));
-    Tag stack_in0  ; // type of stack [0] upon input, if pop >= 1
-    Tag stack_in1  ; // type of stack [1] upon input, if pop >= 2
-    Tag stack_in2  ; // type of stack [2] upon input, if pop == 3
-    Tag stack_out0 ; // type of stack [1] upon input, if push == 1
-    void (*interp) (Module*); // Module* wrong
+    w3Tag stack_in0  ; // type of stack [0] upon input, if pop >= 1
+    w3Tag stack_in1  ; // type of stack [1] upon input, if pop >= 2
+    w3Tag stack_in2  ; // type of stack [2] upon input, if pop == 3
+    w3Tag stack_out0 ; // type of stack [1] upon input, if push == 1
+    void (*interp) (w3Module*); // w3Module* wrong
 };
 
 // index by byte, first byte in instruction (too bad it is bytecode not shortcode)
-extern const InstructionEncoding instructionEncode [];
+extern const w3InstructionEncoding instructionEncode [];

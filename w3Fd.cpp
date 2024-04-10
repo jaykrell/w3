@@ -8,7 +8,7 @@
 
 #ifndef _WIN32
 
-uint64_t Fd::get_file_size (PCSTR file_name)
+uint64_t w3Fd::get_file_size (PCSTR file_name)
 {
 #if __CYGWIN__
     struct stat st = { 0 }; // TODO test more systems
@@ -24,46 +24,46 @@ uint64_t Fd::get_file_size (PCSTR file_name)
 
 #if 0 // C++11
 
-Fd::operator bool ()
+w3Fd::operator bool ()
 {
     return valid ();
 }
 
 #else
 
-Fd::operator explicit_operator_bool::T () const
+w3Fd::operator explicit_operator_bool::T () const
 {
     return valid () ? &explicit_operator_bool::True : 0;
 }
 
 #endif
 
-bool Fd::operator ! ()
+bool w3Fd::operator ! ()
 {
     return !valid ();
 }
 
-Fd::operator int ()
+w3Fd::operator int ()
 {
     return get ();
 }
 
-bool Fd::static_valid (int fd)
+bool w3Fd::static_valid (int fd)
 {
     return fd != -1;
 }
 
-int Fd::get () const
+int w3Fd::get () const
 {
     return fd;
 }
 
-bool Fd::valid () const
+bool w3Fd::valid () const
 {
     return static_valid (fd);
 }
 
-void Fd::static_cleanup (int fd)
+void w3Fd::static_cleanup (int fd)
 {
     if (!static_valid (fd))
         return;
@@ -74,23 +74,23 @@ void Fd::static_cleanup (int fd)
 #endif
 }
 
-int Fd::detach ()
+int w3Fd::detach ()
 {
     int const a = fd;
     fd = -1;
     return a;
 }
 
-void Fd::cleanup ()
+void w3Fd::cleanup ()
 {
     static_cleanup (detach ());
 }
 
-Fd::Fd (int a) : fd (a)
+w3Fd::w3Fd (int a) : fd (a)
 {
 }
 
-Fd& Fd::operator = (int a)
+w3Fd& w3Fd::operator = (int a)
 {
     if (fd == a) return *this;
     cleanup ();
@@ -98,7 +98,7 @@ Fd& Fd::operator = (int a)
     return *this;
 }
 
-Fd::~Fd ()
+w3Fd::~w3Fd ()
 {
     cleanup ();
 }

@@ -11,23 +11,23 @@
 #include "w3Value.h"
 
 // work in progress
-struct Stack : private StackBase
+struct w3Stack : private w3StackBase
 {
-    Stack () { }
+    w3Stack () { }
 
     // old compilers lack using.
-    typedef StackBase base;
+    typedef w3StackBase base;
     typedef base::iterator iterator;
     void pop () { base::pop (); }
-    StackValue& top () { return base::top (); }
-    StackValue& back () { return base::back (); }
-    StackValue& front () { return base::front (); }
+    w3StackValue& top () { return base::top (); }
+    w3StackValue& back () { return base::back (); }
+    w3StackValue& front () { return base::front (); }
     iterator begin () { return base::begin (); }
     iterator end () { return base::end (); }
     bool empty () const { return base::empty (); }
     void resize (size_t newsize) { base::resize (newsize); }
     size_t size () { return base::size (); }
-    StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
+    w3StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
 
     void reserve (size_t n)
     {
@@ -36,32 +36,32 @@ struct Stack : private StackBase
 
     // While ultimately a stack of values, labels, and frames, values dominate.
 
-    Tag& tag (Tag tag)
+    w3Tag& tag (w3Tag tag)
     {
         AssertTopIsValue ();
-        StackValue& t = top ();
+        w3StackValue& t = top ();
         AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
         return t.value.tag;
     }
 
-    Tag& tag ()
+    w3Tag& tag ()
     {
         AssertTopIsValue ();
-        StackValue& t = top ();
+        w3StackValue& t = top ();
         return t.value.tag;
     }
 
     Value& value ()
     {
         AssertTopIsValue ();
-        StackValue& t = top ();
+        w3StackValue& t = top ();
         return t.value.value;
     }
 
-    Value& value (Tag tag)
+    Value& value (w3Tag tag)
     {
         AssertTopIsValue ();
-        StackValue& t = top ();
+        w3StackValue& t = top ();
         AssertFormat (t.value.tag == tag, ("%X %X", t.value.tag, tag));
         return t.value.value;
     }
@@ -83,21 +83,21 @@ struct Stack : private StackBase
         //printf ("pop_value tag:%s depth:%" FORMAT_SIZE "X\n", TagToString (t), size ());
     }
 
-    void push_value (const StackValue& value)
+    void push_value (const w3StackValue& value)
     {
         AssertFormat (value.tag == Tag_Value, ("%X %X", value.tag, Tag_Value));
         push (value);
         //printf ("push_value tag:%s value:%X depth:%" FORMAT_SIZE "X\n", TagToString (value.value.tag), value.value.value.i32, size ());
     }
 
-    void push_label (const StackValue& value)
+    void push_label (const w3StackValue& value)
     {
         AssertFormat (value.tag == Tag_Label, ("%X %X", value.tag, Tag_Label));
         push (value);
         //printf ("push_label depth:%" FORMAT_SIZE "X\n", size ());
     }
 
-    void push_frame (const StackValue& value)
+    void push_frame (const w3StackValue& value)
     {
         AssertFormat (value.tag == Tag_Frame, ("%X %X", value.tag, Tag_Frame));
         push (value);
@@ -108,14 +108,14 @@ struct Stack : private StackBase
 
     void push_i32 (int32_t i)
     {
-        StackValue value (Tag_i32);
+        w3StackValue value (Tag_i32);
         value.value.value.i32 = i;
         push_value (value);
     }
 
     void push_i64 (int64_t i)
     {
-        StackValue value (Tag_i64);
+        w3StackValue value (Tag_i64);
         value.value.value.i64 = i;
         push_value (value);
     }
@@ -132,14 +132,14 @@ struct Stack : private StackBase
 
     void push_f32 (float i)
     {
-        StackValue value (Tag_f32);
+        w3StackValue value (Tag_f32);
         value.value.value.f32 = i;
         push_value (value);
     }
 
     void push_f64 (double i)
     {
-        StackValue value (Tag_f64);
+        w3StackValue value (Tag_f64);
         value.value.value.f64 = i;
         push_value (value);
     }
@@ -214,10 +214,10 @@ struct Stack : private StackBase
 
     // setter, changes tag, returns ref
 
-    Value& set (Tag tag)
+    Value& set (w3Tag tag)
     {
         AssertTopIsValue ();
-        StackValue& t = top ();
+        w3StackValue& t = top ();
         TaggedValue& v = t.value;
         v.tag = tag;
         return v.value;

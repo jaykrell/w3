@@ -9,5 +9,5 @@
 #include "w3StackValue.h"
 
 // TODO consider a vector instead, but it affects frame.locals staying valid across push/pop
-//typedef std::deque <StackValue> StackBaseBase;
-typedef std::vector <StackValue> StackBaseBase;
+//typedef std::deque <w3StackValue> w3StackBaseBase;
+typedef std::vector <w3StackValue> w3StackBaseBase;

@@ -5,9 +5,9 @@
 
 #pragma once
 
-struct Label
+struct w3Label
 {
-    Label() : arity(0), continuation(0)
+    w3Label() : arity(0), continuation(0)
     {
     }
 

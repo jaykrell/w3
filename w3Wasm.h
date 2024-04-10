@@ -5,7 +5,7 @@
 
 #pragma once
 
-struct DecodedInstruction;
+struct w3DecodedInstruction;
 
 // TODO once we have Validate, Interp, Jit, CppGen,
 // we might invert this structure and have a class per instruction with those 4 virtual functions.
@@ -13,7 +13,7 @@ struct DecodedInstruction;
 // in order to avoid virtual function call cost. Let's get Interp working first.
 struct Wasm
 {
-    DecodedInstruction* instr; // TODO make local variable
+    w3DecodedInstruction* instr; // TODO make local variable
 
     Wasm () : instr (0) { }
 

@@ -7,7 +7,7 @@
 
 #include "w3WasmString.h"
 
-struct Section
+struct w3Section
 {
     uint32_t id {};
     WasmString name {};

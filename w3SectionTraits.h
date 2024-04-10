@@ -5,10 +5,10 @@
 
 #pragma once
 
-struct SectionTraits
+struct w3SectionTraits
 {
-    void (Module::*read)(uint8_t** cursor);
+    void (w3Module::*read)(uint8_t** cursor);
     PCSTR name;
 };
 
-extern const SectionTraits section_traits [ ];
+extern const w3SectionTraits section_traits [ ];

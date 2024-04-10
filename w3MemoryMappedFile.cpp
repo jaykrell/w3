@@ -8,7 +8,7 @@
 #include "w3Fd.h"
 #include "w3MemoryMappedFile.h"
 
-MemoryMappedFile::~MemoryMappedFile ()
+w3MemoryMappedFile::~w3MemoryMappedFile ()
 {
     if (!base)
         return;
@@ -20,7 +20,7 @@ MemoryMappedFile::~MemoryMappedFile ()
     base = 0;
 }
 
-void MemoryMappedFile::read (PCSTR a)
+void w3MemoryMappedFile::read (PCSTR a)
 {
 #if _WIN32
     file = CreateFileA (a, GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_DELETE, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);

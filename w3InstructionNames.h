@@ -7,7 +7,7 @@
 
 #undef INSTRUCTION
 #define INSTRUCTION(byte0, fixed_size, byte1, name, imm, push, pop, in0, in1, in2, out0) char name [ sizeof (#name) ];
-struct InstructionNames
+struct w3InstructionNames
 {
 #include "w3Instructions.h"
 };
@@ -22,7 +22,7 @@ const char instructionNames [ ] =
 
 union UInstructionNames
 {
-    InstructionNames x;
+    w3InstructionNames x;
     char data [1];
 };
 

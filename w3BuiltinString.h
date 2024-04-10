@@ -5,8 +5,8 @@
 
 #pragma once
 
-typedef enum BuiltinString {
-    BuiltinString_none = 0,
-    BuiltinString_main,
-    BuiltinString_start,
-} BuiltinString;
+typedef enum w3BuiltinString {
+    w3BuiltinString_none = 0,
+    w3BuiltinString_main,
+    w3BuiltinString_start,
+} w3BuiltinString;

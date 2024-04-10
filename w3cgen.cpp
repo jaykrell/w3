@@ -22,7 +22,7 @@ CGEN (Call)
     // FIXME In the instruction table
     const size_t function_index = instr->u32;
     Assert (function_index < module->functions.size ());
-    Function* function = &module->functions [function_index];
+    w3Function* function = &module->functions [function_index];
     function->function_index = function_index; // TODO remove this
 
     size_t param_count = function->param_count;
@@ -50,7 +50,7 @@ CGEN (Local_get)
 CGEN (Block)
 {
     printf ("/*%s*/\n", __func__);
-    Label label;
+    w3Label label;
     label.arity = instr->Arity ();
     label.continuation = instr->label;
     stack.push_label (label);

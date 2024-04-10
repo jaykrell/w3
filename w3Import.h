@@ -11,17 +11,17 @@
 #include "w3Memorytype.h"
 #include "w3GlobalType.h"
 
-struct Import
+struct w3Import
 {
     WasmString module {};
     WasmString name {};
-    ImportTag tag {(ImportTag)-1};
+    w3ImportTag tag {(ImportTag)-1};
     // TODO virtual functions to model union
     //union
     //{
-        TableType table {};
+        w3TableType table {};
         uint32_t function {};
-        MemoryType memory {};
-        GlobalType global {};
+        w3MemoryType memory {};
+        w3GlobalType global {};
     //};
 };

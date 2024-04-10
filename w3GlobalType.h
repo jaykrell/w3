@@ -7,8 +7,8 @@
 
 #include "w3Tag.h"
 
-struct GlobalType
+struct w3GlobalType
 {
-    Tag value_type {};
+    w3Tag value_type {};
     bool is_mutable {};
 };

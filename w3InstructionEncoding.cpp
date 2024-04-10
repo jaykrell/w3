@@ -9,9 +9,9 @@
 #include "w3InstructionNames.h"
 
 #undef INSTRUCTION
-#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) { byte0, fixed_size, imm, pop, push, name, offsetof (InstructionNames, name), in0, in1, in2, out0 },
+#define INSTRUCTION(byte0, fixed_size, byte1, name, imm, pop, push, in0, in1, in2, out0) { byte0, fixed_size, imm, pop, push, name, offsetof (w3InstructionNames, name), in0, in1, in2, out0 },
 
-extern const InstructionEncoding instructionEncode [ ] =
+extern const w3InstructionEncoding instructionEncode [ ] =
 {
 #include "w3Instructions.h"
 };

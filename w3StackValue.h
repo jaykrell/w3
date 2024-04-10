@@ -10,24 +10,24 @@
 #include "w3Tag.h"
 #include "w3TaggedValue.h"
 
-struct StackValue
+struct w3StackValue
 {
     // TODO remove two level tagging
-    Tag tag;
+    w3Tag tag;
     //union {
         TaggedValue value; // TODO: change to Value or otherwise remove redundant tag
-        Frame* frame; // TODO by value? Probably not. This was changed
+        w3Frame* frame; // TODO by value? Probably not. This was changed
                       // to resolve circular types, and for the initial frame that seemed
                       // wrong, but now that call/ret being implemented, seems right
-        //DecodedInstruction* instr;
-        Label label;
+        //w3DecodedInstruction* instr;
+        w3Label label;
     //};
 
-    StackValue() : tag (Tag_none), frame (0)
+    w3StackValue() : tag (Tag_none), frame (0)
     {
     }
 
-    StackValue (Tag t) : tag (t), frame (0)
+    w3StackValue (w3Tag t) : tag (t), frame (0)
     {
         if ((t & 0x78) == 0x78)
         {
@@ -36,12 +36,12 @@ struct StackValue
         }
     }
 
-    StackValue (TaggedValue t) : tag (Tag_Value), frame (0)
+    w3StackValue (TaggedValue t) : tag (Tag_Value), frame (0)
     {
         value = t;
     }
 
-    StackValue (Frame* f) : tag (Tag_Frame), frame (0)
+    w3StackValue (w3Frame* f) : tag (Tag_Frame), frame (0)
     {
  //     frame = f;
     }

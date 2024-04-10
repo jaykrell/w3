@@ -5,7 +5,7 @@
 
 #pragma once
 
-struct Function // section3
+struct w3Function // section3
 {
     // Functions are split between two sections: types in section3, locals/body in section10
     size_t function_index {}; // TODO needed?

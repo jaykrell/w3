@@ -9,9 +9,9 @@
 //#include <string>
 #include "w3SourceGenValue.h"
 
-struct SourceGenStack : std::stack<SourceGenValue>
+struct w3SourceGenStack : std::stack<w3SourceGenValue>
 {
-    typedef std::stack<SourceGenValue> base;
+    typedef std::stack<w3SourceGenValue> base;
 
     void clear()
     {

@@ -7,7 +7,7 @@
 
 struct TaggedValue
 {
-    Tag tag;
+    w3Tag tag;
     Value value;
 
     TaggedValue()

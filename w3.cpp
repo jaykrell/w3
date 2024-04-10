@@ -125,23 +125,23 @@ size_t string_vformat_length (PCSTR format, va_list va)
 //template <class T> void WasmStdCopyConstruct1toN (T* to, const T& from, size_t n) { for (size_t i = 0; i < n; ++i) new (to++) T (from); }
 //template <class T> void WasmStdCopyConstruct1 (T& to, const T& from) { WasmStdCopyConstruct1toN (&to, from, 1u); }
 
-struct FuncAddr // TODO
+struct w3FuncAddr // TODO
 {
 };
 
-struct TableAddr // TODO
+struct w3TableAddr // TODO
 {
 };
 
-struct MemAddr // TODO
+struct w3MemAddr // TODO
 {
 };
 
-struct GlobalAddr // TODO
+struct w3GlobalAddr // TODO
 {
 };
 
-char TagChar(Tag t) //todo: short string?
+char TagChar(w3Tag t) //todo: short string?
 {
     switch (t)
     {
@@ -194,9 +194,9 @@ std::string StringFormatVa (PCSTR format, va_list va)
 
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
 
-struct Stream
+struct w3stream
 {
-    virtual ~Stream() { }
+    virtual ~w3stream() { }
 
     virtual void write (const void* bytes, size_t size) = 0;
 
@@ -220,7 +220,7 @@ struct Stream
     }
 };
 
-struct stdout_stream : Stream
+struct w3stdout_stream : w3stream
 {
     virtual void write (const void* bytes, size_t size)
     {
@@ -241,7 +241,7 @@ struct stdout_stream : Stream
     }
 };
 
-struct stderr_stream : Stream
+struct w3stderr_stream : w3stream
 {
     // TODO: Refactor with stdout.
     virtual void write (const void* bytes, size_t size)
@@ -341,7 +341,7 @@ int32_t read_varint32 (uint8_t** cursor, const uint8_t* end)
 
 PCSTR TagToStringCxx (int tag)
 {
-    switch ((Tag)tag)
+    switch ((w3Tag)tag)
     {
     default:break;
     case Tag_none:     return "void";
@@ -361,7 +361,7 @@ PCSTR TagToStringCxx (int tag)
 
 PCSTR TagToString (int tag)
 {
-    switch ((Tag)tag)
+    switch ((w3Tag)tag)
     {
     default:break;
     case Tag_none:     return "none(0)";
@@ -375,7 +375,7 @@ PCSTR TagToString (int tag)
 
     case Tag_Value:    return "Value(1)";
     case Tag_Label:    return "Label(2)";
-    case Tag_Frame:    return "Frame(3)";
+    case Tag_Frame:    return "w3Frame(3)";
     }
     return "unknown";
 }
@@ -383,11 +383,11 @@ PCSTR TagToString (int tag)
 //const uint32_t FunctionTypeTag = 0x60;
 
 // Globals are mutable or constant.
-typedef enum Mutable
+typedef enum w3Mutable
 {
-    Mutable_constant = 0, // aka false
-    Mutable_variable = 1, // aka true
-} Mutable;
+    w3Mutable_constant = 0, // aka false
+    w3Mutable_variable = 1, // aka true
+} w3Mutable;
 
 // The stack shall use _alloca in a non-recursive interpreter loop.
 // This requires some care and macros. Macros that reference locals.
@@ -401,18 +401,18 @@ typedef enum Mutable
 // Such decomposition will also be good for conversion to JIT, LLVM, C++, etc.
 // It is only interpreter, perhaps, that has overwhelming efficiency concern.
 //
-// StackValue initial_stack[1];
+// w3StackValue initial_stack[1];
 // int stack_depth;
-// StackValue* stack = initial_stack;
-// StackValue* min_stack = initial_stack;
+// w3StackValue* stack = initial_stack;
+// w3StackValue* min_stack = initial_stack;
 
 // struct String { PCH buf; size_t len; };
 
 #if 0
 
-struct Variable
+struct w3Variable
 {
-    Tag tag;
+    w3Tag tag;
     bool temp : 1;
     bool global : 1;
     bool local : 1;
@@ -421,7 +421,7 @@ struct Variable
     char namebuf[64];
 };
 
-PCH VarName(Variable* var)
+PCH VarName(w3Variable* var)
 {
 //    if (var->name)
 //        return var->name;
@@ -431,7 +431,7 @@ PCH VarName(Variable* var)
 
 #endif
 
-struct Interp;
+struct w3Interp;
 
 #include "w3Frame.h"
 #include "w3Stack.h"
@@ -495,14 +495,14 @@ static_assert (bits_for_uint (30) == 5, "");
 static_assert (bits_for_uint (200) == 8, "");
 static_assert (bits_for_uint (sizeof (instructionNames)) == 12, "");
 
-#define ExportTag_Function ImportTag_Function
-#define ExportTag_Table ImportTag_Table
-#define ExportTag_Memory ImportTag_Memory
-#define ExportTag_Global ImportTag_Global
+#define w3ExportTag_Function w3ImportTag_Function
+#define w3ExportTag_Table    w3ImportTag_Table
+#define w3ExportTag_Memory   w3ImportTag_Memory
+#define w3ExportTag_Global   w3ImportTag_Global
 
-//struct ImportFunction;
-//struct ImportTable;
-//struct ImportMemory;
+//struct w3ImportFunction;
+//struct w3ImportTable;
+//struct w3ImportMemory;
 
 #include "w3ExternalValue.h"
 #include "w3ExportInstance.h"
@@ -510,7 +510,7 @@ static_assert (bits_for_uint (sizeof (instructionNames)) == 12, "");
 #include "w3FunctionInstance.h"
 #include "w3SectionTraits.h"
 
-extern const SectionTraits section_traits [ ] =
+extern const w3SectionTraits section_traits [ ] =
 {
     { 0 },
 #define SECTIONS        \
@@ -527,7 +527,7 @@ extern const SectionTraits section_traits [ ] =
     SECTION (DataSection, read_data)            \
 
 #undef SECTION
-#define SECTION(x, read) {&Module::read, #x},
+#define SECTION(x, read) {&w3Module::read, #x},
 SECTIONS
 
 };
@@ -539,41 +539,41 @@ void Overflow (void)
     Assert (!"Overflow");
 }
 
-struct Interp : Stack, Wasm
+struct w3Interp : w3Stack, Wasm
 {
 private:
-    Interp(const Interp&);
-    void operator =(const Interp&);
+    w3Interp(const w3Interp&);
+    void operator =(const w3Interp&);
 public:
-    Interp() : module (0), module_instance (0), frame (0), stack (*this)
+    w3Interp() : module (0), module_instance (0), frame (0), stack (*this)
     {
     }
 
     void* LoadStore (size_t size);
 
-    Module* module;                     // TODO multiple modules
-    ModuleInstance* module_instance;    // TODO multiple modules
-    Frame* frame;
+    w3Module* module;                     // TODO multiple modules
+    w3ModuleInstance* module_instance;    // TODO multiple modules
+    w3Frame* frame;
 
     // FIXME multiple modules
 
-    Stack& stack;
+    w3Stack& stack;
 
-    void Invoke (Function&);
+    void Invoke (w3Function&);
 
-    void interp (Module* mod, Export* emain = 0)
+    void interp (w3Module* mod, w3Export* emain = 0)
     {
-        Assert (mod && emain && emain->tag == ExportTag_Function);
+        Assert (mod && emain && emain->tag == w3ExportTag_Function);
         Assert (emain->function < mod->functions.size ());
         Assert (emain->function < mod->code.size ());
         Assert (mod->functions.size () == mod->code.size ());
 
-        Function& fmain = mod->functions [emain->function];
-        //Code& cmain = mod->code [emain->function];
+        w3Function& fmain = mod->functions [emain->function];
+        //w3Code& cmain = mod->code [emain->function];
 
         // instantiate module
         this->module = mod;
-        ModuleInstance instance (module);
+        w3ModuleInstance instance (module);
         this->module_instance = &instance;
 
         // Simulate call to initial function.
@@ -593,8 +593,8 @@ public:
 
 struct SourceGenFunction
 {
-    //std::vector<Variable> locals;
-    //std::vector<Variable> temps;
+    //std::vector<w3Variable> locals;
+    //std::vector<w3Variable> temps;
 
     //void reset()
     //{
@@ -603,18 +603,18 @@ struct SourceGenFunction
     //}
 };
 
-struct SourceGen : Wasm
+struct w3SourceGen : Wasm
 {
-    SourceGen() : temp(0), function_type(0)
+    w3SourceGen() : temp(0), function_type(0)
     {
     }
 
     long temp;
-    //std::vector<Variable> globals;
+    //std::vector<w3Variable> globals;
 
-    SourceGenStack stack; // TODO? std::stack<std::string>
-    std::stack<Label> labels;
-    FunctionType* function_type;
+    w3SourceGenStack stack; // TODO? std::stack<std::string>
+    std::stack<w3Label> labels;
+    w3FunctionType* function_type;
 
     // The value stack is the central data structure so assume it.
 
@@ -624,13 +624,13 @@ struct SourceGen : Wasm
     {
         char s[99];
         sprintf(s, "%d", i); // TODO C vs. Rust TODO perf
-        SourceGenValue sourceGenValue = {Tag_i32, s};
+        w3SourceGenValue sourceGenValue = {Tag_i32, s};
         stack.push(sourceGenValue);
     }
 
     void push_i32 (PCSTR s)
     {
-        SourceGenValue sourceGenValue = {Tag_i32, s};
+        w3SourceGenValue sourceGenValue = {Tag_i32, s};
         stack.push(sourceGenValue);
     }
 
@@ -665,19 +665,19 @@ struct SourceGen : Wasm
 
     void push(const std::string& s)
     {
-        SourceGenValue value;
+        w3SourceGenValue value;
         value.str = s;
         stack.push(value);
     }
 
-    SourceGenValue& top() { return stack.top(); }
+    w3SourceGenValue& top() { return stack.top(); }
 };
 
-struct RustGen : SourceGen //TODO
+struct w3RustGen : w3SourceGen //TODO
 {
 };
 
-struct WasmCGen : SourceGen
+struct WasmCGen : w3SourceGen
 {
 private:
     WasmCGen(const WasmCGen&);
@@ -702,13 +702,13 @@ public:
 
     void LoadStore (PCSTR stack_type, PCSTR mem_type, bool loadOrStore);
 
-    Module* module;
+    w3Module* module;
 
-    void interp (Module* mod, Export* emain = 0)
+    void interp (w3Module* mod, w3Export* emain = 0)
     {
         // instantiate module
         this->module = mod;
-        ModuleInstance instance (module);
+        w3ModuleInstance instance (module);
         //this->module_instance = &instance;
 
         // Simulate call to initial function.
@@ -722,7 +722,7 @@ public:
 
             printf("/*function%d*/\n", (int)function_index);
 
-            Function& function = mod->functions[function_index];
+            w3Function& function = mod->functions[function_index];
             const size_t function_type_index = function.function_type_index;
 
             printf("/*function_type%d*/\n", (int)function_type_index);
@@ -730,7 +730,7 @@ public:
             Assert (function_type_index < module->function_types.size ());
             function_type = &module->function_types [function_type_index];
 
-            Code* code = &module->code [function.function_index];
+            w3Code* code = &module->code [function.function_index];
             const size_t param_count = function_type->parameters.size ();
 
             uint8_t* cursor = code->cursor;
@@ -774,7 +774,7 @@ public:
 
             this->instr = &code->decoded_instructions [0];
             const size_t function_size = code->decoded_instructions.size ();
-            DecodedInstruction* end = instr + function_size;
+            w3DecodedInstruction* end = instr + function_size;
             for (; this->instr < end; ++instr)
             {
                 Assert (this->instr);
@@ -814,7 +814,7 @@ public:
 
 #include "w3cgen.cpp"
 
-StackValue& Frame::Local (size_t index)
+w3StackValue& w3Frame::Local (size_t index)
 {
     return interp->stack [locals + index];
 }
@@ -823,7 +823,7 @@ StackValue& Frame::Local (size_t index)
 //else
 //brtable
 
-void* Interp::LoadStore (size_t size)
+void* w3Interp::LoadStore (size_t size)
 {
     // TODO Not clear from spec and paper what to do here, despite
     // focused discussion on it.
@@ -853,9 +853,9 @@ void* Interp::LoadStore (size_t size)
 }
 
 #undef INTERP
-#define INTERP(x) void Interp::x ()
+#define INTERP(x) void w3Interp::x ()
 
-void Interp::Invoke (Function& function)
+void w3Interp::Invoke (w3Function& function)
 {
     //__debugbreak ();
     // Decode function upon first call.
@@ -864,8 +864,8 @@ void Interp::Invoke (Function& function)
 
     const size_t function_type_index = function.function_type_index;
     Assert (function_type_index < module->function_types.size ());
-    FunctionType* function_type = &module->function_types [function_type_index];
-    Code* code = &module->code [function.function_index];
+    w3FunctionType* function_type = &module->function_types [function_type_index];
+    w3Code* code = &module->code [function.function_index];
     const size_t local_only_count = code->locals.size ();
     const size_t param_count = function_type->parameters.size ();
 
@@ -883,7 +883,7 @@ void Interp::Invoke (Function& function)
     // TODO cross-module calls
     // TODO calling embedding
     // setup frame
-    Frame frame_value;
+    w3Frame frame_value;
     frame_value.interp = this;
     frame_value.code = code;
     frame_value.module = this->module; // TODO cross module calls
@@ -896,7 +896,7 @@ void Interp::Invoke (Function& function)
     frame_value.param_types = param_count ? &function_type->parameters [0] : 0;
     frame_value.function_type = function_type;
 
-    StackValue ret (frame);
+    w3StackValue ret (frame);
     this->frame = &frame_value;
     push_frame (ret);
     DumpStack ("pushed_frame");
@@ -941,7 +941,7 @@ void Interp::Invoke (Function& function)
     // TODO reserve (size () + local_only_count);
     DumpStack ("push_locals_before");
     for (i = 0; i != local_only_count; ++i)
-        push_value (StackValue (code->locals [i]));
+        push_value (w3StackValue (code->locals [i]));
 
     DumpStack ("push_locals_after");
     // Provide for indexing locals.
@@ -954,9 +954,9 @@ void Interp::Invoke (Function& function)
 
     // TODO provide for separate depth -- i.e. here is now 0; locals/params cannot be popped
 
-    DecodedInstruction* previous = instr; // call/ret handling
+    w3DecodedInstruction* previous = instr; // call/ret handling
     instr = &code->decoded_instructions [0];
-    DecodedInstruction* end = instr + size;
+    w3DecodedInstruction* end = instr + size;
     for (; instr < end; ++instr) // Br subtracts one so this works.
     {
         Assert (instr);
@@ -1068,7 +1068,7 @@ main (int argc, PCH* argv)
     {
         // FIXME command line parsing
         // FIXME verbosity
-        Module module;
+        w3Module module;
 
         // Support --run-all-exports for wabt test suite.
 
@@ -1114,10 +1114,10 @@ main (int argc, PCH* argv)
             const size_t j = module.exports.size ();
             for (i = 0; i < j; ++i)
             {
-                Export* const xport = &module.exports [i];
-                if (xport->tag != ExportTag_Function)
+                w3Export* const xport = &module.exports [i];
+                if (xport->tag != w3ExportTag_Function)
                     continue;
-                Interp().interp (&module, xport);
+                w3Interp().interp (&module, xport);
             }
         }
 

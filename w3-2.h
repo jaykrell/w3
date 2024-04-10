@@ -63,28 +63,28 @@ typedef ptrdiff_t ssize_t;
 #include <malloc.h> // for _alloca
 #endif
 
-struct StackValueZeroInit; // work in progress
-struct StackValue;
-struct StackBase;
-struct Stack;
+struct w3StackValueZeroInit; // work in progress
+struct w3StackValue;
+struct w3StackBase;
+struct w3Stack;
 
-struct Interp;
-struct Frame;
-struct Label;
-struct Limits;
-struct Module;
-struct ModuleInstance;
-struct Runtime;
-struct Section;
-struct TableType;
+struct w3Interp;
+struct w3Frame;
+struct w3Label;
+struct w3Limits;
+struct w3Module;
+struct w3ModuleInstance;
+struct w3Runtime;
+struct w3Section;
+struct w3TableType;
 
-struct stream;
-struct stdout_stream;
-struct stderr_stream;
+struct w3stream;
+struct w3stdout_stream;
+struct w3stderr_stream;
 
 struct w3Handle; // e.g. Win32 CreateFile result, with destructor
-struct Fd; // e.g. open result, with destructor
-struct MemoryMappedFile; // e.g. mmap result, with destructor
+struct w3Fd; // e.g. open result, with destructor
+struct w3MemoryMappedFile; // e.g. mmap result, with destructor
 
 void AssertFailed (const char* file, int line, const char* expr);
 //#define Assert(expr) ((void)((expr) || AssertFailed (__FILE__, __LINE__, #expr)))
@@ -115,15 +115,15 @@ void throw_GetLastError (const char* a = "");
 
 size_t string_vformat_length (const char* format, va_list va);
 
-struct FuncAddr;// TODO
-struct TableAddr; // TODO
-struct MemAddr; // TODO
-struct GlobalAddr; // TODO
+struct w3FuncAddr;// TODO
+struct w3TableAddr; // TODO
+struct w3MemAddr; // TODO
+struct w3GlobalAddr; // TODO
 
 // TODO: Maybe use this for all interpreter values
 // For now it is only for the newer SourceGen.
 //
-enum struct TypeTag : uint8_t
+enum struct w3TypeTag : uint8_t
 {
     none = 0, // zero-init
     Bool = 1, // i32
@@ -205,8 +205,8 @@ enum Type : uint8_t
 #include "w3Value.h"
 #include "w3TaggedValue.h"
 
-// This should probabably be combined with ValueType, and called Tag.
-enum ResultType : uint8_t
+// This should probabably be combined with w3ValueType, and called w3Tag.
+enum w3ResultType : uint8_t
 {
     ResultType_i32 = 0x7F,
     ResultType_i64 = 0x7E,
@@ -215,17 +215,17 @@ enum ResultType : uint8_t
     ResultType_empty = 0x40
 };
 
-typedef ResultType BlockType; // TODO? remove separate name
+typedef w3ResultType BlockType; // TODO? remove separate name
 
 const char* TypeToStringCxx (int tag);
 const char* TypeToString (int tag);
 
-enum TableElementType : uint32_t
+enum w3TableElementType : uint32_t
 {
-    TableElementType_funcRef = 0x70,
+    w3TableElementType_funcRef = 0x70,
 };
 
-enum LimitsTag // specific to tabletype?
+enum w3LimitsTag // specific to tabletype?
 {
     LimitsTag_min = 0,
     Limits_minMax = 1,
@@ -235,10 +235,10 @@ const uint32_t FunctionTypeTag = 0x60;
 const uint32_t TableTypeFuncRef = 0x70; // Table types have an value type, funcref
 
 // Globals are mutable or constant.
-enum Mutable
+enum w3Mutable
 {
-    Mutable_constant = 0, // aka false
-    Mutable_variable = 1, // aka true
+    w3Mutable_constant = 0, // aka false
+    w3Mutable_variable = 1, // aka true
 };
 
 // The stack shall use _alloca in a non-recursive interpreter loop.
@@ -253,25 +253,25 @@ enum Mutable
 // Such decomposition will also be good for conversion to JIT, LLVM, C++, etc.
 // It is only interpreter, perhaps, that has overwhelming efficiency concern.
 //
-// StackValue initial_stack[1];
+// w3StackValue initial_stack[1];
 // int stack_depth;
-// StackValue* stack = initial_stack;
-// StackValue* min_stack = initial_stack;
+// w3StackValue* stack = initial_stack;
+// w3StackValue* min_stack = initial_stack;
 
-struct FunctionType;
-struct Function;
-struct Code;
-struct Frame; // work in progress
-struct DecodedInstruction;
+struct w3FunctionType;
+struct w3Function;
+struct w3Code;
+struct w3Frame; // work in progress
+struct w3DecodedInstruction;
 
-enum StackTag : uint8_t
+enum w3StackTag : uint8_t
 {
     StackTag_Value = 1, // i32, i64, f32, f64
     StackTag_Label,     // branch target
     StackTag_Frame,     // return address + locals + params
 };
 
-const char* StackTagToString (StackTag tag);
+const char* StackTagToString (w3StackTag tag);
 
 enum Immediate : uint8_t
 {
@@ -293,7 +293,7 @@ enum Immediate : uint8_t
 
 #include "w3InstructionEnum.h"
 
-struct InstructionNames;
+struct w3InstructionNames;
 
 #define BITS_FOR_UINT_HELPER(a, x) (a) >= (1u << x) ? (x) + 1 :
 #define BITS_FOR_UINT(a)                                                                                \
@@ -355,73 +355,73 @@ static_assert (bits_for_uint (200) == 8, "");
 
 #define InstructionName(i) (&instructionNames.data [instructionEncode [i].string_offset])
 
-struct InstructionEncoding;
-struct DecodedInstructionZeroInit;
-struct DecodedInstruction;
+struct w3InstructionEncoding;
+struct w3DecodedInstructionZeroInit;
+struct w3DecodedInstruction;
 struct WasmString;
-struct Section;
-struct ModuleBase; // workaround old compiler (?)
-struct SectionTraits;
+struct w3Section;
+struct w3ModuleBase; // workaround old compiler (?)
+struct w3SectionTraits;
 
-extern const InstructionEncoding instructionEncode[];
+extern const w3InstructionEncoding instructionEncode[];
 
-enum BuiltinString
+enum w3BuiltinString
 {
-    BuiltinString_none = 0,
-    BuiltinString_main,
-    BuiltinString_start,
+    w3BuiltinString_none = 0,
+    w3BuiltinString_main,
+    w3BuiltinString_start,
 };
 
-enum ImportTag // aka desc
+enum w3ImportTag // aka desc
 {
-    ImportTag_Function = 0, // aka type
-    ImportTag_Table = 1,
-    ImportTag_Memory = 2,
-    ImportTag_Global = 3,
+    w3ImportTag_Function = 0, // aka type
+    w3ImportTag_Table = 1,
+    w3ImportTag_Memory = 2,
+    w3ImportTag_Global = 3,
 };
-typedef ImportTag ExportTag;
-#define ExportTag_Function ImportTag_Function
-#define ExportTag_Table ImportTag_Table
-#define ExportTag_Memory ImportTag_Memory
-#define ExportTag_Global ImportTag_Global
-struct MemoryType;
-struct ImportFunction;
-struct ImportTable;
-struct ImportMemory;
-struct GlobalType;
-struct Import;
-struct ExternalValue; // external to a module, an export instance
-struct ExportInstance; // work in progress
-struct ModuleInstance; // work in progress
-struct FunctionInstance; // work in progress
-struct Function; // section3
-struct Global;
-struct Element;
-struct Export;
-struct Data; // section11
-struct Code; // The code to a function.
+typedef w3ImportTag          w3ExportTag;
+#define w3ExportTag_Function w3ImportTag_Function
+#define w3ExportTag_Table    w3ImportTag_Table
+#define w3ExportTag_Memory   w3ImportTag_Memory
+#define w3ExportTag_Global   w3ImportTag_Global
+struct w3MemoryType;
+struct w3ImportFunction;
+struct w3ImportTable;
+struct w3ImportMemory;
+struct w3GlobalType;
+struct w3Import;
+struct w3ExternalValue; // external to a module, an export instance
+struct w3ExportInstance; // work in progress
+struct w3ModuleInstance; // work in progress
+struct w3FunctionInstance; // work in progress
+struct w3Function; // section3
+struct w3Global;
+struct w3Element;
+struct w3Export;
+struct w3Data; // section11
+struct w3Code; // The code to a function.
              // Functions are split between section3 and section10.
              // Instructions are in section10.
-             // Function code is decoded upon first (or only) visit.
+             // w3Function code is decoded upon first (or only) visit.
 
 // Initial representation of X and XSection are the same.
 // This might evolve, i.e. into separate TypesSection and Types,
-// or just Types that is not Section.
-struct FunctionType;
+// or just Types that is not w3Section.
+struct w3FunctionType;
 
-struct Module;
+struct w3Module;
 
-InstructionEnum
-DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code);
+w3InstructionEnum
+DecodeInstructions (w3Module* module, std::vector <w3DecodedInstruction>& instructions, uint8_t** cursor, w3Code* code);
 
-InstructionEnum
-DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code);
+w3InstructionEnum
+DecodeInstructions (w3Module* module, std::vector <w3DecodedInstruction>& instructions, uint8_t** cursor, w3Code* code);
 
-void DecodeFunction (Module* module, Code* code, uint8_t** cursor);
-extern const SectionTraits section_traits[];
+void DecodeFunction (w3Module* module, w3Code* code, uint8_t** cursor);
+extern const w3SectionTraits section_traits[];
 struct Wasm;
 void Overflow (void);
-struct Interp;
-struct SourceGen;
-struct RustGen;
-struct CGen;
+struct w3Interp;
+struct w3SourceGen;
+struct w3RustGen;
+struct w3CGen;

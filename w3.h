@@ -61,26 +61,26 @@ void AssertFailed (PCSTR expr);
 #define long_t long // aka ptrdiff, aka Unix long but not Windows long
 #endif
 
-struct Code;
-struct DecodedInstruction;
+struct w3Code;
+struct w3DecodedInstruction;
 struct explicit_operator_bool;
-struct Fd;
-struct Frame; // work in progress
-struct Function;
-struct FunctionType;
+struct w3Fd;
+struct w3Frame; // work in progress
+struct w3Function;
+struct w3FunctionType;
 struct w3Handle;
-struct Label;
-struct MemoryMappedFile;
-struct Module;
-struct ModuleInstance;
-struct Runtime;
-struct Section;
-struct Stack;
-struct StackValue;
-struct Stream;
-struct Variable; //local, global, temp
+struct w3Label;
+struct w3MemoryMappedFile;
+struct w3Module;
+struct w3ModuleInstance;
+struct w3Runtime;
+struct w3Section;
+struct w3Stack;
+struct w3StackValue;
+struct w3stream;
+struct w3Variable; //local, global, temp
 
-char TagChar(Tag t); //todo: short string?
+char TagChar(w3Tag t); //todo: short string?
 
 uint32_t GetUint16LE (const void* a);
 uint32_t GetUint32LE (const void* a);
@@ -144,7 +144,7 @@ void throw_GetLastError (PCSTR a);
 
 #endif
 
-void DecodeFunction (Module* module, Code* code, uint8_t** cursor);
+void DecodeFunction (w3Module* module, w3Code* code, uint8_t** cursor);
 
 //todo: trim these?
 #ifdef _WIN32
@@ -172,7 +172,7 @@ typedef const char* PCSTR;
 #pragma warning(disable:4061) // enumerator in switch of enum is not explicitly handled 
 #endif
 
-PCH VarName(Variable* var);
+PCH VarName(w3Variable* var);
 
 void AssertFailedFormat (PCSTR condition, const std::string& extra);
 void AssertFailed (PCSTR expr);

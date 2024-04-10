@@ -5,7 +5,7 @@
 
 #pragma once
 
-struct Fd
+struct w3Fd
 {
     int fd;
 
@@ -30,9 +30,9 @@ struct Fd
 
     void cleanup ();
 
-    Fd (int a = -1);
+    w3Fd (int a = -1);
 
-    Fd& operator = (int a);
+    w3Fd& operator = (int a);
 
-    ~Fd ();
+    ~w3Fd ();
 };

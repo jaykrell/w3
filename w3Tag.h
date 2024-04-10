@@ -18,7 +18,7 @@
 // WebAssembly file format defines at least the values 0x7C-0x7F.
 // We desire simplicity and clarity, so we shall endeavor
 // to not do much translation or compression.
-typedef enum Tag : uint8_t
+typedef enum w3Tag : uint8_t
 {
     Tag_none = 0,   // allow for zero-init
     Tag_bool = 1,   // aka i32
@@ -47,6 +47,6 @@ typedef enum Tag : uint8_t
     //Tag_intptr = 3,
     //Tag_uintptr = 4,
     //Tag_pch = 5,
-} Tag;
+} w3Tag;
 
-char TagChar(Tag t); //todo: short string?
+char TagChar(w3Tag t); //todo: short string?

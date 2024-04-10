@@ -8,8 +8,8 @@
 #include "w3Tag.h"
 #include "w3Limits.h"
 
-struct TableType
+struct w3TableType
 {
-    Tag elementType {};
+    w3Tag elementType {};
     Limits limits {};
 };

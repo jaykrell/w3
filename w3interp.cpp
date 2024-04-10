@@ -8,7 +8,7 @@ INTERP (Call)
     // FIXME In the instruction table
     const size_t function_index = instr->u32;
     Assert (function_index < module->functions.size ());
-    Function* function = &module->functions [function_index];
+    w3Function* function = &module->functions [function_index];
     function->function_index = function_index; // TODO remove this
     Invoke (module->functions [function_index]);
 }
@@ -16,7 +16,7 @@ INTERP (Call)
 INTERP (Block)
 {
     // Label is end.
-    StackValue stack_value (Tag_Label);
+    w3StackValue stack_value (Tag_Label);
     stack_value.label.arity = instr->Arity ();
     stack_value.label.continuation = instr->label;
     push_label (stack_value);
@@ -75,7 +75,7 @@ INTERP (Global_get)
 {
     const size_t i = instr->u32;
     AssertFormat (i < module->globals.size (), ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, module->globals.size ()));
-    push_value (StackValue (module_instance->globals [i].value));
+    push_value (w3StackValue (module_instance->globals [i].value));
     AssertFormat (tag () == module->globals [i].global_type.value_type, ("%X %X", tag (), module->globals [i].global_type.value_type));
 }
 
@@ -102,7 +102,7 @@ INTERP (Local_get)
 {
     const size_t i = instr->u32;
     AssertFormat (i < frame->param_and_local_count, ("%" FORMAT_SIZE "X %" FORMAT_SIZE "X", i, frame->param_and_local_count));
-    push_value (StackValue (frame->Local (i)));
+    push_value (w3StackValue (frame->Local (i)));
     if (i < frame->param_count)
         AssertFormat (tag () == frame->param_types [i], ("%X %X", tag (), frame->param_types [i]));
     else
@@ -116,7 +116,7 @@ INTERP (If)
     const uint32_t condition = pop_u32 ();
 
     // Push the same label either way.
-    StackValue stack_value (Tag_Label);
+    w3StackValue stack_value (Tag_Label);
     stack_value.label.arity = instr->Arity ();
     stack_value.label.continuation = instr->if_end;
     push_label (stack_value);
@@ -163,7 +163,7 @@ INTERP (BlockEnd)
 
     // Skip any number of values until one label is found,
 
-    StackValue* p = &front ();
+    w3StackValue* p = &front ();
 
     while (j > 0 && p [j - 1].tag == Tag_Value)
         --j;
@@ -209,12 +209,12 @@ INTERP (Ret)
     Assert (!empty ());
     Assert (frame);
 
-    FunctionType* function_type = frame->function_type;
+    w3FunctionType* function_type = frame->function_type;
     size_t arity = function_type->results.size ();
     Assert (arity == 0 || arity == 1);
     Assert (size () > arity);
 
-    StackValue result;
+    w3StackValue result;
     if (arity)
     {
         result = top ();
@@ -252,7 +252,7 @@ INTERP (Br)
     Assert (label);
     Assert (size () >= label);
 
-    StackValue* p = &front ();
+    w3StackValue* p = &front ();
     size_t initial_values = 0;
     size_t j = size ();
     size_t arity = 0;
@@ -276,7 +276,7 @@ INTERP (Br)
     Assert (j >= arity);
 
     // Get the result.
-    StackValue result;
+    w3StackValue result;
     if (arity)
     {
         result = top ();
@@ -308,7 +308,7 @@ INTERP (Select)
     }
     else
     {
-        const StackValue val2 = top ();
+        const w3StackValue val2 = top ();
         pop_value ();
         pop_value ();
         push_value (val2);
@@ -326,15 +326,15 @@ INTERP (Calli)
     // This seems like it could be validated earlier.
     Assert (function_index < module->functions.size ());
 
-    Function& function = module->functions [function_index];
+    w3Function& function = module->functions [function_index];
 
     const size_t type_index2 = function.function_type_index;
 
     Assert (type_index1 < module->function_types.size ());
     Assert (type_index2 < module->function_types.size ());
 
-    const FunctionType* type1 = &module->function_types [type_index1];
-    const FunctionType* type2 = &module->function_types [type_index2];
+    const w3FunctionType* type1 = &module->function_types [type_index1];
+    const w3FunctionType* type2 = &module->function_types [type_index2];
 
     Assert (type_index2 == type_index1 || *type1 == *type2);
 
@@ -343,13 +343,13 @@ INTERP (Calli)
     Invoke (function);
 }
 
-ModuleInstance::ModuleInstance (Module* mod) : module (mod)
+w3ModuleInstance::w3ModuleInstance (w3Module* mod) : module (mod)
 {
     // size memory
     memory.resize (module->memory_limits.min << PageShift, 0);
 
     // initialize memory TODO
-    globals.resize (mod->globals.size (), StackValue ()); // TODO intialize
+    globals.resize (mod->globals.size (), w3StackValue ()); // TODO intialize
 }
 
 INTERP (Unreach)
@@ -510,7 +510,7 @@ INTERP (Drop)
     pop_value ();
 }
 
-void Interp:: Reserved ()
+void w3Interp:: Reserved ()
 {
 #if _WIN32
     if (IsDebuggerPresent ()) DebugBreak();

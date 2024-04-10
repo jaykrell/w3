@@ -7,7 +7,7 @@
 
 #include "w3Limits.h"
 
-struct MemoryType
+struct w3MemoryType
 {
-    Limits limits {};
+    w3Limits limits {};
 };

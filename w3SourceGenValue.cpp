@@ -9,10 +9,10 @@
 #include "w3Tag.h"
 
 // TODO templatize on existance of string and possibly label
-// so that SourceGen and Interp can share.
-struct SourceGenValue
+// so that w3SourceGen and Interp can share.
+struct w3SourceGenValue
 {
-    Tag tag;
+    w3Tag tag;
     std::string str;
     PCSTR cstr() { return str.c_str(); }
 };

@@ -8,20 +8,20 @@
 #include "w3StackBaseBase.h"
 #include "w3StackValue.h"
 
-struct StackBase : private StackBaseBase
+struct w3StackBase : private w3StackBaseBase
 {
-    typedef StackBaseBase base;
+    typedef w3StackBaseBase base;
     typedef base::iterator iterator;
-    StackValue& back () { return base::back (); }
-    StackValue& front () { return base::front (); }
+    w3StackValue& back () { return base::back (); }
+    w3StackValue& front () { return base::front (); }
     iterator begin () { return base::begin (); }
     iterator end () { return base::end (); }
     bool empty () const { return base::empty (); }
     void resize (size_t newsize) { base::resize (newsize); }
     size_t size () { return base::size (); }
-    StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
+    w3StackValue& operator [ ] (size_t index) { return base::operator [ ] (index); }
 
-    void push (const StackValue& a)
+    void push (const w3StackValue& a)
     {   // While ultimately a stack of values, labels, and frames, values dominate,
         // so the usage is made convenient for them.
         push_back (a);
@@ -48,7 +48,7 @@ struct StackBase : private StackBaseBase
         pop_back ();
     }
 
-    StackValue& top ()
+    w3StackValue& top ()
     {   // While ultimately a stack of values, labels, and frames, values dominate,
         // so the usage is made convenient for them.
         return back ();

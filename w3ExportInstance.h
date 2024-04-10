@@ -8,8 +8,8 @@
 #include "w3ExternalValue.h"
 #include "w3WasmString.h"
 
-struct ExportInstance // work in progress
+struct w3ExportInstance // work in progress
 {
     WasmString name;
-    ExternalValue external_value;
+    w3ExternalValue external_value;
 };

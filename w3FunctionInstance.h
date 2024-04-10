@@ -7,12 +7,12 @@
 
 struct ModuleInstance;
 struct FunctionType;
-struct Code;
+struct w3Code;
 
 struct FunctionInstance // work in progress
 {
     ModuleInstance* module_instance;
     FunctionType* function_type;
     void* host_code; // TODO
-    Code* code; // TODO
+    w3Code* code; // TODO
 };

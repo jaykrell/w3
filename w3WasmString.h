@@ -13,7 +13,7 @@ struct WasmString
     PCH data {};
     size_t size {};
     std::string storage {};
-    BuiltinString builtin {};
+    w3BuiltinString builtin {};
     bool builtinStorage {};
 
     PCH c_str ()

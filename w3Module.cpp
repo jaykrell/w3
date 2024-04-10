@@ -8,25 +8,25 @@
 #include "w3.h"
 #include "w3Module.h"
 
-Module::~Module()
+w3Module::~w3Module()
 {
 }
 
-void Module::read_start (uint8_t** cursor)
+void w3Module::read_start (uint8_t** cursor)
 {
     ThrowString ("Start::read not yet implemented");
 }
 
-InstructionEnum DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code);
+w3InstructionEnum DecodeInstructions (w3Module* module, std::vector <w3DecodedInstruction>& instructions, uint8_t** cursor, w3Code* code);
 
-void Module::read_data (uint8_t** cursor)
+void w3Module::read_data (uint8_t** cursor)
 {
     const size_t size1 = read_varuint32 (cursor);
     printf ("reading data11 size:%" FORMAT_SIZE "X\n", size1);
     data.resize (size1);
     for (size_t i = 0; i < size1; ++i)
     {
-        Data& a = data [i];
+        w3Data& a = data [i];
         a.memory = read_varuint32 (cursor);
         DecodeInstructions (this, a.expr, cursor, 0);
         const size_t size2 = read_varuint32 (cursor);
@@ -39,7 +39,7 @@ void Module::read_data (uint8_t** cursor)
     printf ("read data11 size:%" FORMAT_SIZE "X\n", size1);
 }
 
-void Module::read_code (uint8_t** cursor)
+void w3Module::read_code (uint8_t** cursor)
 {
     printf ("reading CodeSection10\n");
     const size_t size = read_varuint32 (cursor);
@@ -51,7 +51,7 @@ void Module::read_code (uint8_t** cursor)
     code.resize (old + size);
     for (size_t i = 0; i < size; ++i)
     {
-        Code& a = code [old + i];
+        w3Code& a = code [old + i];
         a.import = false;
         a.size = read_varuint32 (cursor);
         if (*cursor + a.size > end)
@@ -66,14 +66,14 @@ void Module::read_code (uint8_t** cursor)
     }
 }
 
-void Module::read_elements (uint8_t** cursor)
+void w3Module::read_elements (uint8_t** cursor)
 {
     const size_t size1 = read_varuint32 (cursor);
     printf ("reading section9 elements size1:%" FORMAT_SIZE "X\n", size1);
     elements.resize (size1);
     for (size_t i = 0; i < size1; ++i)
     {
-        Element& a = elements [i];
+        w3Element& a = elements [i];
         a.table = read_varuint32 (cursor);
         DecodeInstructions (this, a.offset_instructions, cursor, 0);
         const size_t size2 = read_varuint32 (cursor);
@@ -88,7 +88,7 @@ void Module::read_elements (uint8_t** cursor)
     printf ("read elements9 size:%" FORMAT_SIZE "X\n", size1);
 }
 
-void Module::read_exports (uint8_t** cursor)
+void w3Module::read_exports (uint8_t** cursor)
 {
     printf ("reading section 7\n");
     const size_t size = read_varuint32 (cursor);
@@ -96,12 +96,12 @@ void Module::read_exports (uint8_t** cursor)
     exports.resize (size);
     for (size_t i = 0; i < size; ++i)
     {
-        Export& a = exports [i];
+        w3Export& a = exports [i];
         a.name = read_string (cursor);
-        a.tag = (ExportTag)read_byte (cursor);
+        a.tag = (w3ExportTag)read_byte (cursor);
         a.function = read_varuint32 (cursor);
-        a.is_main = a.name.builtin == BuiltinString_main;
-        a.is_start = a.name.builtin == BuiltinString_start;
+        a.is_main = a.name.builtin == w3BuiltinString_main;
+        a.is_start = a.name.builtin == w3BuiltinString_start;
         printf ("read_export %" FORMAT_SIZE "X:%" FORMAT_SIZE "X %s tag:%X index:%X is_main:%X is_start:%X\n", i, size, a.name.c_str (), a.tag, a.function, a.is_main, a.is_start);
 
         if (a.is_start)
@@ -118,7 +118,7 @@ void Module::read_exports (uint8_t** cursor)
     printf ("read exports7 size:%" FORMAT_SIZE "X\n", size);
 }
 
-void Module::read_globals (uint8_t** cursor)
+void w3Module::read_globals (uint8_t** cursor)
 {
     //printf ("reading section 6\n");
     const size_t size = read_varuint32 (cursor);
@@ -135,7 +135,7 @@ void Module::read_globals (uint8_t** cursor)
     printf ("read globals6 size:%" FORMAT_SIZE "X\n", size);
 }
 
-void Module::read_functions (uint8_t** cursor)
+void w3Module::read_functions (uint8_t** cursor)
 {
     printf ("reading section 3 offset:%" FORMAT_SIZE "X\n", (long_t)(*cursor - this->base));
     const size_t old = functions.size ();
@@ -145,7 +145,7 @@ void Module::read_functions (uint8_t** cursor)
     for (size_t i = 0; i < size; ++i)
     {
         printf ("read_function %" FORMAT_SIZE "X:%" FORMAT_SIZE "X\n", i, size);
-        Function& a = functions [old + i];
+        w3Function& a = functions [old + i];
         a.function_type_index = read_varuint32 (cursor);
         a.function_index = i + old; // TODO probably not needed
         a.import = false; // TODO probably not needed
@@ -153,7 +153,7 @@ void Module::read_functions (uint8_t** cursor)
     printf ("read section 3\n");
 }
 
-void Module::read_imports (uint8_t** cursor)
+void w3Module::read_imports (uint8_t** cursor)
 {
     printf ("reading section 2 offset:%" FORMAT_SIZE "X\n", (long_t)(*cursor - this->base));
     const size_t size = read_varuint32 (cursor);
@@ -161,15 +161,15 @@ void Module::read_imports (uint8_t** cursor)
     // TODO two passes to limit realloc?
     for (size_t i = 0; i < size; ++i)
     {
-        Import& r = imports [i];
+        w3Import& r = imports [i];
         r.module = read_string (cursor);
         r.name = read_string (cursor);
-        ImportTag tag = r.tag = (ImportTag)read_byte (cursor);
+        w3ImportTag tag = r.tag = (w3ImportTag)read_byte (cursor);
         printf ("import %s.%s %X\n", r.module.c_str (), r.name.c_str (), (uint32_t)tag);
         switch (tag)
         {
             // TODO more specific import type and vtable?
-        case ImportTag_Function:
+        case w3ImportTag_Function:
             r.function = read_varuint32 (cursor); // TODO probably not needed
             ++import_function_count;
             // TODO for each import type
@@ -178,20 +178,20 @@ void Module::read_imports (uint8_t** cursor)
             functions.back ().function_type_index = r.function;
             functions.back ().import = true; // TODO needed?
             break;
-        case ImportTag_Table:
+        case w3ImportTag_Table:
             r.table = read_tabletype (cursor);
             ++import_table_count;
             break;
-        case ImportTag_Memory:
+        case w3ImportTag_Memory:
             r.memory = read_memorytype (cursor);
             ++import_memory_count;
             break;
-        case ImportTag_Global:
+        case w3ImportTag_Global:
             r.global = read_globaltype (cursor);
             ++import_global_count;
             break;
         default:
-            ThrowString ("invalid ImportTag");
+            ThrowString ("invalid w3ImportTag");
         }
     }
     printf ("read section 2 import_function_count:%" FORMAT_SIZE "X import_table_count:%" FORMAT_SIZE "X import_memory_count:%" FORMAT_SIZE "X import_global_count:%" FORMAT_SIZE "X\n",
@@ -201,12 +201,12 @@ void Module::read_imports (uint8_t** cursor)
         (long_t)import_global_count);
 
     // TODO fill in more about imports?
-    Code imported_code;
+    w3Code imported_code;
     imported_code.import = true;
     code.resize (import_function_count, imported_code);
 }
 
-void Module::read_vector_ValueType (std::vector <Tag>& result, uint8_t** cursor)
+void w3Module::read_vector_ValueType (std::vector <w3Tag>& result, uint8_t** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     result.resize (size);
@@ -214,13 +214,13 @@ void Module::read_vector_ValueType (std::vector <Tag>& result, uint8_t** cursor)
         result [i] = read_valuetype (cursor);
 }
 
-void Module::read_function_type (FunctionType& functionType, uint8_t** cursor)
+void w3Module::read_function_type (w3FunctionType& functionType, uint8_t** cursor)
 {
     read_vector_ValueType (functionType.parameters, cursor);
     read_vector_ValueType (functionType.results, cursor);
 }
 
-void Module::read_types (uint8_t** cursor)
+void w3Module::read_types (uint8_t** cursor)
 {
     printf ("read_types1 offset:%" FORMAT_SIZE "X\n", (long_t)(*cursor - this->base));
     const size_t size = read_varuint32 (cursor);
@@ -238,7 +238,7 @@ void Module::read_types (uint8_t** cursor)
 }
 
 //todo m3InstructionDecode.cpp?
-InstructionEnum DecodeInstructions (Module* module, std::vector <DecodedInstruction>& instructions, uint8_t** cursor, Code* code)
+w3InstructionEnum DecodeInstructions (w3Module* module, std::vector <w3DecodedInstruction>& instructions, uint8_t** cursor, w3Code* code)
 {
     uint32_t b0 = (uint32_t)Block;
     size_t index {};
@@ -248,8 +248,8 @@ InstructionEnum DecodeInstructions (Module* module, std::vector <DecodedInstruct
     while (b0 != (uint32_t)BlockEnd && b0 != (uint32_t)Else)
     {
         ++pc;
-        InstructionEncoding e {};
-        DecodedInstruction i {};
+        w3InstructionEncoding e {};
+        w3DecodedInstruction i {};
         i.id = ++(module->instructionId);
         b0 = module->read_byte (cursor); // TODO multi-byte instructions
         e = instructionEncode [b0];
@@ -277,7 +277,7 @@ InstructionEnum DecodeInstructions (Module* module, std::vector <DecodedInstruct
             i.blockType = module->read_blocktype (cursor);
             index = instructions.size ();
             instructions.push_back (i);
-            InstructionEnum next;
+            w3InstructionEnum next;
             next = DecodeInstructions (module, instructions, cursor, code);
             Assert (next == BlockEnd || (i.name == If && next == Else));
             switch (b0)
@@ -382,10 +382,10 @@ InstructionEnum DecodeInstructions (Module* module, std::vector <DecodedInstruct
         if (e.immediate != Imm_sequence)
             instructions.push_back (i);
     }
-    return (InstructionEnum)b0;
+    return (w3InstructionEnum)b0;
 }
 
-void DecodeFunction (Module* module, Code* code, uint8_t** cursor)
+void DecodeFunction (w3Module* module, w3Code* code, uint8_t** cursor)
 {
     // read count of types
     // for each type
@@ -395,7 +395,7 @@ void DecodeFunction (Module* module, Code* code, uint8_t** cursor)
     for (size_t i = 0; i < local_type_count; ++i)
     {
         const size_t j = module->read_varuint32 (cursor);
-        Tag value_type = module->read_valuetype (cursor);
+        w3Tag value_type = module->read_valuetype (cursor);
         printf ("local_type_count %" FORMAT_SIZE "X-of-%" FORMAT_SIZE "X count:%" FORMAT_SIZE "X type:%X\n", i, local_type_count, j, value_type);
         code->locals.resize (code->locals.size () + j, value_type);
     }
@@ -403,14 +403,14 @@ void DecodeFunction (Module* module, Code* code, uint8_t** cursor)
 }
 
 //todo: no pointers to member functions? No C++?
-struct SectionTraits
+struct w3SectionTraits
 {
-    void (Module::*read)(uint8_t** cursor);
+    void (w3Module::*read)(uint8_t** cursor);
     PCSTR name;
 };
 
 const
-SectionTraits section_traits [ ] =
+w3SectionTraits section_traits [ ] =
 {
     { 0 },
 #define SECTIONS                                \
@@ -427,18 +427,18 @@ SectionTraits section_traits [ ] =
     SECTION (DataSection, read_data)            \
 
 #undef SECTION
-#define SECTION(x, read) {&Module::read, #x},
+#define SECTION(x, read) {&w3Module::read, #x},
 SECTIONS
 
 };
 
-int32_t Module::read_i32 (uint8_t** cursor)
+int32_t w3Module::read_i32 (uint8_t** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
     return ::read_varint32 (cursor, end);
 }
 
-int64_t Module::read_i64 (uint8_t** cursor)
+int64_t w3Module::read_i64 (uint8_t** cursor)
 // Unspecified signedness is unsigned. Spec is unclear.
 {
     return (int64_t)::read_varint64 (cursor, end);
@@ -449,7 +449,7 @@ int64_t Module::read_i64 (uint8_t** cursor)
 #pragma warning (disable:4701) // uninitialized variable
 #endif
 
-float Module::read_f32 (uint8_t** cursor)
+float w3Module::read_f32 (uint8_t** cursor)
 // floats are not variably sized? Spec is unclear due to fancy notation
 // getting in the way.
 {
@@ -462,7 +462,7 @@ float Module::read_f32 (uint8_t** cursor)
     return u.f32;
 }
 
-double Module::read_f64 (uint8_t** cursor)
+double w3Module::read_f64 (uint8_t** cursor)
 // floats are not variably sized? Spec is unclear due to fancy notation
 // getting in the way.
 {
@@ -480,13 +480,13 @@ double Module::read_f64 (uint8_t** cursor)
 #pragma warning (pop)
 #endif
 
-uint8_t Module::read_varuint7 (uint8_t** cursor)
+uint8_t w3Module::read_varuint7 (uint8_t** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return ::read_varuint7 (cursor, end);
 }
 
-uint8_t Module::read_byte (uint8_t** cursor)
+uint8_t w3Module::read_byte (uint8_t** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return ::read_byte (cursor, end);
@@ -494,7 +494,7 @@ uint8_t Module::read_byte (uint8_t** cursor)
 
 // TODO efficiency
 // i.e. string_view or such pointing right into the mmap
-WasmString Module::read_string (uint8_t** cursor)
+WasmString w3Module::read_string (uint8_t** cursor)
 {
     const uint32_t size = read_varuint32 (cursor);
     if (size + *cursor > end)
@@ -509,17 +509,17 @@ WasmString Module::read_string (uint8_t** cursor)
         printf ("read_string %X:%.*s\n", size, (int)size, *cursor);
     if (size == 7 && !memcmp (*cursor, "$_start", 7))
     {
-        a.builtin = BuiltinString_start;
+        a.builtin = w3BuiltinString_start;
     }
     else if (size == 5 && !memcmp (*cursor, "_main", 5))
     {
-        a.builtin = BuiltinString_main;
+        a.builtin = w3BuiltinString_main;
     }
     *cursor += size;
     return a;
 }
 
-void Module::read_vector_varuint32 (std::vector <uint32_t>& result, uint8_t** cursor)
+void w3Module::read_vector_varuint32 (std::vector <uint32_t>& result, uint8_t** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     result.resize (size);
@@ -527,15 +527,15 @@ void Module::read_vector_varuint32 (std::vector <uint32_t>& result, uint8_t** cu
         result [i] = read_varuint32 (cursor);
 }
 
-uint32_t Module::read_varuint32 (uint8_t** cursor)
+uint32_t w3Module::read_varuint32 (uint8_t** cursor)
 {
     // TODO move implementation here, i.e. for context, for errors
     return ::read_varuint32 (cursor, end);
 }
 
-Limits Module::read_limits (uint8_t** cursor)
+w3Limits w3Module::read_limits (uint8_t** cursor)
 {
-    Limits limits;
+    w3Limits limits;
     const uint32_t tag = read_byte (cursor);
     switch (tag)
     {
@@ -553,14 +553,14 @@ Limits Module::read_limits (uint8_t** cursor)
     return limits;
 }
 
-MemoryType Module::read_memorytype (uint8_t** cursor)
+w3MemoryType w3Module::read_memorytype (uint8_t** cursor)
 {
-    MemoryType m {};
+    w3MemoryType m {};
     m.limits = read_limits (cursor);
     return m;
 }
 
-bool Module::read_mutable (uint8_t** cursor)
+bool w3Module::read_mutable (uint8_t** cursor)
 {
     const uint32_t m = read_byte (cursor);
     switch (m)
@@ -573,13 +573,13 @@ bool Module::read_mutable (uint8_t** cursor)
     return m == 1;
 }
 
-Tag Module::read_valuetype (uint8_t** cursor)
+w3Tag w3Module::read_valuetype (uint8_t** cursor)
 {
     const uint32_t value_type = read_byte (cursor);
     switch (value_type)
     {
     default:
-        ThrowString (StringFormat ("invalid Tag:%X", value_type));
+        ThrowString (StringFormat ("invalid w3Tag:%X", value_type));
         break;
     case Tag_i32:
     case Tag_i64:
@@ -587,10 +587,10 @@ Tag Module::read_valuetype (uint8_t** cursor)
     case Tag_f64:
         break;
     }
-    return (Tag)value_type;
+    return (w3Tag)value_type;
 }
 
-Tag Module::read_blocktype(uint8_t** cursor)
+w3Tag w3Module::read_blocktype(uint8_t** cursor)
 {
     const uint32_t block_type = read_byte (cursor);
     switch (block_type)
@@ -605,35 +605,35 @@ Tag Module::read_blocktype(uint8_t** cursor)
     case Tag_empty:
         break;
     }
-    return (Tag)block_type;
+    return (w3Tag)block_type;
 }
 
-GlobalType Module::read_globaltype (uint8_t** cursor)
+w3GlobalType w3Module::read_globaltype (uint8_t** cursor)
 {
-    GlobalType globalType;
+    w3GlobalType globalType;
     globalType.value_type = read_valuetype (cursor);
     globalType.is_mutable = read_mutable (cursor);
     return globalType;
 }
 
-Tag Module::read_elementtype (uint8_t** cursor)
+w3Tag w3Module::read_elementtype (uint8_t** cursor)
 {
-    Tag elementType = (Tag)read_byte (cursor);
+    w3Tag elementType = (w3Tag)read_byte (cursor);
     if (elementType != Tag_FuncRef)
         ThrowString ("invalid elementType");
     return elementType;
 }
 
-TableType Module::read_tabletype (uint8_t** cursor)
+w3TableType w3Module::read_tabletype (uint8_t** cursor)
 {
-    TableType tableType;
+    w3TableType tableType;
     tableType.elementType = read_elementtype (cursor);
     tableType.limits = read_limits (cursor);
     printf ("read_tabletype:type:%X min:%X hasMax:%X max:%X\n", tableType.elementType, tableType.limits.min, tableType.limits.hasMax, tableType.limits.max);
     return tableType;
 }
 
-void Module::read_memory (uint8_t** cursor)
+void w3Module::read_memory (uint8_t** cursor)
 {
     printf ("reading section5\n");
     const size_t size = read_varuint32 (cursor);
@@ -643,7 +643,7 @@ void Module::read_memory (uint8_t** cursor)
     printf ("read section5 min:%X hasMax:%X max:%X\n", memory_limits.min, memory_limits.hasMax, memory_limits.max);
 }
 
-void Module::read_tables (uint8_t** cursor)
+void w3Module::read_tables (uint8_t** cursor)
 {
     const size_t size = read_varuint32 (cursor);
     printf ("reading tables size:%" FORMAT_SIZE "X\n", size);
@@ -653,7 +653,7 @@ void Module::read_tables (uint8_t** cursor)
         tables [0] = read_tabletype (cursor);
 }
 
-void Module::read_section (uint8_t** cursor)
+void w3Module::read_section (uint8_t** cursor)
 {
     uint8_t* payload = *cursor;
     const uint32_t id = read_varuint7 (cursor);
@@ -692,7 +692,7 @@ void Module::read_section (uint8_t** cursor)
 
     printf("%s(%d)\n", __FILE__, __LINE__);
 
-    Section& section = sections [id];
+    w3Section& section = sections [id];
     section.id = id;
     section.name.data = local_name;
     section.name.size = name_size;
@@ -708,7 +708,7 @@ void Module::read_section (uint8_t** cursor)
         ThrowString (StringFormat ("failed to read section:%X payload:%p cursor:%p\n", id, payload, *cursor));
 }
 
-void Module::read_module (PCSTR file_name)
+void w3Module::read_module (PCSTR file_name)
 {
     mmf.read (file_name);
     base = (uint8_t*)mmf.base;
