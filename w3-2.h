@@ -148,44 +148,8 @@ const uint32_t PageShift = 16;
 
 #define NotImplementedYed() (AssertFormat (0, ("not yet implemented %s 0x%08X ", __func__, __LINE__)))
 
-uint32_t Unpack2 (const void* a);
-uint32_t Unpack4 (const void* a);
-
-template <uint32_t N> struct uintLEn_to_native_exact;
-template <uint32_t N> struct uintLEn_to_native_fast;
-template <> struct uintLEn_to_native_exact<16> { typedef uint16_t T; };
-template <> struct uintLEn_to_native_exact<32> { typedef uint32_t T; };
-template <> struct uintLEn_to_native_exact<64> { typedef uint64_t T; };
-template <> struct uintLEn_to_native_fast<16> { typedef uint32_t T; };
-template <> struct uintLEn_to_native_fast<32> { typedef uint32_t T; };
-template <> struct uintLEn_to_native_fast<64> { typedef uint64_t T; };
-
-template <uint32_t N>
-struct uintLEn // unsigned little endian integer, size n bits
-{
-    union
-    {
-        typename uintLEn_to_native_exact<N>::T native;
-        unsigned char data [N / 8];
-    };
-
-    operator typename uintLEn_to_native_fast<N>::T ()
-    {
-#if BYTE_ORDER == LITTLE_ENDIAN
-        return native;
-#else
-        typename uintLEn_to_native_fast<N>::T a = 0;
-        for (uint32_t i = N / 8; i; )
-            a = (a << 8) | data [--i];
-        return a;
-#endif
-    }
-    void operator= (uint32_t);
-};
-
-//typedef uintLEn<16> uintLE16;
-typedef uintLEn<32> uintLE32;
-//typedef uintLEn<64> uintLE64;
+uint32_t GetUint16LE (const void* a);
+uint32_t GetUint32LE (const void* a);
 
 // C++98 workaround for what C++11 offers.
 struct explicit_operator_bool

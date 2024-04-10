@@ -62,8 +62,8 @@ typedef char* PCH;
 typedef const char* PCSTR;
 typedef ptrdiff_t ssize_t;
 
-uint32_t Unpack2 (const void* a);
-uint32_t Unpack4 (const void* a);
+uint32_t GetUint16LE (const void* a);
+uint32_t GetUint32LE (const void* a);
 
 #ifdef __cplusplus
 extern "C"
