@@ -314,7 +314,7 @@ int64_t read_varint64 (uint8_t** cursor, const uint8_t* end)
 
     // sign bit of byte is second high order bit (0x40)
     if ((shift < size) && (byte & 0x40))
-        result |= (~0 << shift); // sign extend
+        result |= (~((int64_t)0) << shift); // sign extend
 
     return result;
 }
