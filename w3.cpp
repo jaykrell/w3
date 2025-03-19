@@ -275,7 +275,7 @@ uint64_t read_varuint64 (uint8_t** cursor, const uint8_t* end)
     uint32_t shift = 0;
     while (true)
     {
-        const uint32_t byte = read_byte (cursor, end);
+        const uint64_t byte = read_byte (cursor, end);
         printf ("read_varuint64_2:%X\n", byte);
         abort ();
         result |= (byte & 0x7F) << shift;
